@@ -412,27 +412,40 @@ def billing_portal():
 
     try:
         customer_id = current_user.stripe_customer_id
+        
+        print(f"Billing portal request for user {current_user.email}, customer_id: {customer_id}")
 
         # Fallback: look up the customer in Stripe by email if we didn't store the id
         if not customer_id:
+            print(f"No customer_id stored, looking up by email in Stripe...")
             customers = stripe.Customer.list(email=current_user.email, limit=1)
             if customers and customers.data:
                 customer_id = customers.data[0].id
                 current_user.stripe_customer_id = customer_id
                 db.session.commit()
+                print(f"Found customer in Stripe: {customer_id}")
 
         if not customer_id:
+            print(f"ERROR: No Stripe customer found for {current_user.email}")
             flash('No Stripe customer found for your account. Please contact support.', 'error')
             return redirect(url_for('index'))
 
+        print(f"Creating billing portal session for customer: {customer_id}")
         session = stripe.billing_portal.Session.create(
             customer=customer_id,
             return_url=url_for('index', _external=True),
         )
+        print(f"Billing portal session created: {session.url}")
         return redirect(session.url)
+    except stripe.error.InvalidRequestError as e:
+        print(f"Stripe InvalidRequestError: {str(e)}")
+        flash(f'Invalid Stripe customer. Error: {str(e)}', 'error')
+        return redirect(url_for('index'))
     except Exception as e:
         print(f"Billing portal error: {e}")
-        flash('Unable to open the billing portal right now. Please try again in a moment.', 'error')
+        import traceback
+        traceback.print_exc()
+        flash(f'Unable to open the billing portal: {str(e)}', 'error')
         return redirect(url_for('index'))
 
 
