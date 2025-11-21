@@ -783,6 +783,7 @@ def admin_grant_access(email):
     try:
         # Check if we should simulate a Stripe customer (for testing billing portal)
         simulate_stripe = request.args.get('stripe', '').lower() == 'true'
+        custom_password = request.args.get('password', None)
         
         user = User.query.filter_by(email=email).first()
         if not user:
@@ -791,9 +792,10 @@ def admin_grant_access(email):
             if simulate_stripe:
                 # Set a fake Stripe customer ID for testing
                 user.stripe_customer_id = 'cus_test_' + email.split('@')[0]
-            # Set a random password they can reset later
+            # Set password
             import secrets
-            user.set_password(secrets.token_urlsafe(16))
+            password = custom_password if custom_password else secrets.token_urlsafe(16)
+            user.set_password(password)
             db.session.add(user)
             db.session.commit()
             
@@ -802,6 +804,7 @@ def admin_grant_access(email):
                 'message': f'User created and unlimited access granted to {email}' + (' (with Stripe simulation)' if simulate_stripe else ''),
                 'user': {
                     'email': user.email,
+                    'password': password if custom_password else 'Random password set - use forgot password to reset',
                     'subscription_status': user.subscription_status,
                     'stripe_customer_id': user.stripe_customer_id,
                     'created_at': user.created_at.isoformat()
@@ -812,6 +815,8 @@ def admin_grant_access(email):
         user.subscription_status = 'active'
         if simulate_stripe and not user.stripe_customer_id:
             user.stripe_customer_id = 'cus_test_' + email.split('@')[0]
+        if custom_password:
+            user.set_password(custom_password)
         db.session.commit()
         
         return jsonify({
@@ -819,6 +824,7 @@ def admin_grant_access(email):
             'message': f'Unlimited access granted to {email}' + (' (with Stripe simulation)' if simulate_stripe else ''),
             'user': {
                 'email': user.email,
+                'password_updated': bool(custom_password),
                 'subscription_status': user.subscription_status,
                 'stripe_customer_id': user.stripe_customer_id,
                 'created_at': user.created_at.isoformat()
