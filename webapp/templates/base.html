@@ -89,6 +89,7 @@
           {% else %}
             <a class="btn primary" href="{{ url_for('subscribe') }}">Subscribe $7.99/mo</a>
           {% endif %}
+          <a class="btn" href="mailto:support@cheaptts.com" style="opacity: 0.8;">✉️ Support</a>
           <a class="btn" href="{{ url_for('logout') }}">Logout</a>
         {% else %}
           <a class="btn" href="{{ url_for('login') }}">Sign in</a>
