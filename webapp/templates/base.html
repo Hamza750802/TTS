@@ -83,7 +83,9 @@
           {% if current_user.is_subscribed %}
             <a class="btn" href="{{ url_for('api_keys_page') }}">🔑 API Keys</a>
             <span class="muted">Active: $7.99/mo</span>
-            <a class="btn" href="{{ url_for('billing_portal') }}">Manage Billing</a>
+            {% if current_user.stripe_customer_id %}
+              <a class="btn" href="{{ url_for('billing_portal') }}">Manage Billing</a>
+            {% endif %}
           {% else %}
             <a class="btn primary" href="{{ url_for('subscribe') }}">Subscribe $7.99/mo</a>
           {% endif %}
@@ -124,4 +126,3 @@
   {% block scripts %}{% endblock %}
 </body>
 </html>
-
