@@ -3,8 +3,9 @@ Simple example of using Cheap TTS API
 For your personal projects - FREE unlimited access with your admin key
 """
 
-import requests
 import os
+
+import requests
 
 # Your personal admin API key (FREE unlimited access)
 API_KEY = "ctts_d6Se8k94A4QV0hGSxjXDan1lh4rANki5CjrEk9tk0Ww"
