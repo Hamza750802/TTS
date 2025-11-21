@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+{% block title %}Subscribe — Cheap TTS{% endblock %}
+{% block head %}
+<script src="https://js.stripe.com/v3/"></script>
+{% endblock %}
+{% block content %}
+  <div class="grid" style="text-align:center">
+    <h2 style="margin-top:0">Unlock Text‑to‑Speech</h2>
+    <p class="muted">$7.99/month. Cancel anytime. Powered by Stripe.</p>
+    <div style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap">
+      <button id="subscribeBtn" class="btn primary">Subscribe $7.99/month</button>
+      <a class="btn" href="{{ url_for('index') }}">Back</a>
+    </div>
+  </div>
+{% endblock %}
+{% block scripts %}
+<script>
+  document.getElementById('subscribeBtn').addEventListener('click', async () => {
+    try {
+      const res = await fetch('/create-checkout-session', {method:'POST'});
+      const data = await res.json();
+      if(data.url){
+        window.location.href = data.url;
+      } else {
+        alert(data.error || 'Stripe is not configured');
+      }
+    } catch (e) {
+      alert('Failed to start checkout');
+    }
+  });
+  
+</script>
+{% endblock %}
+

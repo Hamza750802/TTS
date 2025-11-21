@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cheap TTS - The Most Affordable AI Text-to-Speech</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #F9FAFB; /* Changed to light gray */
+            --bg-light: #FFFFFF; /* Changed to white */
+            --border: #E5E7EB; /* Changed to light gray */
+            --text-primary: #1F2937; /* Changed to dark gray */
+            --text-secondary: #6B7280; /* Changed to medium gray */
+            --accent-blue: #3B82F6;
+            --accent-green: #10B981;
+            --accent-purple: #8B5CF6;
+            --shadow: rgba(0, 0, 0, 0.05);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-primary);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+
+        .section {
+            padding: 100px 0;
+            position: relative;
+        }
+
+        .section-title {
+            text-align: center;
+            font-size: 48px;
+            font-weight: 900;
+            margin-bottom: 24px;
+            background: linear-gradient(90deg, var(--accent-blue), var(--accent-purple));
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .section-subtitle {
+            text-align: center;
+            font-size: 20px;
+            color: var(--text-secondary);
+            max-width: 700px;
+            margin: 0 auto 64px auto;
+        }
+
+        /* --- Hero Section --- */
+        .hero {
+            padding: 120px 0;
+            text-align: center;
+            background-color: var(--bg-light);
+             background: radial-gradient(circle at 50% 0%, rgba(59, 130, 246, 0.05), transparent 40%),
+                        radial-gradient(circle at 90% 80%, rgba(139, 92, 246, 0.05), transparent 50%);
+        }
+
+        .hero h1 {
+            font-size: 72px;
+            font-weight: 900;
+            margin-bottom: 24px;
+            line-height: 1.1;
+            color: var(--text-primary);
+        }
+
+        .hero .tagline {
+            font-size: 22px;
+            color: var(--text-secondary);
+            margin-bottom: 48px;
+            max-width: 700px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .cta-button {
+            display: inline-block;
+            background: linear-gradient(90deg, var(--accent-blue), var(--accent-purple));
+            color: white;
+            padding: 18px 40px;
+            font-size: 18px;
+            font-weight: 600;
+            text-decoration: none;
+            border-radius: 12px;
+            transition: transform 0.3s, box-shadow 0.3s;
+            box-shadow: 0 10px 30px rgba(59, 130, 246, 0.2);
+        }
+
+        .cta-button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 40px rgba(59, 130, 246, 0.3);
+        }
+
+        .hero .stats {
+            display: flex;
+            justify-content: center;
+            gap: 48px;
+            margin-top: 80px;
+            flex-wrap: wrap;
+        }
+
+        .stat-box {
+            text-align: center;
+        }
+
+        .stat-box .number {
+            font-size: 48px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .stat-box .label {
+            font-size: 16px;
+            color: var(--text-secondary);
+        }
+
+        /* --- Preview Section --- */
+        .preview-section {
+            background-color: var(--bg-dark);
+            border-top: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .preview-box {
+            max-width: 700px;
+            margin: 0 auto;
+            background: var(--bg-light);
+            padding: 32px;
+            border-radius: 16px;
+            border: 1px solid var(--border);
+            box-shadow: 0 20px 50px var(--shadow);
+        }
+
+        .preview-box textarea {
+            width: 100%;
+            padding: 16px;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            font-size: 16px;
+            font-family: inherit;
+            resize: vertical;
+            min-height: 120px;
+            margin-bottom: 16px;
+            background-color: #FFF;
+            color: var(--text-primary);
+        }
+
+        .preview-box select {
+            width: 100%;
+            padding: 16px;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            font-size: 16px;
+            background-color: #FFF;
+            color: var(--text-primary);
+            margin-bottom: 16px;
+        }
+
+        .char-counter {
+            text-align: right;
+            color: var(--text-secondary);
+            font-size: 14px;
+            margin-bottom: 24px;
+        }
+
+        .char-counter.warning {
+            color: #EF4444;
+        }
+
+        .preview-button {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(90deg, var(--accent-blue), var(--accent-purple));
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.3s;
+        }
+
+        .preview-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .preview-audio {
+            margin-top: 24px;
+            display: none;
+        }
+        .preview-audio.visible { display: block; }
+        .preview-audio audio { width: 100%; }
+
+        .preview-loading, .preview-error {
+            text-align: center;
+            margin-top: 24px;
+            padding: 16px;
+            border-radius: 12px;
+            display: none;
+        }
+        .preview-loading.visible, .preview-error.visible { display: block; }
+        .preview-error { background-color: rgba(239, 68, 68, 0.1); color: #EF4444; }
+
+        /* --- Comparison Section --- */
+        .comparison-table {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 32px;
+        }
+
+        .price-card {
+            background: var(--bg-light);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 32px;
+            text-align: center;
+            transition: transform 0.3s, box-shadow 0.3s;
+            box-shadow: 0 10px 20px var(--shadow);
+        }
+
+        .price-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 30px var(--shadow);
+            border-color: var(--accent-purple);
+        }
+
+        .price-card.featured {
+            border-color: var(--accent-blue);
+            transform: scale(1.05);
+            box-shadow: 0 20px 40px rgba(59, 130, 246, 0.15);
+        }
+
+        .price-card h3 {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: var(--text-primary);
+        }
+
+        .price-card .price {
+            font-size: 48px;
+            font-weight: 700;
+            margin: 24px 0;
+            color: var(--text-primary);
+        }
+        .price-card .price small { font-size: 18px; color: var(--text-secondary); }
+
+        .price-card .usage {
+            font-size: 16px;
+            margin-bottom: 24px;
+            color: var(--text-secondary);
+        }
+        .price-card.featured .usage { color: var(--accent-blue); font-weight: 600; }
+
+        .price-card ul {
+            list-style: none;
+            margin: 24px 0;
+            text-align: left;
+            color: var(--text-secondary);
+        }
+        .price-card ul li { padding: 10px 0; border-bottom: 1px solid var(--border); }
+        .price-card ul li:before { content: "✓ "; color: var(--accent-green); margin-right: 8px; }
+
+        /* --- Features Section --- */
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 48px;
+        }
+
+        .feature-box {
+            text-align: center;
+        }
+        .feature-box .icon { font-size: 48px; margin-bottom: 24px; }
+        .feature-box h3 { font-size: 22px; margin-bottom: 16px; color: var(--text-primary); }
+        .feature-box p { color: var(--text-secondary); }
+
+        /* --- CTA Section --- */
+        .cta-section {
+            background-color: var(--bg-light);
+            border-top: 1px solid var(--border);
+            text-align: center;
+        }
+
+        /* --- Footer --- */
+        footer {
+            padding: 48px 0;
+            text-align: center;
+            color: var(--text-secondary);
+            border-top: 1px solid var(--border);
+            background-color: var(--bg-light);
+        }
+
+        /* --- Navigation --- */
+        nav {
+            background-color: var(--bg-light);
+            border-bottom: 1px solid var(--border);
+            padding: 20px 0;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        nav .container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        nav .logo {
+            font-size: 24px;
+            font-weight: 900;
+            background: linear-gradient(90deg, var(--accent-blue), var(--accent-purple));
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        nav .nav-links {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+        nav .nav-links a {
+            color: var(--text-primary);
+            text-decoration: none;
+            font-weight: 600;
+            padding: 10px 20px;
+            border-radius: 8px;
+            transition: background-color 0.3s;
+        }
+        nav .nav-links a:hover {
+            background-color: rgba(59, 130, 246, 0.1);
+        }
+        nav .nav-links a.btn-signup {
+            background: linear-gradient(90deg, var(--accent-blue), var(--accent-purple));
+            color: white;
+        }
+        nav .nav-links a.btn-signup:hover {
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <div class="container">
+            <div class="logo">Cheap TTS</div>
+            <div class="nav-links">
+                <a href="/login">Sign In</a>
+                <a href="/signup" class="btn-signup">Sign Up</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="hero">
+        <div class="container">
+            <h1>The World's Most Affordable AI Voice Generator</h1>
+            <p class="tagline">Get unlimited access to 550+ ultra-realistic voices in 153 languages for one unbeatable price. Stop paying for character limits.</p>
+            <a href="/signup" class="cta-button">Start Generating for $7.99/mo</a>
+            <div class="stats">
+                <div class="stat-box">
+                    <span class="number">550+</span>
+                    <span class="label">Natural Voices</span>
+                </div>
+                <div class="stat-box">
+                    <span class="number">153</span>
+                    <span class="label">Languages</span>
+                </div>
+                <div class="stat-box">
+                    <span class="number">∞</span>
+                    <span class="label">Unlimited Usage</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="section preview-section">
+        <div class="container">
+            <h2 class="section-title">Hear The Quality</h2>
+            <p class="section-subtitle">Test any voice right now, no signup required. Previews are limited to 150 characters.</p>
+            
+            <div class="preview-box">
+                <textarea id="previewText" placeholder="Enter text to preview..." maxlength="150"></textarea>
+                <div class="char-counter" id="charCounter">0 / 150</div>
+                <select id="previewVoice"><option value="">Loading voices...</option></select>
+                <button class="preview-button" id="previewBtn">▶ Generate Preview</button>
+                <div class="preview-loading" id="previewLoading">Generating...</div>
+                <div class="preview-error" id="previewError"></div>
+                <div class="preview-audio" id="previewAudio">
+                    <audio id="previewAudioElement" controls></audio>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="section pricing-comparison">
+        <div class="container">
+            <h2 class="section-title">Stop Overpaying for AI Voices</h2>
+            <p class="section-subtitle">Other services charge a fortune for limited use. We offer unlimited generation for a single, low monthly price.</p>
+            
+            <div class="comparison-table">
+                <div class="price-card">
+                    <h3>ElevenLabs</h3>
+                    <div class="price">$99<small>/mo</small></div>
+                    <div class="usage">100,000 characters/mo</div>
+                    <ul>
+                        <li>Limited characters</li>
+                        <li>Voice cloning costs extra</li>
+                        <li>Pay for overages</li>
+                    </ul>
+                </div>
+
+                <div class="price-card featured">
+                    <h3>Cheap TTS</h3>
+                    <div class="price">$7.99<small>/mo</small></div>
+                    <div class="usage">UNLIMITED USAGE</div>
+                    <ul>
+                        <li>Truly unlimited characters</li>
+                        <li>550+ natural voices</li>
+                        <li>153 languages</li>
+                        <li>Commercial use included</li>
+                        <li>API access</li>
+                    </ul>
+                    <a href="/signup" class="cta-button" style="margin-top: 24px;">Get Unlimited Access</a>
+                </div>
+
+                <div class="price-card">
+                    <h3>Play.ht</h3>
+                    <div class="price">$79<small>/mo</small></div>
+                    <div class="usage">500,000 words/mo</div>
+                    <ul>
+                        <li>Limited words</li>
+                        <li>Extra cost for high-quality</li>
+                        <li>Complex pricing tiers</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="section features">
+        <div class="container">
+            <h2 class="section-title">Everything You Need, Nothing You Don't</h2>
+            <p class="section-subtitle">All the premium features of expensive services, without the premium price tag.</p>
+            
+            <div class="features-grid">
+                <div class="feature-box">
+                    <div class="icon">🎭</div>
+                    <h3>Human-Like Natural Voices</h3>
+                    <p>Access over 550 ultra-realistic voices powered by Microsoft's advanced neural TTS technology.</p>
+                </div>
+                <div class="feature-box">
+                    <div class="icon">🌍</div>
+                    <h3>153 Languages & Locales</h3>
+                    <p>Reach global audiences with native-sounding voices in virtually any language or regional dialect.</p>
+                </div>
+                <div class="feature-box">
+                    <div class="icon">∞</div>
+                    <h3>Truly Unlimited Generation</h3>
+                    <p>No character limits, word counts, or time restrictions. Generate as much audio as you need.</p>
+                </div>
+                <div class="feature-box">
+                    <div class="icon">💼</div>
+                    <h3>Full Commercial Rights</h3>
+                    <p>Use your generated audio for YouTube, podcasts, audiobooks, and any commercial project, royalty-free.</p>
+                </div>
+                <div class="feature-box">
+                    <div class="icon">🎚️</div>
+                    <h3>Fine-Tune Your Audio</h3>
+                    <p>Adjust speed, pitch, and volume to get the perfect voice delivery for your project.</p>
+                </div>
+                <div class="feature-box">
+                    <div class="icon">💾</div>
+                    <h3>MP3 Downloads</h3>
+                    <p>Easily download your generated audio files in high-quality MP3 format for use anywhere.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="section cta-section">
+        <div class="container">
+            <h2 class="section-title">Ready to Start Creating?</h2>
+            <p class="section-subtitle">Join thousands of creators who switched to a smarter, more affordable TTS service.</p>
+            <a href="/signup" class="cta-button">Get Unlimited AI Voices for $7.99</a>
+        </div>
+    </div>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2025 Cheap TTS. All Rights Reserved.</p>
+        </div>
+    </footer>
+
+    <script>
+        // Character counter
+        const previewText = document.getElementById('previewText');
+        const charCounter = document.getElementById('charCounter');
+        
+        previewText.addEventListener('input', () => {
+            const length = previewText.value.length;
+            charCounter.textContent = `${length} / 150`;
+            charCounter.classList.toggle('warning', length > 140);
+        });
+
+        // Load voices for preview
+        async function loadPreviewVoices() {
+            try {
+                const response = await fetch('/api/voices');
+                const data = await response.json();
+                
+                if (data.success) {
+                    const voiceSelect = document.getElementById('previewVoice');
+                    voiceSelect.innerHTML = '';
+                    
+                    const popular = data.voices.filter(v => v.locale.startsWith('en-') && ['Aria', 'Davis', 'Emma', 'Jenny', 'Guy', 'Ryan'].some(name => v.name.includes(name)));
+                    
+                    const groups = { '⭐ Popular': popular, '🌍 All Voices': data.voices };
+
+                    for (const groupName in groups) {
+                        const optgroup = document.createElement('optgroup');
+                        optgroup.label = groupName;
+                        groups[groupName].forEach(voice => {
+                            const option = document.createElement('option');
+                            option.value = voice.shortName;
+                            option.textContent = `${voice.localName} (${voice.gender}) - ${voice.locale}`;
+                            optgroup.appendChild(option);
+                        });
+                        voiceSelect.appendChild(optgroup);
+                    }
+                    voiceSelect.value = 'en-US-AriaNeural';
+                }
+            } catch (error) {
+                console.error('Error loading voices:', error);
+            }
+        }
+
+        // Handle preview generation
+        document.getElementById('previewBtn').addEventListener('click', async () => {
+            const text = previewText.value.trim();
+            const voice = document.getElementById('previewVoice').value;
+            const btn = document.getElementById('previewBtn');
+            const loading = document.getElementById('previewLoading');
+            const errorEl = document.getElementById('previewError');
+            const audioEl = document.getElementById('previewAudio');
+
+            if (!text) {
+                errorEl.textContent = 'Please enter some text to preview.';
+                errorEl.classList.add('visible');
+                return;
+            }
+            
+            loading.classList.add('visible');
+            errorEl.classList.remove('visible');
+            audioEl.classList.remove('visible');
+            btn.disabled = true;
+            
+            try {
+                const response = await fetch('/api/preview', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text, voice, rate: '+0%', volume: '+0%', pitch: '+0Hz' })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    const audioElement = document.getElementById('previewAudioElement');
+                    audioElement.src = data.audioUrl;
+                    audioEl.classList.add('visible');
+                    audioElement.play();
+                } else {
+                    throw new Error(data.error || 'Failed to generate preview');
+                }
+            } catch (error) {
+                errorEl.textContent = error.message;
+                errorEl.classList.add('visible');
+            } finally {
+                loading.classList.remove('visible');
+                btn.disabled = false;
+            }
+        });
+
+        loadPreviewVoices();
+    </script>
+</body>
+</html>

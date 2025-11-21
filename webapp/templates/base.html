@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}Cheap TTS{% endblock %}</title>
+  <style>
+    :root {
+      --bg1: #0f172a; /* slate-900 */
+      --bg2: #111827; /* gray-900 */
+      --accent1: #7c3aed; /* violet-600 */
+      --accent2: #06b6d4; /* cyan-500 */
+      --card: rgba(255,255,255,0.06);
+      --text: #e5e7eb; /* gray-200 */
+      --muted: #9ca3af; /* gray-400 */
+      --danger: #ef4444;
+      --success: #22c55e;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica Neue, Arial, "Apple Color Emoji","Segoe UI Emoji";
+      color:var(--text);
+      background: radial-gradient(1200px 600px at -10% -10%, rgba(124,58,237,.35), transparent),
+                  radial-gradient(1200px 600px at 110% 110%, rgba(6,182,212,.35), transparent),
+                  linear-gradient(180deg, var(--bg1), var(--bg2));
+      min-height:100vh;
+    }
+    .container{max-width:980px;margin:0 auto;padding:24px}
+    .glass{
+      background: var(--card);
+      border: 1px solid rgba(255,255,255,0.08);
+      backdrop-filter: blur(10px);
+      border-radius: 16px;
+      box-shadow: 0 10px 40px rgba(0,0,0,.35);
+    }
+    .nav{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;margin:18px 0}
+    .brand{display:flex;gap:10px;align-items:center;text-decoration:none;color:var(--text)}
+    .logo{height:28px;width:28px;border-radius:8px;background:linear-gradient(135deg,var(--accent1),var(--accent2));box-shadow:0 4px 18px rgba(124,58,237,.5)}
+    .brand span{font-weight:700;letter-spacing:.3px}
+    .nav-actions{display:flex;gap:10px;align-items:center}
+    a, .btn{color:var(--text);text-decoration:none}
+    .btn{padding:10px 14px;border-radius:10px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);transition:all .2s ease}
+    .btn:hover{transform:translateY(-1px);border-color:rgba(255,255,255,.24)}
+    .btn.primary{background:linear-gradient(135deg,var(--accent1),var(--accent2));border:none;box-shadow:0 8px 30px rgba(124,58,237,.45)}
+    .btn.danger{background:rgba(239,68,68,.2);border-color:rgba(239,68,68,.5)}
+    .btn.success{background:rgba(34,197,94,.2);border-color:rgba(34,197,94,.5)}
+    .hero{padding:34px}
+    .title{font-size:32px;font-weight:800;margin:4px 0}
+    .subtitle{color:var(--muted);max-width:700px}
+    .flash{margin:14px 18px}
+    .alert{padding:12px 14px;border-radius:12px;border:1px solid rgba(255,255,255,.1);margin-bottom:8px}
+    .alert.error{background:rgba(239,68,68,.12);border-color:rgba(239,68,68,.35)}
+    .alert.success{background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.35)}
+    .card{padding:22px}
+    .muted{color:var(--muted)}
+    .grid{display:grid;gap:18px}
+    .center{text-align:center}
+    form input, form button, form select, form textarea{font:inherit}
+    input,select,textarea{width:100%;padding:12px 14px;border-radius:12px;border:1px solid rgba(255,255,255,.12);background:rgba(0,0,0,.25);color:var(--text)}
+    input::placeholder,textarea::placeholder{color:#9ba3ae}
+    label{display:block;margin:8px 2px 6px 2px;color:#dbe3ef}
+  </style>
+  {% block head %}{% endblock %}
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    <script>
+      window.__FLASH__ = {{ messages|tojson }};
+    </script>
+    {% endif %}
+  {% endwith %}
+</head>
+<body>
+  <div class="container">
+    <nav class="glass nav">
+      <a href="{{ url_for('index') }}" class="brand">
+        <div class="logo"></div>
+        <span>Cheap TTS</span>
+      </a>
+      <div class="nav-actions">
+        {% if current_user.is_authenticated %}
+          {% if current_user.is_subscribed %}
+            <a class="btn" href="{{ url_for('api_keys_page') }}">🔑 API Keys</a>
+            <span class="muted">Active: $7.99/mo</span>
+            <a class="btn" href="{{ url_for('billing_portal') }}">Manage Billing</a>
+          {% else %}
+            <a class="btn primary" href="{{ url_for('subscribe') }}">Subscribe $7.99/mo</a>
+          {% endif %}
+          <a class="btn" href="{{ url_for('logout') }}">Logout</a>
+        {% else %}
+          <a class="btn" href="{{ url_for('login') }}">Sign in</a>
+          <a class="btn primary" href="{{ url_for('signup') }}">Sign up</a>
+        {% endif %}
+      </div>
+    </nav>
+
+    <header class="glass hero">
+      <div class="title">Text to Speech, Beautifully Simple</div>
+      <div class="subtitle">High‑quality neural voices. Create lifelike audio in seconds. Clean UI, fast results, subscription‑backed access.</div>
+    </header>
+
+    <div class="flash">
+      <div id="flash-root"></div>
+    </div>
+
+    <main class="glass card">
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+
+  <script>
+    (function(){
+      if(!window.__FLASH__) return;
+      const root = document.getElementById('flash-root');
+      window.__FLASH__.forEach(([kind, msg])=>{
+        const div = document.createElement('div');
+        div.className = 'alert ' + (kind||'');
+        div.textContent = msg;
+        root.appendChild(div);
+      });
+    })();
+  </script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>
+

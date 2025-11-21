@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+{% block title %}Sign Up — Cheap TTS{% endblock %}
+{% block content %}
+  <h2 style="margin-top:0">Create your account</h2>
+  <p class="muted">Get started in seconds. $7.99/month after subscribing.</p>
+  <form method="post" class="grid" style="margin-top:12px;max-width:520px">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+    <div>
+      <label for="email">Email</label>
+      <input id="email" name="email" type="email" placeholder="you@example.com" required />
+    </div>
+    <div>
+      <label for="password">Password</label>
+      <input id="password" name="password" type="password" placeholder="••••••••" required />
+    </div>
+    <button class="btn primary" type="submit">Create account</button>
+  </form>
+  <p class="muted" style="margin-top:12px">Already have an account? <a href="{{ url_for('login') }}">Sign in</a></p>
+{% endblock %}
+
