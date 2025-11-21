@@ -781,10 +781,16 @@ def admin_grant_access(email):
         return jsonify({'error': 'Unauthorized'}), 403
     
     try:
+        # Check if we should simulate a Stripe customer (for testing billing portal)
+        simulate_stripe = request.args.get('stripe', '').lower() == 'true'
+        
         user = User.query.filter_by(email=email).first()
         if not user:
             # Auto-create the user if they don't exist
             user = User(email=email, subscription_status='active')
+            if simulate_stripe:
+                # Set a fake Stripe customer ID for testing
+                user.stripe_customer_id = 'cus_test_' + email.split('@')[0]
             # Set a random password they can reset later
             import secrets
             user.set_password(secrets.token_urlsafe(16))
@@ -793,24 +799,28 @@ def admin_grant_access(email):
             
             return jsonify({
                 'success': True, 
-                'message': f'User created and unlimited access granted to {email}',
+                'message': f'User created and unlimited access granted to {email}' + (' (with Stripe simulation)' if simulate_stripe else ''),
                 'user': {
                     'email': user.email,
                     'subscription_status': user.subscription_status,
+                    'stripe_customer_id': user.stripe_customer_id,
                     'created_at': user.created_at.isoformat()
                 }
             })
         
         # Grant unlimited access to existing user
         user.subscription_status = 'active'
+        if simulate_stripe and not user.stripe_customer_id:
+            user.stripe_customer_id = 'cus_test_' + email.split('@')[0]
         db.session.commit()
         
         return jsonify({
             'success': True, 
-            'message': f'Unlimited access granted to {email}',
+            'message': f'Unlimited access granted to {email}' + (' (with Stripe simulation)' if simulate_stripe else ''),
             'user': {
                 'email': user.email,
                 'subscription_status': user.subscription_status,
+                'stripe_customer_id': user.stripe_customer_id,
                 'created_at': user.created_at.isoformat()
             }
         })
