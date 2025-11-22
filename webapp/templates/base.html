@@ -35,17 +35,18 @@
       border-radius: 16px;
       box-shadow: 0 10px 40px rgba(0,0,0,.35);
     }
-    .nav{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;margin:18px 0}
-    .brand{display:flex;gap:10px;align-items:center;text-decoration:none;color:var(--text)}
-    .logo{height:28px;width:28px;border-radius:8px;background:linear-gradient(135deg,var(--accent1),var(--accent2));box-shadow:0 4px 18px rgba(124,58,237,.5)}
-    .brand span{font-weight:700;letter-spacing:.3px}
-    .nav-actions{display:flex;gap:10px;align-items:center}
-    a, .btn{color:var(--text);text-decoration:none}
-    .btn{padding:10px 14px;border-radius:10px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);transition:all .2s ease}
-    .btn:hover{transform:translateY(-1px);border-color:rgba(255,255,255,.24)}
-    .btn.primary{background:linear-gradient(135deg,var(--accent1),var(--accent2));border:none;box-shadow:0 8px 30px rgba(124,58,237,.45)}
-    .btn.danger{background:rgba(239,68,68,.2);border-color:rgba(239,68,68,.5)}
-    .btn.success{background:rgba(34,197,94,.2);border-color:rgba(34,197,94,.5)}
+    .nav{display:flex;align-items:center;justify-content:space-between;padding:18px 24px;margin-bottom:0;background:white;border-bottom:1px solid #e5e7eb;border-radius:0}
+    .brand{display:flex;gap:12px;align-items:center;text-decoration:none;color:#1f2937;font-size:20px}
+    .brand span{font-weight:800;background:linear-gradient(90deg,#3b82f6,#8b5cf6);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+    .nav-actions{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+    a, .btn{color:#374151;text-decoration:none;font-size:14px}
+    .btn{padding:10px 18px;border-radius:8px;border:1px solid #e5e7eb;background:white;transition:all .2s ease;font-weight:600}
+    .btn:hover{background:#f9fafb;border-color:#d1d5db;transform:translateY(-1px)}
+    .btn.primary{background:linear-gradient(90deg,#3b82f6,#8b5cf6);border:none;color:white;box-shadow:0 4px 12px rgba(59,130,246,.25)}
+    .btn.primary:hover{box-shadow:0 6px 16px rgba(59,130,246,.35);transform:translateY(-2px)}
+    .btn.danger{background:#fee;border-color:#fcc;color:#dc2626}
+    .btn.success{background:#d1fae5;border-color:#6ee7b7;color:#047857}
+    .status-badge{padding:8px 14px;border-radius:6px;background:#ecfdf5;color:#047857;font-size:13px;font-weight:600;border:1px solid #6ee7b7}
     .hero{padding:34px}
     .title{font-size:32px;font-weight:800;margin:4px 0}
     .subtitle{color:var(--muted);max-width:700px}
@@ -73,23 +74,22 @@
 </head>
 <body>
   <div class="container">
-    <nav class="glass nav">
+    <nav class="nav">
       <a href="{{ url_for('index') }}" class="brand">
-        <div class="logo"></div>
-        <span>Cheap TTS</span>
+        <span>💬 Cheap TTS</span>
       </a>
       <div class="nav-actions">
         {% if current_user.is_authenticated %}
           {% if current_user.is_subscribed %}
             <a class="btn" href="{{ url_for('api_keys_page') }}">🔑 API Keys</a>
-            <span class="muted">Active: $7.99/mo</span>
+            <span class="status-badge">Active: $7.99/mo</span>
             {% if current_user.stripe_customer_id %}
               <a class="btn" href="{{ url_for('billing_portal') }}">Manage Billing</a>
             {% endif %}
           {% else %}
             <a class="btn primary" href="{{ url_for('subscribe') }}">Subscribe $7.99/mo</a>
           {% endif %}
-          <a class="btn" href="mailto:support@cheaptts.com" style="opacity: 0.8;">✉️ Support</a>
+          <a class="btn" href="mailto:support@cheaptts.com">✉️ Support</a>
           <a class="btn" href="{{ url_for('logout') }}">Logout</a>
         {% else %}
           <a class="btn" href="{{ url_for('login') }}">Sign in</a>
