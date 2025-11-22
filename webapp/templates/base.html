@@ -21,19 +21,16 @@
     body{
       margin:0;
       font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica Neue, Arial, "Apple Color Emoji","Segoe UI Emoji";
-      color:var(--text);
-      background: radial-gradient(1200px 600px at -10% -10%, rgba(124,58,237,.35), transparent),
-                  radial-gradient(1200px 600px at 110% 110%, rgba(6,182,212,.35), transparent),
-                  linear-gradient(180deg, var(--bg1), var(--bg2));
+      color:#1f2937;
+      background:#f9fafb;
       min-height:100vh;
     }
     .container{max-width:980px;margin:0 auto;padding:24px}
     .glass{
-      background: var(--card);
-      border: 1px solid rgba(255,255,255,0.08);
-      backdrop-filter: blur(10px);
+      background: white;
+      border: 1px solid #e5e7eb;
       border-radius: 16px;
-      box-shadow: 0 10px 40px rgba(0,0,0,.35);
+      box-shadow: 0 4px 20px rgba(0,0,0,.08);
     }
     .nav{display:flex;align-items:center;justify-content:space-between;padding:18px 24px;margin-bottom:0;background:white;border-bottom:1px solid #e5e7eb;border-radius:0}
     .brand{display:flex;gap:12px;align-items:center;text-decoration:none;color:#1f2937;font-size:20px}
@@ -51,17 +48,17 @@
     .title{font-size:32px;font-weight:800;margin:4px 0}
     .subtitle{color:var(--muted);max-width:700px}
     .flash{margin:14px 18px}
-    .alert{padding:12px 14px;border-radius:12px;border:1px solid rgba(255,255,255,.1);margin-bottom:8px}
-    .alert.error{background:rgba(239,68,68,.12);border-color:rgba(239,68,68,.35)}
-    .alert.success{background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.35)}
+    .alert{padding:12px 14px;border-radius:12px;border:1px solid #e5e7eb;margin-bottom:8px}
+    .alert.error{background:#fee2e2;border-color:#fca5a5;color:#dc2626}
+    .alert.success{background:#d1fae5;border-color:#6ee7b7;color:#047857}
     .card{padding:22px}
-    .muted{color:var(--muted)}
+    .muted{color:#6b7280}
     .grid{display:grid;gap:18px}
     .center{text-align:center}
     form input, form button, form select, form textarea{font:inherit}
-    input,select,textarea{width:100%;padding:12px 14px;border-radius:12px;border:1px solid rgba(255,255,255,.12);background:rgba(0,0,0,.25);color:var(--text)}
-    input::placeholder,textarea::placeholder{color:#9ba3ae}
-    label{display:block;margin:8px 2px 6px 2px;color:#dbe3ef}
+    input,select,textarea{width:100%;padding:12px 14px;border-radius:12px;border:2px solid #e5e7eb;background:white;color:#1f2937}
+    input::placeholder,textarea::placeholder{color:#9ca3af}
+    label{display:block;margin:8px 2px 6px 2px;color:#374151;font-weight:600}
   </style>
   {% block head %}{% endblock %}
   {% with messages = get_flashed_messages(with_categories=true) %}
