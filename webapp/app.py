@@ -634,6 +634,22 @@ def api_audio(filename):
 
 # -------- API Key Management --------
 
+@app.route('/embed')
+def embed_widget():
+    """Embeddable TTS widget"""
+    api_key = request.args.get('key', '')
+    
+    # Validate API key if provided
+    if api_key:
+        auth_result = verify_api_key(api_key)
+        if not auth_result.get('valid'):
+            return f"Invalid API key. Please check your key and try again.", 401
+    else:
+        return "API key required. Add ?key=your_api_key to the URL.", 401
+    
+    return render_template('embed.html', api_key=api_key)
+
+
 @app.route('/api-keys')
 @login_required
 @subscription_required

@@ -27,6 +27,28 @@
     </div>
 
     <div style="background: linear-gradient(135deg, #2d2d3f 0%, #3a3a4f 100%); padding: 25px; border-radius: 12px; border: 1px solid rgba(167,139,250,.3); margin-bottom: 30px; box-shadow: 0 4px 6px rgba(0,0,0,.2);">
+        <h3 style="margin-bottom: 20px; color: #ffffff; font-size: 20px;">🎨 Embeddable Widget (For Non-Technical Users)</h3>
+        <p style="color: #ffffff; margin-bottom: 15px;">Want to add TTS to your website without coding? Use our ready-made widget! Your users will get a dropdown with all 594 voices.</p>
+        
+        <p style="margin-bottom: 12px; color: #ffffff;"><strong style="color: #a78bfa;">Option 1: iFrame Embed</strong></p>
+        <p style="color: #d1d5db; margin-bottom: 10px; font-size: 14px;">Copy this code into your website:</p>
+        <pre style="background: #1a1a2e; padding: 15px; border-radius: 8px; overflow-x: auto; font-size: 13px; color: #ffffff; border: 1px solid rgba(167,139,250,.5); margin-bottom: 20px;"><code>&lt;iframe src="{{ request.url_root }}embed?key=YOUR_API_KEY" 
+        width="650" 
+        height="600" 
+        frameborder="0"
+        style="border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);"&gt;
+&lt;/iframe&gt;</code></pre>
+
+        <p style="margin-bottom: 12px; color: #ffffff;"><strong style="color: #a78bfa;">Option 2: Direct Link</strong></p>
+        <p style="color: #d1d5db; margin-bottom: 10px; font-size: 14px;">Share this link with your users:</p>
+        <pre style="background: #1a1a2e; padding: 15px; border-radius: 8px; overflow-x: auto; font-size: 13px; color: #ffffff; border: 1px solid rgba(167,139,250,.5); margin-bottom: 15px;"><code>{{ request.url_root }}embed?key=YOUR_API_KEY</code></pre>
+        
+        <p style="color: #fbbf24; font-size: 13px; background: rgba(251,191,36,.1); padding: 12px; border-radius: 8px; border: 1px solid rgba(251,191,36,.3);">
+            ⚠️ <strong>Important:</strong> Replace <code style="background: rgba(0,0,0,.3); padding: 2px 6px; border-radius: 4px;">YOUR_API_KEY</code> with your actual API key below. The widget includes a voice dropdown so users can easily switch between all 594 voices!
+        </p>
+    </div>
+
+    <div style="background: linear-gradient(135deg, #2d2d3f 0%, #3a3a4f 100%); padding: 25px; border-radius: 12px; border: 1px solid rgba(167,139,250,.3); margin-bottom: 30px; box-shadow: 0 4px 6px rgba(0,0,0,.2);">
         <h3 style="margin-bottom: 20px; color: #ffffff; font-size: 20px;">🗣️ Available Voices</h3>
         <p style="color: #ffffff; margin-bottom: 15px;">Browse all 594+ voices available for synthesis. Use the voice's <code style="background: rgba(167,139,250,.25); padding: 4px 8px; border-radius: 6px; color: #e0e7ff;">ShortName</code> in your API requests.</p>
         
