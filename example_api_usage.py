@@ -8,7 +8,11 @@ import os
 import requests
 
 # Your personal admin API key (FREE unlimited access)
-API_KEY = "ctts_d6Se8k94A4QV0hGSxjXDan1lh4rANki5CjrEk9tk0Ww"
+# Set ADMIN_API_KEY in your environment before running (e.g. `set ADMIN_API_KEY=ctts_...`)
+API_KEY = os.environ.get("ADMIN_API_KEY", "")
+
+if not API_KEY:
+    raise RuntimeError("Missing ADMIN_API_KEY environment variable; generate one and set it before running.")
 
 # API endpoint (change this when you deploy)
 BASE_URL = "http://localhost:5000"

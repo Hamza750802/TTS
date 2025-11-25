@@ -88,6 +88,11 @@ STRIPE_WEBHOOK_SECRET = os.environ.get('STRIPE_WEBHOOK_SECRET', '')
 # Admin API key (for your personal projects - free access)
 ADMIN_API_KEY = os.environ.get('ADMIN_API_KEY', '')  # Set this in .env
 
+
+def billing_enabled() -> bool:
+    """Return True when Stripe billing is configured."""
+    return bool(stripe.api_key and STRIPE_PRICE_ID)
+
 # Create output directory for generated audio files
 OUTPUT_DIR = Path(__file__).parent / "output"
 OUTPUT_DIR.mkdir(exist_ok=True)
@@ -261,6 +266,9 @@ def subscription_required(func):
     """Decorator to require active subscription"""
     @wraps(func)
     def wrapper(*args, **kwargs):
+        # If billing is disabled, allow access without subscription
+        if not billing_enabled():
+            return func(*args, **kwargs)
         if not current_user.is_authenticated:
             return redirect(url_for('login'))
         if not current_user.is_subscribed:
@@ -273,6 +281,27 @@ def subscription_required(func):
 def run_async(coro):
     """Helper to run async functions in sync context"""
     return asyncio.run(coro)
+
+
+def refresh_subscription_from_stripe(user) -> bool:
+    """
+    Best-effort refresh of a user's subscription status from Stripe.
+    Returns True if the user ends up active after refresh.
+    """
+    if not billing_enabled():
+        return True
+    if not user.stripe_customer_id:
+        return False
+    try:
+        subs = stripe.Subscription.list(customer=user.stripe_customer_id, status='all', limit=1)
+        sub = subs.data[0] if subs.data else None
+        if sub:
+            status = sub.status
+            user.subscription_status = 'active' if status in ('active', 'trialing') else status
+            db.session.commit()
+        return user.is_subscribed
+    except Exception:
+        return False
 
 @app.route('/api/voices', methods=['GET'])
 def api_voices():
@@ -686,8 +715,10 @@ def verify_api_key(api_key_string):
     db.session.commit()
     
     # Check if user's subscription is active
-    if not api_key.user.is_subscribed:
-        return {'valid': False, 'error': 'Subscription expired'}
+    if billing_enabled() and not api_key.user.is_subscribed:
+        # Try to refresh from Stripe in case webhook missed an update
+        if not refresh_subscription_from_stripe(api_key.user):
+            return {'valid': False, 'error': 'Subscription expired'}
     
     return {'valid': True, 'is_admin': False, 'user': api_key.user}
 

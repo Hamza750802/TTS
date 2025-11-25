@@ -4,9 +4,17 @@ This document shows how to use the Cheap TTS API programmatically.
 
 ## Your Admin API Key (FREE)
 
-Your personal admin API key for unlimited FREE access:
+Generate your own personal admin API key for unlimited FREE access:
 ```
-ctts_d6Se8k94A4QV0hGSxjXDan1lh4rANki5CjrEk9tk0Ww
+python - <<'PY'
+import secrets
+print('ctts_' + secrets.token_urlsafe(32))
+PY
+```
+Set it in your environment before running examples:
+```
+export ADMIN_API_KEY=ctts_...
+# Windows: set ADMIN_API_KEY=ctts_...
 ```
 
 **⚠️ IMPORTANT:** This key gives you free unlimited access. Keep it secret and never commit it to public repositories!
@@ -77,9 +85,13 @@ X-API-Key: your_api_key_here
 
 ```python
 import requests
+import os
 
-API_KEY = "ctts_d6Se8k94A4QV0hGSxjXDan1lh4rANki5CjrEk9tk0Ww"  # Your admin key
+API_KEY = os.environ.get("ADMIN_API_KEY")  # Your admin key from env
 BASE_URL = "http://localhost:5000"  # Change to your deployed URL
+
+if not API_KEY:
+    raise RuntimeError("Set ADMIN_API_KEY in your environment before calling the API.")
 
 def text_to_speech(text, voice="en-US-AriaNeural"):
     """Convert text to speech and return audio URL"""
@@ -126,8 +138,12 @@ if __name__ == "__main__":
 ### JavaScript/Node.js
 
 ```javascript
-const API_KEY = "ctts_d6Se8k94A4QV0hGSxjXDan1lh4rANki5CjrEk9tk0Ww";
+const API_KEY = process.env.ADMIN_API_KEY;
 const BASE_URL = "http://localhost:5000";
+
+if (!API_KEY) {
+  throw new Error("Set ADMIN_API_KEY in your environment before calling the API.");
+}
 
 async function textToSpeech(text, voice = "en-US-AriaNeural") {
   const response = await fetch(`${BASE_URL}/api/v1/synthesize`, {
@@ -170,7 +186,7 @@ textToSpeech("Hello! This is a test of the Cheap TTS API.")
 # Generate speech
 curl -X POST http://localhost:5000/api/v1/synthesize \
   -H "Content-Type: application/json" \
-  -H "X-API-Key: ctts_d6Se8k94A4QV0hGSxjXDan1lh4rANki5CjrEk9tk0Ww" \
+  -H "X-API-Key: $ADMIN_API_KEY" \
   -d '{
     "text": "Hello, this is a test!",
     "voice": "en-US-AriaNeural",
@@ -258,7 +274,7 @@ Common error codes:
 ## Using in Your Projects
 
 ### For Your Personal Projects (FREE)
-Use your admin API key: `ctts_d6Se8k94A4QV0hGSxjXDan1lh4rANki5CjrEk9tk0Ww`
+Use your admin API key: `$ADMIN_API_KEY`
 
 This key has:
 - ✅ Unlimited usage
