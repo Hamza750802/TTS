@@ -824,6 +824,9 @@ def api_generate():
                 generate_speech(
                     ssml_text,
                     voice,
+                    rate=None,
+                    volume=None,
+                    pitch=None,
                     is_ssml=True,
                     cache_key=cache_key
                 )
@@ -874,6 +877,9 @@ def api_generate():
                 generate_speech(
                     ssml_text,
                     voice,
+                    rate=None,
+                    volume=None,
+                    pitch=None,
                     is_ssml=True,
                     cache_key=cache_key
                 )
