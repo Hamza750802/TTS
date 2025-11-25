@@ -144,11 +144,15 @@ class APIKey(db.Model):
     last_used_at = db.Column(db.DateTime)
     
     user = db.relationship('User', backref=db.backref('api_keys', lazy=True))
-    
+
     @staticmethod
     def generate_key():
         import secrets
-        return f"ctts_{secrets.token_urlsafe(32)}"
+        # Keep generating until unique to avoid rare collisions
+        while True:
+            candidate = f"ctts_{secrets.token_urlsafe(32)}"
+            if not APIKey.query.filter_by(key=candidate).first():
+                return candidate
 
 
 # Initialize database tables (creates tables on app startup, works with Gunicorn)
@@ -537,7 +541,7 @@ def stripe_webhook():
 def api_preview():
     """Generate preview speech (max 150 chars, no auth required)"""
     try:
-        data = request.json
+        data = request.get_json(silent=True) or {}
         if not data:
             return jsonify({'success': False, 'error': 'Invalid JSON'}), 400
             
@@ -586,7 +590,7 @@ def api_preview():
 def api_generate():
     """Generate speech from text"""
     try:
-        data = request.json
+        data = request.get_json(silent=True) or {}
         text = data.get('text', '')
         voice = data.get('voice', 'en-US-EmmaMultilingualNeural')
         rate = data.get('rate', '+0%')
@@ -644,7 +648,8 @@ def api_keys_page():
 @csrf.exempt
 def create_api_key():
     """Create a new API key"""
-    name = request.json.get('name', 'Unnamed Key').strip()
+    payload = request.get_json(silent=True) or {}
+    name = str(payload.get('name', 'Unnamed Key')).strip()
     if not name:
         return jsonify({'success': False, 'error': 'Key name required'}), 400
     
@@ -701,6 +706,10 @@ def toggle_api_key(key_id):
 
 def verify_api_key(api_key_string):
     """Verify API key and return user if valid"""
+    api_key_string = (api_key_string or '').strip()
+    if not api_key_string:
+        return {'valid': False, 'error': 'API key required'}
+
     # Check if it's the admin key (FREE for your personal use)
     if ADMIN_API_KEY and api_key_string == ADMIN_API_KEY:
         return {'is_admin': True, 'valid': True}
@@ -749,7 +758,7 @@ def api_synthesize():
         }
     """
     # Get API key from header
-    api_key = request.headers.get('X-API-Key')
+    api_key = (request.headers.get('X-API-Key') or '').strip()
     if not api_key:
         return jsonify({'success': False, 'error': 'API key required. Provide X-API-Key header.'}), 401
     
@@ -759,7 +768,7 @@ def api_synthesize():
         return jsonify({'success': False, 'error': auth_result.get('error', 'Invalid API key')}), 401
     
     try:
-        data = request.json
+        data = request.get_json(silent=True) or {}
         text = data.get('text', '').strip()
         voice = data.get('voice', 'en-US-AriaNeural')
         rate = data.get('rate', '+0%')
