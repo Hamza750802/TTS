@@ -59,6 +59,8 @@
     input,select,textarea{width:100%;padding:12px 14px;border-radius:12px;border:2px solid #e5e7eb;background:white;color:#1f2937}
     input::placeholder,textarea::placeholder{color:#9ca3af}
     label{display:block;margin:8px 2px 6px 2px;color:#374151;font-weight:600}
+    .announcement-banner{background:linear-gradient(90deg,#3b82f6,#8b5cf6);color:white;text-align:center;padding:12px 24px;font-weight:600;font-size:15px;box-shadow:0 2px 8px rgba(59,130,246,.2)}
+    .announcement-banner .emoji{font-size:18px;margin-right:8px}
   </style>
   {% block head %}{% endblock %}
   {% with messages = get_flashed_messages(with_categories=true) %}
@@ -70,6 +72,9 @@
   {% endwith %}
 </head>
 <body>
+  <div class="announcement-banner">
+    <span class="emoji">🎭</span> Dynamic emotion control coming soon! Add feelings like cheerful, sad, and angry to your voices.
+  </div>
   <div class="container">
     <nav class="nav">
       <a href="{{ url_for('index') }}" class="brand">
