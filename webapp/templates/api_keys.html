@@ -5,12 +5,12 @@
     <h1 style="margin-bottom: 10px;">🔑 API Keys</h1>
     <p style="color: #666; margin-bottom: 30px;">Manage your API keys for programmatic access to Cheap TTS</p>
 
-    <div style="background: rgba(0,0,0,.4); padding: 20px; border-radius: 12px; border: 1px solid rgba(255,255,255,.12); margin-bottom: 30px;">
-        <h3 style="margin-bottom: 15px; color: #e5e7eb;">📚 API Documentation</h3>
-        <p style="margin-bottom: 10px; color: #f3f4f6;"><strong>Endpoint:</strong> <code style="background: rgba(124,58,237,.15); padding: 4px 8px; border-radius: 6px; color: #c4b5fd;">POST /api/v1/synthesize</code></p>
-        <p style="margin-bottom: 10px; color: #f3f4f6;"><strong>Header:</strong> <code style="background: rgba(124,58,237,.15); padding: 4px 8px; border-radius: 6px; color: #c4b5fd;">X-API-Key: your_api_key_here</code></p>
-        <p style="margin-bottom: 15px; color: #f3f4f6; font-weight: 600;">Example Request:</p>
-        <pre style="background: rgba(0,0,0,.6); padding: 15px; border-radius: 8px; overflow-x: auto; font-size: 14px; color: #e0e7ff; border: 1px solid rgba(124,58,237,.2);">curl -X POST {{ request.url_root }}api/v1/synthesize \
+    <div style="background: linear-gradient(135deg, #2d2d3f 0%, #3a3a4f 100%); padding: 25px; border-radius: 12px; border: 1px solid rgba(167,139,250,.3); margin-bottom: 30px; box-shadow: 0 4px 6px rgba(0,0,0,.2);">
+        <h3 style="margin-bottom: 20px; color: #ffffff; font-size: 20px;">📚 API Documentation</h3>
+        <p style="margin-bottom: 12px; color: #ffffff;"><strong style="color: #a78bfa;">Endpoint:</strong> <code style="background: rgba(167,139,250,.25); padding: 6px 10px; border-radius: 6px; color: #e0e7ff; font-weight: 600; border: 1px solid rgba(167,139,250,.4);">POST /api/v1/synthesize</code></p>
+        <p style="margin-bottom: 15px; color: #ffffff;"><strong style="color: #a78bfa;">Header:</strong> <code style="background: rgba(167,139,250,.25); padding: 6px 10px; border-radius: 6px; color: #e0e7ff; font-weight: 600; border: 1px solid rgba(167,139,250,.4);">X-API-Key: your_api_key_here</code></p>
+        <p style="margin-bottom: 12px; color: #ffffff; font-weight: 600; font-size: 15px;">Example Request:</p>
+        <pre style="background: #1a1a2e; padding: 18px; border-radius: 8px; overflow-x: auto; font-size: 14px; color: #ffffff; border: 1px solid rgba(167,139,250,.5); line-height: 1.6;">curl -X POST {{ request.url_root }}api/v1/synthesize \
   -H "Content-Type: application/json" \
   -H "X-API-Key: your_api_key_here" \
   -d '{
@@ -21,9 +21,9 @@
     "pitch": "+0Hz"
   }'</pre>
         
-        <p style="margin: 15px 0 10px 0; color: #f3f4f6; font-weight: 600;">List Voices:</p>
-        <p style="margin-bottom: 10px; color: #f3f4f6;"><code style="background: rgba(124,58,237,.15); padding: 4px 8px; border-radius: 6px; color: #c4b5fd;">GET /api/voices</code></p>
-        <pre style="background: rgba(0,0,0,.6); padding: 15px; border-radius: 8px; overflow-x: auto; font-size: 14px; color: #e0e7ff; border: 1px solid rgba(124,58,237,.2);">curl {{ request.url_root }}api/voices</pre>
+        <p style="margin: 20px 0 12px 0; color: #ffffff; font-weight: 600; font-size: 15px;">List Voices:</p>
+        <p style="margin-bottom: 12px; color: #ffffff;"><code style="background: rgba(167,139,250,.25); padding: 6px 10px; border-radius: 6px; color: #e0e7ff; font-weight: 600; border: 1px solid rgba(167,139,250,.4);">GET /api/voices</code></p>
+        <pre style="background: #1a1a2e; padding: 18px; border-radius: 8px; overflow-x: auto; font-size: 14px; color: #ffffff; border: 1px solid rgba(167,139,250,.5);">curl {{ request.url_root }}api/voices</pre>
     </div>
 
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
