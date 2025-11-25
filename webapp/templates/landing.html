@@ -444,9 +444,11 @@
 </head>
 <body>
     <div class="announcement-banner">
-        <span class="emoji">🎭</span> <strong>NEW:</strong> Emotion control now live! 47 voices support cheerful, sad, angry & more styles.
+        <span class="emoji">🎭</span> <strong>NEW:</strong> Emotion control now live! 47 voices support cheerful, sad, angry & more.
         <span class="separator">•</span>
-        Look for the 🎭 emoji to find emotion-capable voices.
+        <span class="emoji">✅</span> <strong>API fully operational</strong> - All issues resolved.
+        <span class="separator">•</span>
+        Look for 🎭 emoji to test emotions below!
     </div>
     
     <nav>
@@ -490,6 +492,11 @@
                 <textarea id="previewText" placeholder="Enter text to preview..." maxlength="150"></textarea>
                 <div class="char-counter" id="charCounter">0 / 150</div>
                 <select id="previewVoice"><option value="">Loading voices...</option></select>
+                <div id="previewStyleGroup" style="display: none;">
+                    <select id="previewStyle">
+                        <option value="">Default (no emotion)</option>
+                    </select>
+                </div>
                 <button class="preview-button" id="previewBtn">▶ Generate Preview</button>
                 <div class="preview-loading" id="previewLoading">Generating...</div>
                 <div class="preview-error" id="previewError"></div>
@@ -614,6 +621,7 @@
         });
 
         // Load voices for preview
+        let voiceIndex = {};
         async function loadPreviewVoices() {
             try {
                 const response = await fetch('/api/voices');
@@ -622,6 +630,11 @@
                 if (data.success) {
                     const voiceSelect = document.getElementById('previewVoice');
                     voiceSelect.innerHTML = '';
+                    
+                    // Store voice data for emotion control
+                    data.voices.forEach(v => {
+                        voiceIndex[v.shortName] = v;
+                    });
                     
                     const popular = data.voices.filter(v => v.locale.startsWith('en-') && ['Aria', 'Davis', 'Emma', 'Jenny', 'Guy', 'Ryan'].some(name => v.name.includes(name)));
                     
@@ -633,22 +646,58 @@
                         groups[groupName].forEach(voice => {
                             const option = document.createElement('option');
                             option.value = voice.shortName;
-                            option.textContent = `${voice.localName} (${voice.gender}) - ${voice.locale}`;
+                            option.textContent = `${voice.has_styles ? '🎭 ' : ''}${voice.localName} (${voice.gender}) - ${voice.locale}`;
+                            option.dataset.hasStyles = voice.has_styles;
+                            option.dataset.styles = (voice.styles || []).join(',');
                             optgroup.appendChild(option);
                         });
                         voiceSelect.appendChild(optgroup);
                     }
                     voiceSelect.value = 'en-US-AriaNeural';
+                    
+                    // Add change listener for emotion control
+                    voiceSelect.addEventListener('change', onPreviewVoiceChange);
+                    onPreviewVoiceChange();
                 }
             } catch (error) {
                 console.error('Error loading voices:', error);
             }
+        }
+        
+        function onPreviewVoiceChange() {
+            const voiceSelect = document.getElementById('previewVoice');
+            const styleGroup = document.getElementById('previewStyleGroup');
+            const styleSelect = document.getElementById('previewStyle');
+            const selectedVoice = voiceIndex[voiceSelect.value];
+            
+            styleSelect.innerHTML = '<option value="">Default (no emotion)</option>';
+            
+            if (selectedVoice && selectedVoice.styles && selectedVoice.styles.length) {
+                selectedVoice.styles.forEach(style => {
+                    const opt = document.createElement('option');
+                    opt.value = style;
+                    opt.textContent = style.charAt(0).toUpperCase() + style.slice(1);
+                    styleSelect.appendChild(opt);
+                });
+                styleGroup.style.display = 'block';
+            } else {
+                styleGroup.style.display = 'none';
+            }
+        }
+        
+        function escapeXml(unsafe) {
+            return unsafe.replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&apos;");
         }
 
         // Handle preview generation
         document.getElementById('previewBtn').addEventListener('click', async () => {
             const text = previewText.value.trim();
             const voice = document.getElementById('previewVoice').value;
+            const style = document.getElementById('previewStyle').value;
             const btn = document.getElementById('previewBtn');
             const loading = document.getElementById('previewLoading');
             const errorEl = document.getElementById('previewError');
@@ -666,10 +715,21 @@
             btn.disabled = true;
             
             try {
+                let requestBody;
+                if (style) {
+                    // Use SSML with emotion
+                    const escapedText = escapeXml(text);
+                    const ssml = `<speak version="1.0" xml:lang="en-US" xmlns:mstts="https://www.w3.org/2001/mstts"><voice name="${voice}"><mstts:express-as style="${style}"><prosody rate="+0%" volume="+0%" pitch="+0Hz">${escapedText}</prosody></mstts:express-as></voice></speak>`;
+                    requestBody = { text: ssml, voice: voice, is_ssml: true };
+                } else {
+                    // Plain text
+                    requestBody = { text, voice, rate: '+0%', volume: '+0%', pitch: '+0Hz' };
+                }
+                
                 const response = await fetch('/api/preview', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ text, voice, rate: '+0%', volume: '+0%', pitch: '+0Hz' })
+                    body: JSON.stringify(requestBody)
                 });
                 
                 const data = await response.json();
