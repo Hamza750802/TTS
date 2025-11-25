@@ -328,6 +328,12 @@
                 <option value="">Loading voices...</option>
               </select>
             </div>
+            <div class="input-group" id="styleGroup" style="display: none;">
+              <label for="style">Style (Emotion) 🎭</label>
+              <select id="style">
+                <option value="">Default (no style)</option>
+              </select>
+            </div>
           </div>
 
           <!-- Audio Adjustments Section -->
@@ -379,6 +385,16 @@
 {% if current_user.is_authenticated and current_user.is_subscribed %}
 <script>
   let currentAudioUrl = null;
+  let voiceIndex = {};
+  
+  function escapeXml(unsafe) {
+    return unsafe.replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&apos;");
+  }
+  
   async function loadVoices(){
     try{
       const response = await fetch('/api/voices');
@@ -386,6 +402,13 @@
       if(data.success){
         const voiceSelect = document.getElementById('voice');
         voiceSelect.innerHTML = '';
+        voiceIndex = {};
+        
+        // Store voice data for emotion control
+        data.voices.forEach(v => {
+          voiceIndex[v.shortName] = v;
+        });
+        
         const popularVoices = data.voices.filter(v => v.locale.startsWith('en-') && (v.name.includes('Emma')||v.name.includes('Jenny')||v.name.includes('Guy')||v.name.includes('Ryan')));
         if(popularVoices.length){
           const optgroup = document.createElement('optgroup');
@@ -393,7 +416,9 @@
           popularVoices.forEach(voice => {
             const option = document.createElement('option');
             option.value = voice.shortName;
-            option.textContent = `${voice.localName} (${voice.gender}) - ${voice.locale}`;
+            option.textContent = `${voice.has_styles ? '🎭 ' : ''}${voice.localName} (${voice.gender}) - ${voice.locale}`;
+            option.dataset.hasStyles = voice.has_styles;
+            option.dataset.styles = (voice.styles || []).join(',');
             optgroup.appendChild(option);
           });
           voiceSelect.appendChild(optgroup);
@@ -403,17 +428,45 @@
         data.voices.forEach(voice => {
           const option = document.createElement('option');
           option.value = voice.shortName;
-          option.textContent = `${voice.localName} (${voice.gender}) - ${voice.locale}`;
+          option.textContent = `${voice.has_styles ? '🎭 ' : ''}${voice.localName} (${voice.gender}) - ${voice.locale}`;
+          option.dataset.hasStyles = voice.has_styles;
+          option.dataset.styles = (voice.styles || []).join(',');
           all.appendChild(option);
         });
         voiceSelect.appendChild(all);
         voiceSelect.value = 'en-US-EmmaMultilingualNeural';
+        
+        // Add change listener for emotion control
+        voiceSelect.addEventListener('change', onVoiceChange);
+        onVoiceChange();
       }
     }catch(err){
       console.error(err);
       const el = document.getElementById('error');
       el.textContent = 'Failed to load voices. Please refresh.';
       el.classList.add('visible');
+    }
+  }
+  
+  function onVoiceChange() {
+    const voiceSelect = document.getElementById('voice');
+    const styleGroup = document.getElementById('styleGroup');
+    const styleSelect = document.getElementById('style');
+    const selectedVoice = voiceIndex[voiceSelect.value];
+    
+    // Reset styles
+    styleSelect.innerHTML = '<option value="">Default (no style)</option>';
+    
+    if (selectedVoice && selectedVoice.styles && selectedVoice.styles.length) {
+      selectedVoice.styles.forEach(style => {
+        const opt = document.createElement('option');
+        opt.value = style;
+        opt.textContent = style.charAt(0).toUpperCase() + style.slice(1);
+        styleSelect.appendChild(opt);
+      });
+      styleGroup.style.display = 'block';
+    } else {
+      styleGroup.style.display = 'none';
     }
   }
   function bindSlider(sliderId, outId, suffix){
@@ -431,6 +484,7 @@
     e.preventDefault();
     const text = document.getElementById('text').value;
     const voice = document.getElementById('voice').value;
+    const style = document.getElementById('style').value;
     const rate = document.getElementById('rate').value;
     const volume = document.getElementById('volume').value;
     const pitch = document.getElementById('pitch').value;
@@ -439,12 +493,32 @@
     document.getElementById('audioPlayer').style.display = 'none';
     document.getElementById('generateBtn').disabled = true;
     try{
-      const res = await fetch('/api/generate', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({
-        text, voice,
-        rate: (rate>=0?'+':'')+rate+'%',
-        volume: (volume>=0?'+':'')+volume+'%',
-        pitch: (pitch>=0?'+':'')+pitch+'Hz',
-      })});
+      // Build request body
+      let requestBody;
+      if (style) {
+        // Use SSML with emotion
+        const rateStr = (rate>=0?'+':'')+rate+'%';
+        const volumeStr = (volume>=0?'+':'')+volume+'%';
+        const pitchStr = (pitch>=0?'+':'')+pitch+'Hz';
+        const escapedText = escapeXml(text);
+        const ssml = `<speak version="1.0" xml:lang="en-US" xmlns:mstts="https://www.w3.org/2001/mstts"><voice name="${voice}"><mstts:express-as style="${style}"><prosody rate="${rateStr}" volume="${volumeStr}" pitch="${pitchStr}">${escapedText}</prosody></mstts:express-as></voice></speak>`;
+        requestBody = {
+          text: ssml,
+          voice: voice,
+          is_ssml: true
+        };
+      } else {
+        // Plain text
+        requestBody = {
+          text, 
+          voice,
+          rate: (rate>=0?'+':'')+rate+'%',
+          volume: (volume>=0?'+':'')+volume+'%',
+          pitch: (pitch>=0?'+':'')+pitch+'Hz'
+        };
+      }
+      
+      const res = await fetch('/api/generate', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(requestBody)});
       const data = await res.json();
       if(data.success){
         if(currentAudioUrl){ URL.revokeObjectURL(currentAudioUrl); }
