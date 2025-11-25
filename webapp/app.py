@@ -869,53 +869,53 @@ def api_generate():
                 and sanitized_chunks[0].get('emotion')
             )
             
-            if is_single_voice_emotion:
-                # Use native style parameter instead of SSML (if supported)
+            # Check if the installed edge-tts supports style parameter
+            import inspect
+            communicate_sig = inspect.signature(tts_module.Communicate.__init__)
+            supports_style = 'style' in communicate_sig.parameters
+            
+            if is_single_voice_emotion and supports_style:
+                # Use native style parameter (local modified edge-tts)
                 chunk = sanitized_chunks[0]
                 plain_text = chunk.get('content', '')
                 emotion = chunk.get('emotion')
-                intensity = chunk.get('intensity', 2)  # Default to medium intensity
+                intensity = chunk.get('intensity', 2)
                 style_degree = {1: 0.7, 2: 1.0, 3: 1.3}.get(intensity, 1.0)
                 
                 cache_key = hashlib.md5(f"{voice}:{plain_text}:{emotion}:{style_degree}".encode()).hexdigest()[:16]
                 
-                # Check if the installed edge-tts supports style parameter
-                import inspect
-                communicate_sig = inspect.signature(tts_module.Communicate.__init__)
-                supports_style = 'style' in communicate_sig.parameters
+                output_file = run_async(
+                    generate_speech(
+                        plain_text,
+                        voice,
+                        rate=global_controls.get('rate', 0),
+                        volume=global_controls.get('volume', 0),
+                        pitch=global_controls.get('pitch', 0),
+                        is_ssml=False,
+                        cache_key=cache_key,
+                        style=emotion,
+                        style_degree=style_degree
+                    )
+                )
+            elif is_single_voice_emotion and not supports_style:
+                # Pip version doesn't support style - use plain text without emotion
+                chunk = sanitized_chunks[0]
+                plain_text = chunk.get('content', '')
                 
-                if supports_style:
-                    # Use native style parameter (newer edge-tts)
-                    output_file = run_async(
-                        generate_speech(
-                            plain_text,
-                            voice,
-                            rate=global_controls.get('rate', 0),
-                            volume=global_controls.get('volume', 0),
-                            pitch=global_controls.get('pitch', 0),
-                            is_ssml=False,
-                            cache_key=cache_key,
-                            style=emotion,
-                            style_degree=style_degree
-                        )
+                cache_key = hashlib.md5(f"{voice}:{plain_text}".encode()).hexdigest()[:16]
+                
+                output_file = run_async(
+                    generate_speech(
+                        plain_text,
+                        voice,
+                        rate=global_controls.get('rate', 0),
+                        volume=global_controls.get('volume', 0),
+                        pitch=global_controls.get('pitch', 0),
+                        is_ssml=False,
+                        cache_key=cache_key
                     )
-                else:
-                    # Fall back to SSML building (older edge-tts from pip)
-                    primary_voice = sanitized_chunks[0].get('voice') if sanitized_chunks else voice
-                    cache_key = hashlib.md5(f"{primary_voice}:{ssml_text}".encode()).hexdigest()[:16]
-
-                    output_file = run_async(
-                        generate_speech(
-                            ssml_text,
-                            primary_voice,
-                            rate=None,
-                            volume=None,
-                            pitch=None,
-                            is_ssml=True,
-                            cache_key=cache_key,
-                            is_full_ssml=is_full_ssml
-                        )
-                    )
+                )
+                style_warnings.append("Emotion not supported on this server version - generating without emotion")
             else:
                 # Multi-voice or complex SSML - use SSML building
                 primary_voice = sanitized_chunks[0].get('voice') if sanitized_chunks else voice
