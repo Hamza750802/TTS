@@ -843,9 +843,15 @@ def api_generate():
                 
                 # Validate emotion against chunk's specific voice
                 allowed_styles = voice_styles_map.get(chunk_voice, [])
+                
+                # DEBUG: Log validation details
+                print(f"[DEBUG] Chunk {idx}: voice={chunk_voice}, emotion={emotion}")
+                print(f"[DEBUG] Allowed styles for {chunk_voice}: {allowed_styles}")
+                
                 if emotion and allowed_styles and emotion not in allowed_styles:
                     style_warnings.append(f"chunk {idx}: emotion '{emotion}' not supported by {chunk_voice}, removed")
                     chunk_copy['emotion'] = None
+                    print(f"[DEBUG] Emotion removed due to validation failure")
                 
                 # Ensure voice is set for tracking
                 chunk_copy['voice'] = chunk_voice
@@ -1253,8 +1259,14 @@ def api_synthesize():
                 
                 # Validate emotion
                 allowed_styles = voice_styles_map.get(chunk_voice, [])
+                
+                # DEBUG: Log validation details
+                print(f"[API v1 DEBUG] Chunk {idx}: voice={chunk_voice}, emotion={emotion}")
+                print(f"[API v1 DEBUG] Allowed styles for {chunk_voice}: {allowed_styles}")
+                
                 if emotion and allowed_styles and emotion not in allowed_styles:
                     chunk_copy['emotion'] = None
+                    print(f"[API v1 DEBUG] Emotion removed due to validation failure")
                 
                 chunk_copy['voice'] = chunk_voice
                 sanitized_chunks.append(chunk_copy)
