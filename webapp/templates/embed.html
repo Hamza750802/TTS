@@ -356,7 +356,7 @@
                 selectedVoice.styles.forEach(style => {
                     const opt = document.createElement('option');
                     opt.value = style;
-                    opt.textContent = `${style} (emotion)`;
+                    opt.textContent = style.charAt(0).toUpperCase() + style.slice(1);
                     styleSelect.appendChild(opt);
                 });
                 styleGroup.style.display = 'block';
