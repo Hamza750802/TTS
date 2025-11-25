@@ -38,12 +38,14 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_wtf.csrf import CSRFProtect
 from werkzeug.security import check_password_hash, generate_password_hash
 
+# Import local modified edge_tts first (for emotion support)
+import sys
+from pathlib import Path
+webapp_dir = Path(__file__).parent
+sys.path.insert(0, str(webapp_dir))  # Ensure local edge_tts is imported first
 import edge_tts
 
 # Import chunking and SSML modules from same directory
-import sys
-from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent))
 from chunk_processor import process_text
 from ssml_builder import build_ssml
 
