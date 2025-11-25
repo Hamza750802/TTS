@@ -59,18 +59,11 @@
     input,select,textarea{width:100%;padding:12px 14px;border-radius:12px;border:2px solid #e5e7eb;background:white;color:#1f2937}
     input::placeholder,textarea::placeholder{color:#9ca3af}
     label{display:block;margin:8px 2px 6px 2px;color:#374151;font-weight:600}
-    .announcement-banner{background:linear-gradient(90deg,#3b82f6,#8b5cf6);color:white;text-align:center;padding:12px 24px;font-weight:600;font-size:15px;box-shadow:0 2px 8px rgba(59,130,246,.2)}
+    .announcement-banner{background:linear-gradient(90deg,#3b82f6,#8b5cf6);color:white;text-align:center;padding:16px 24px;font-weight:600;font-size:15px;box-shadow:0 2px 8px rgba(59,130,246,.2);line-height:1.6}
     .announcement-banner .emoji{font-size:18px;margin-right:8px}
-    .announcement-banner .info-icon{display:inline-block;width:20px;height:20px;background:rgba(255,255,255,0.3);border-radius:50%;text-align:center;line-height:20px;font-size:12px;font-weight:bold;margin-left:8px;cursor:pointer;transition:all .2s}
-    .announcement-banner .info-icon:hover{background:rgba(255,255,255,0.5);transform:scale(1.1)}
-    .modal{display:none;position:fixed;z-index:9999;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px)}
-    .modal.show{display:flex;align-items:center;justify-content:center}
-    .modal-content{background:white;padding:32px;border-radius:16px;max-width:500px;margin:20px;box-shadow:0 20px 60px rgba(0,0,0,0.3);animation:modalSlideIn .3s ease}
-    @keyframes modalSlideIn{from{transform:translateY(-30px);opacity:0}to{transform:translateY(0);opacity:1}}
-    .modal-content h3{margin:0 0 16px 0;font-size:24px;color:#1f2937}
-    .modal-content p{margin:0 0 24px 0;color:#6b7280;line-height:1.6}
-    .modal-close{background:linear-gradient(90deg,#3b82f6,#8b5cf6);color:white;border:none;padding:12px 24px;border-radius:8px;font-weight:600;cursor:pointer;width:100%}
-    .modal-close:hover{opacity:0.9}
+    .announcement-banner .separator{margin:0 16px;opacity:0.5}
+    .announcement-banner strong{font-weight:700;text-decoration:underline}
+    @media (max-width:768px){.announcement-banner{font-size:14px;padding:12px 16px}.announcement-banner .separator{display:block;margin:8px 0;opacity:0}}
   </style>
   {% block head %}{% endblock %}
   {% with messages = get_flashed_messages(with_categories=true) %}
@@ -84,18 +77,8 @@
 <body>
   <div class="announcement-banner">
     <span class="emoji">🎭</span> Dynamic emotion control coming soon! Add feelings like cheerful, sad, and angry to your voices.
-    <span class="info-icon" onclick="document.getElementById('apiModal').classList.add('show')">ℹ</span>
-  </div>
-  
-  <!-- API Upgrade Modal -->
-  <div id="apiModal" class="modal" onclick="if(event.target === this) this.classList.remove('show')">
-    <div class="modal-content">
-      <h3>🔧 API Upgrade Notice</h3>
-      <p>Our API functionality is currently being upgraded to provide you with better performance and new features.</p>
-      <p><strong>Expected completion:</strong> Within 1 week</p>
-      <p>Thank you for your patience! The web interface continues to work normally.</p>
-      <button class="modal-close" onclick="document.getElementById('apiModal').classList.remove('show')">Got it!</button>
-    </div>
+    <span class="separator">•</span>
+    <span class="emoji">🔧</span> <strong>API upgrade in progress</strong> — Expected completion within 1 week. Web interface fully functional.
   </div>
   
   <div class="container">

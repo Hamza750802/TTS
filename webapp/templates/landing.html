@@ -361,32 +361,34 @@
             background: linear-gradient(90deg, #3b82f6, #8b5cf6);
             color: white;
             text-align: center;
-            padding: 12px 24px;
+            padding: 16px 24px;
             font-weight: 600;
             font-size: 15px;
             box-shadow: 0 2px 8px rgba(59, 130, 246, 0.2);
+            line-height: 1.6;
         }
         .announcement-banner .emoji {
             font-size: 18px;
             margin-right: 8px;
         }
-        .announcement-banner .info-icon {
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            background: rgba(255,255,255,0.3);
-            border-radius: 50%;
-            text-align: center;
-            line-height: 20px;
-            font-size: 12px;
-            font-weight: bold;
-            margin-left: 8px;
-            cursor: pointer;
-            transition: all 0.2s;
+        .announcement-banner .separator {
+            margin: 0 16px;
+            opacity: 0.5;
         }
-        .announcement-banner .info-icon:hover {
-            background: rgba(255,255,255,0.5);
-            transform: scale(1.1);
+        .announcement-banner strong {
+            font-weight: 700;
+            text-decoration: underline;
+        }
+        @media (max-width: 768px) {
+            .announcement-banner {
+                font-size: 14px;
+                padding: 12px 16px;
+            }
+            .announcement-banner .separator {
+                display: block;
+                margin: 8px 0;
+                opacity: 0;
+            }
         }
         
         /* Modal */
@@ -443,18 +445,8 @@
 <body>
     <div class="announcement-banner">
         <span class="emoji">🎭</span> Dynamic emotion control coming soon! Add feelings like cheerful, sad, and angry to your voices.
-        <span class="info-icon" onclick="document.getElementById('apiModal').classList.add('show')">ℹ</span>
-    </div>
-    
-    <!-- API Upgrade Modal -->
-    <div id="apiModal" class="modal" onclick="if(event.target === this) this.classList.remove('show')">
-        <div class="modal-content">
-            <h3>🔧 API Upgrade Notice</h3>
-            <p>Our API functionality is currently being upgraded to provide you with better performance and new features.</p>
-            <p><strong>Expected completion:</strong> Within 1 week</p>
-            <p>Thank you for your patience! The web interface continues to work normally.</p>
-            <button class="modal-close" onclick="document.getElementById('apiModal').classList.remove('show')">Got it!</button>
-        </div>
+        <span class="separator">•</span>
+        <span class="emoji">🔧</span> <strong>API upgrade in progress</strong> — Expected completion within 1 week. Web interface fully functional.
     </div>
     
     <nav>
