@@ -932,10 +932,8 @@
       audio.src = data.audioUrl;
       document.getElementById('downloadLink').href = data.audioUrl;
       document.getElementById('audioPlayer').style.display = 'block';
-      if(data.warnings && data.warnings.length){
-        const warnEl = document.getElementById('warningList');
-        warnEl.textContent = `Warnings: ${data.warnings.join('; ')}`;
-      }
+      // Clear any previous warnings (internal technical info, not shown to users)
+      document.getElementById('warningList').textContent = '';
       audio.play();
     }catch(err){
       const el = document.getElementById('error');
@@ -1016,8 +1014,8 @@
           const ssmlTextarea = document.getElementById('ssmlPreview');
           ssmlEl.style.display = 'block';
           ssmlTextarea.value = data.ssml_used;
-          const warnEl = document.getElementById('warningList');
-          warnEl.textContent = (data.warnings && data.warnings.length) ? `Warnings: ${data.warnings.join('; ')}` : '';
+          // Clear warnings (internal technical info, not shown to users)
+          document.getElementById('warningList').textContent = '';
         }
         audio.play();
       } else {
