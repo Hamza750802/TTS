@@ -50,12 +50,24 @@ def get_headers_and_data(
 
     Returns:
         tuple: The headers and data to be used in the request.
+    
+    Raises:
+        UnexpectedResponse: If the header is malformed (missing separator or invalid format).
     """
     if not isinstance(data, bytes):
         raise TypeError("data must be bytes")
+    
+    if header_length < 0:
+        raise UnexpectedResponse("Malformed response: header separator not found")
 
     headers = {}
     for line in data[:header_length].split(b"\r\n"):
+        # Skip empty lines
+        if not line or not line.strip():
+            continue
+        # Validate line contains a colon separator
+        if b":" not in line:
+            raise UnexpectedResponse(f"Malformed header line (missing colon): {line!r}")
         key, value = line.split(b":", 1)
         headers[key] = value
 
@@ -124,26 +136,29 @@ def _find_last_newline_or_space_within_limit(text: bytes, limit: int) -> int:
     return split_at
 
 
-def _find_safe_utf8_split_point(text_segment: bytes) -> int:
+def _find_safe_utf8_split_point(text_segment: bytes, byte_length: int) -> int:
     """
-    Finds the rightmost possible byte index such that the
+    Finds the rightmost possible byte index within byte_length such that the
     segment `text_segment[:index]` is a valid UTF-8 sequence.
 
     This prevents splitting in the middle of a multi-byte UTF-8 character.
 
     Args:
         text_segment (bytes): The byte segment being considered for splitting.
+        byte_length (int): The maximum byte length to search within.
 
     Returns:
         int: The index of the safe split point. Returns 0 if no valid split
              point is found (e.g., if the first byte is part of a multi-byte
              sequence longer than the limit allows).
     """
-    split_at = len(text_segment)
+    # Limit search to first byte_length bytes to prevent oversized chunks
+    search_limit = min(len(text_segment), byte_length)
+    split_at = search_limit
     while split_at > 0:
         try:
             text_segment[:split_at].decode("utf-8")
-            # Found the largest valid UTF-8 sequence
+            # Found the largest valid UTF-8 sequence within limit
             return split_at
         except UnicodeDecodeError:
             # The byte at split_at-1 is part of an incomplete multi-byte char, try earlier
@@ -222,8 +237,15 @@ def split_text_by_byte_length(
         split_at = _find_last_newline_or_space_within_limit(text, byte_length)
 
         if split_at < 0:
-            ## No newline or space found, so we need to find a safe UTF-8 split point
-            split_at = _find_safe_utf8_split_point(text)
+            # No newline or space found within limit, find a safe UTF-8 split point
+            # Pass byte_length to ensure we don't exceed the limit
+            split_at = _find_safe_utf8_split_point(text, byte_length)
+            
+            if split_at == 0:
+                raise ValueError(
+                    f"Cannot find safe split point within {byte_length} bytes. "
+                    "Text may contain extremely long words or continuous text without spaces."
+                )
 
         # Adjust the split point to avoid cutting in the middle of an xml entity, such as '&amp;'
         split_at = _adjust_split_point_for_xml_entity(text, split_at)
@@ -265,8 +287,16 @@ def mkssml(tc: TTSConfig, escaped_text: Union[str, bytes]) -> str:
     if isinstance(escaped_text, bytes):
         escaped_text = escaped_text.decode("utf-8")
 
+    # Check if text contains mstts tags that require the mstts namespace
+    needs_mstts_ns = "mstts:" in escaped_text or "<mstts:" in escaped_text
+    
+    # Build namespace declarations
+    namespaces = "xmlns='http://www.w3.org/2001/10/synthesis'"
+    if needs_mstts_ns:
+        namespaces += " xmlns:mstts='https://www.w3.org/2001/mstts'"
+
     return (
-        "<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='en-US'>"
+        f"<speak version='1.0' {namespaces} xml:lang='en-US'>"
         f"<voice name='{tc.voice}'>"
         f"<prosody pitch='{tc.pitch}' rate='{tc.rate}' volume='{tc.volume}'>"
         f"{escaped_text}"
