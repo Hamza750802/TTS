@@ -253,7 +253,7 @@ async def generate_speech(text, voice, rate=None, volume=None, pitch=None, is_ss
 
     if is_full_ssml:
         # Full SSML with <speak> wrapper (multi-voice) - need full passthrough
-        def mkssml_passthrough(tc, escaped_text):
+        def mkssml_passthrough(tc, escaped_text, style=None, role=None, style_degree=None):
             if isinstance(escaped_text, bytes):
                 escaped_text = escaped_text.decode("utf-8")
             return escaped_text
