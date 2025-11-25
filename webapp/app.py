@@ -282,6 +282,40 @@ async def generate_speech(text, voice, rate=None, volume=None, pitch=None, is_ss
         tts_comm.escape = lambda x: x  # Don't escape - text already has SSML tags
         
         try:
+            # Check if style parameter is supported
+            import inspect
+            communicate_sig = inspect.signature(tts_module.Communicate.__init__)
+            supports_style = 'style' in communicate_sig.parameters
+            
+            if supports_style and (style is not None or style_degree is not None):
+                communicate = tts_module.Communicate(
+                    text=text,
+                    voice=voice,
+                    rate=rate or "+0%",
+                    volume=volume or "+0%",
+                    pitch=pitch or "+0Hz",
+                    style=style,
+                    style_degree=style_degree
+                )
+            else:
+                communicate = tts_module.Communicate(
+                    text=text,
+                    voice=voice,
+                    rate=rate or "+0%",
+                    volume=volume or "+0%",
+                    pitch=pitch or "+0Hz"
+                )
+            await communicate.save(str(output_file))
+        finally:
+            tts_comm.escape = original_escape
+    else:
+        # Regular text-to-speech (non-SSML)
+        # Check if style parameter is supported
+        import inspect
+        communicate_sig = inspect.signature(tts_module.Communicate.__init__)
+        supports_style = 'style' in communicate_sig.parameters
+        
+        if supports_style and (style is not None or style_degree is not None):
             communicate = tts_module.Communicate(
                 text=text,
                 voice=voice,
@@ -291,20 +325,14 @@ async def generate_speech(text, voice, rate=None, volume=None, pitch=None, is_ss
                 style=style,
                 style_degree=style_degree
             )
-            await communicate.save(str(output_file))
-        finally:
-            tts_comm.escape = original_escape
-    else:
-        # Regular text-to-speech (non-SSML)
-        communicate = tts_module.Communicate(
-            text=text,
-            voice=voice,
-            rate=rate or "+0%",
-            volume=volume or "+0%",
-            pitch=pitch or "+0Hz",
-            style=style,
-            style_degree=style_degree
-        )
+        else:
+            communicate = tts_module.Communicate(
+                text=text,
+                voice=voice,
+                rate=rate or "+0%",
+                volume=volume or "+0%",
+                pitch=pitch or "+0Hz"
+            )
         await communicate.save(str(output_file))
 
     return output_file
@@ -842,7 +870,7 @@ def api_generate():
             )
             
             if is_single_voice_emotion:
-                # Use native style parameter instead of SSML
+                # Use native style parameter instead of SSML (if supported)
                 chunk = sanitized_chunks[0]
                 plain_text = chunk.get('content', '')
                 emotion = chunk.get('emotion')
@@ -851,19 +879,43 @@ def api_generate():
                 
                 cache_key = hashlib.md5(f"{voice}:{plain_text}:{emotion}:{style_degree}".encode()).hexdigest()[:16]
                 
-                output_file = run_async(
-                    generate_speech(
-                        plain_text,
-                        voice,
-                        rate=global_controls.get('rate', 0),
-                        volume=global_controls.get('volume', 0),
-                        pitch=global_controls.get('pitch', 0),
-                        is_ssml=False,
-                        cache_key=cache_key,
-                        style=emotion,
-                        style_degree=style_degree
+                # Check if the installed edge-tts supports style parameter
+                import inspect
+                communicate_sig = inspect.signature(tts_module.Communicate.__init__)
+                supports_style = 'style' in communicate_sig.parameters
+                
+                if supports_style:
+                    # Use native style parameter (newer edge-tts)
+                    output_file = run_async(
+                        generate_speech(
+                            plain_text,
+                            voice,
+                            rate=global_controls.get('rate', 0),
+                            volume=global_controls.get('volume', 0),
+                            pitch=global_controls.get('pitch', 0),
+                            is_ssml=False,
+                            cache_key=cache_key,
+                            style=emotion,
+                            style_degree=style_degree
+                        )
                     )
-                )
+                else:
+                    # Fall back to SSML building (older edge-tts from pip)
+                    primary_voice = sanitized_chunks[0].get('voice') if sanitized_chunks else voice
+                    cache_key = hashlib.md5(f"{primary_voice}:{ssml_text}".encode()).hexdigest()[:16]
+
+                    output_file = run_async(
+                        generate_speech(
+                            ssml_text,
+                            primary_voice,
+                            rate=None,
+                            volume=None,
+                            pitch=None,
+                            is_ssml=True,
+                            cache_key=cache_key,
+                            is_full_ssml=is_full_ssml
+                        )
+                    )
             else:
                 # Multi-voice or complex SSML - use SSML building
                 primary_voice = sanitized_chunks[0].get('voice') if sanitized_chunks else voice
