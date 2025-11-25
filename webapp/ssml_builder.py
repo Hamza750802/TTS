@@ -54,7 +54,15 @@ def _format_percent(val: float) -> str:
 
 
 def _format_volume_db(val: float) -> str:
-    return f"{val:+.1f}dB"
+    """Format volume as percentage for SSML prosody tag.
+    
+    Note: dB format like '+0.0dB' doesn't work with raw SSML passthrough.
+    Microsoft's prosody tag expects percentage or keywords for volume.
+    """
+    # Convert dB to rough percentage equivalent
+    # 0dB = 0%, -10dB = -100%, +10dB = +100% (rough approximation)
+    percent = val * 10  # Scale -10..+10 to -100..+100
+    return f"{percent:+.0f}%"
 
 
 def _styledegree(intensity: Optional[int]) -> float:

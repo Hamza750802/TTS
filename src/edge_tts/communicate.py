@@ -358,6 +358,7 @@ class Communicate:
         proxy: Optional[str] = None,
         connect_timeout: Optional[int] = 10,
         receive_timeout: Optional[int] = 60,
+        raw_ssml: bool = False,
     ):
         # Validate TTS settings and store the TTSConfig object.
         self.tts_config = TTSConfig(voice, rate, volume, pitch, boundary)
@@ -367,10 +368,17 @@ class Communicate:
             raise TypeError("text must be str")
 
         # Split the text into multiple strings and store them.
-        self.texts = split_text_by_byte_length(
-            escape(remove_incompatible_characters(text)),
-            4096,
-        )
+        # If raw_ssml=True, the text contains pre-escaped SSML tags that should not be re-escaped
+        if raw_ssml:
+            self.texts = split_text_by_byte_length(
+                remove_incompatible_characters(text),
+                4096,
+            )
+        else:
+            self.texts = split_text_by_byte_length(
+                escape(remove_incompatible_characters(text)),
+                4096,
+            )
 
         # Validate the proxy parameter.
         if proxy is not None and not isinstance(proxy, str):

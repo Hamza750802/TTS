@@ -254,11 +254,9 @@ async def generate_speech(text, voice, rate=None, volume=None, pitch=None, is_ss
                 escaped_text = escaped_text.decode("utf-8")
             return escaped_text
         
-        # Replace mkssml and escape temporarily
+        # Replace mkssml temporarily (text is already complete SSML)
         original_mkssml = tts_comm.mkssml
-        original_escape = tts_comm.escape
         tts_comm.mkssml = mkssml_passthrough
-        tts_comm.escape = lambda x: x  # Don't escape SSML tags
         
         try:
             communicate = tts_module.Communicate(
@@ -266,22 +264,23 @@ async def generate_speech(text, voice, rate=None, volume=None, pitch=None, is_ss
                 voice=voice,
                 rate="+0%",
                 volume="+0%",
-                pitch="+0Hz"
+                pitch="+0Hz",
+                raw_ssml=True  # Don't escape SSML tags
             )
             await communicate.save(str(output_file))
         finally:
-            # Restore originals
+            # Restore original
             tts_comm.mkssml = original_mkssml
-            tts_comm.escape = original_escape
     elif is_ssml:
         # Inner SSML tags (like mstts:express-as, prosody, break) 
-        # Pass directly to edge-tts - it will handle the tags properly
+        # Use raw_ssml=True to prevent double-escaping of SSML tags
         communicate = tts_module.Communicate(
             text=text,
             voice=voice,
             rate=rate or "+0%",
             volume=volume or "+0%",
-            pitch=pitch or "+0Hz"
+            pitch=pitch or "+0Hz",
+            raw_ssml=True  # Don't escape SSML tags
         )
         await communicate.save(str(output_file))
     else:
