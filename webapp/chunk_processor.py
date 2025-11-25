@@ -13,7 +13,7 @@ Chunk = Dict[str, Any]
 
 def _parse_inline_marker(raw: str) -> Marker:
     """
-    Parse an inline marker of the form [[emotion=cheerful;intensity=2;pitch=5;speed=95]]
+    Parse an inline marker of the form [[voice=en-US-JennyNeural;emotion=cheerful;intensity=2;pitch=5;speed=95]]
     Returns a dict of overrides; unknown keys are ignored.
     """
     marker: Marker = {}
@@ -26,7 +26,9 @@ def _parse_inline_marker(raw: str) -> Marker:
         val = val.strip()
         if not val:
             continue
-        if key in ("emotion", "style"):
+        if key == "voice":
+            marker["voice"] = val
+        elif key in ("emotion", "style"):
             marker["emotion"] = val
         elif key in ("intensity", "styledegree"):
             try:
@@ -168,6 +170,7 @@ def process_text(
     chunks = _apply_markers_to_chunks(splits, markers)
     # Ensure keys exist
     for chunk in chunks:
+        chunk.setdefault("voice", None)
         chunk.setdefault("emotion", None)
         chunk.setdefault("intensity", None)
         chunk.setdefault("pitch", None)

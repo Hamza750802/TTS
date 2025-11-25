@@ -786,25 +786,31 @@ def api_generate():
             if not isinstance(chunks, list) or not chunks:
                 return jsonify({'success': False, 'error': 'chunks must be a non-empty list'}), 400
 
-            # Sanitize emotions against allowed styles for voice
+            # Build voice -> allowed styles map for multi-speaker validation
             try:
                 voices = run_async(get_voices())
-                allowed_styles = []
+                voice_styles_map = {}
                 for v in voices:
-                    if v.get('ShortName') == voice:
-                        allowed_styles = v.get('StyleList') or []
-                        break
+                    voice_styles_map[v.get('ShortName')] = v.get('StyleList') or []
             except Exception:
-                allowed_styles = []
+                voice_styles_map = {}
 
             sanitized_chunks = []
             style_warnings = []
             for idx, chunk in enumerate(chunks):
                 chunk_copy = dict(chunk)
+                # Use chunk-specific voice or fall back to global voice
+                chunk_voice = chunk_copy.get('voice') or voice
                 emotion = chunk_copy.get('emotion')
+                
+                # Validate emotion against chunk's specific voice
+                allowed_styles = voice_styles_map.get(chunk_voice, [])
                 if emotion and allowed_styles and emotion not in allowed_styles:
-                    style_warnings.append(f"chunk {idx}: emotion '{emotion}' not supported by {voice}, removed")
+                    style_warnings.append(f"chunk {idx}: emotion '{emotion}' not supported by {chunk_voice}, removed")
                     chunk_copy['emotion'] = None
+                
+                # Ensure voice is set for tracking
+                chunk_copy['voice'] = chunk_voice
                 sanitized_chunks.append(chunk_copy)
 
             ssml_result = build_ssml(
@@ -1104,6 +1110,7 @@ def api_synthesize():
         volume = data.get('volume', '+0%')
         pitch = data.get('pitch', '+0Hz')
         is_ssml = bool(data.get('is_ssml')) or raw_text.strip().lower().startswith('<speak')
+        chunks = data.get('chunks')  # Support chunks for multi-speaker dialogue
         
         # Ensure proper formatting
         if not rate.startswith(('+', '-')):
@@ -1113,6 +1120,64 @@ def api_synthesize():
         if not pitch.startswith(('+', '-')):
             pitch = '+' + pitch
         
+        # --- Chunked SSML path (multi-speaker dialogue) ---
+        if chunks is not None:
+            if not isinstance(chunks, list) or not chunks:
+                return jsonify({'success': False, 'error': 'chunks must be a non-empty list'}), 400
+
+            # Build voice -> styles map for validation
+            try:
+                voices = run_async(get_voices())
+                voice_styles_map = {}
+                for v in voices:
+                    voice_styles_map[v.get('ShortName')] = v.get('StyleList') or []
+            except Exception:
+                voice_styles_map = {}
+
+            sanitized_chunks = []
+            for idx, chunk in enumerate(chunks):
+                chunk_copy = dict(chunk)
+                chunk_voice = chunk_copy.get('voice') or voice
+                emotion = chunk_copy.get('emotion')
+                
+                # Validate emotion
+                allowed_styles = voice_styles_map.get(chunk_voice, [])
+                if emotion and allowed_styles and emotion not in allowed_styles:
+                    chunk_copy['emotion'] = None
+                
+                chunk_copy['voice'] = chunk_voice
+                sanitized_chunks.append(chunk_copy)
+
+            ssml_result = build_ssml(
+                voice=voice,
+                chunks=sanitized_chunks,
+                auto_pauses=True,
+                auto_emphasis=True,
+            )
+            ssml_text = ssml_result['ssml']
+            cache_key = hashlib.md5(f"{voice}:{ssml_text}".encode()).hexdigest()[:16]
+
+            output_file = run_async(
+                generate_speech(
+                    ssml_text,
+                    voice,
+                    rate=None,
+                    volume=None,
+                    pitch=None,
+                    is_ssml=True,
+                    cache_key=cache_key
+                )
+            )
+            
+            audio_url = request.url_root.rstrip('/') + f'/api/audio/{output_file.name}'
+            return jsonify({
+                'success': True,
+                'audio_url': audio_url,
+                'filename': output_file.name,
+                'chunks_processed': len(sanitized_chunks)
+            })
+        
+        # --- Single voice path ---
         if not text:
             return jsonify({'success': False, 'error': 'Text is required'}), 400
         

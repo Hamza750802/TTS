@@ -115,16 +115,19 @@ def build_ssml(
 ) -> Dict[str, Any]:
     """
     Build SSML string from chunk map and return ssml + resolved chunk_map + warnings.
+    Supports per-chunk voice changes for multi-speaker dialogue.
     """
     warnings: List[str] = []
     resolved_chunks: List[Dict[str, Any]] = []
     ssml_parts: List[str] = []
+    current_voice = voice  # Track voice changes
 
     for idx, raw_chunk in enumerate(chunks):
         text = str(raw_chunk.get("content", "")).strip()
         if not text:
             continue
 
+        chunk_voice = raw_chunk.get("voice") or current_voice
         emotion = raw_chunk.get("emotion")
         intensity = raw_chunk.get("intensity")
 
@@ -171,10 +174,19 @@ def build_ssml(
             if pause:
                 chunk_ssml += f"<break time=\"{pause}\"/>"
 
+        # If voice changed, wrap in new voice tag
+        if chunk_voice != current_voice:
+            # Close previous voice if not first chunk
+            if ssml_parts:
+                ssml_parts.append("</voice>")
+            ssml_parts.append(f"<voice name=\"{html.escape(chunk_voice)}\">")
+            current_voice = chunk_voice
+
         ssml_parts.append(chunk_ssml)
         resolved_chunks.append(
             {
                 "content": text,
+                "voice": chunk_voice,
                 "emotion": emotion,
                 "intensity": intensity,
                 "rate": rate_val,
@@ -183,17 +195,23 @@ def build_ssml(
             }
         )
 
-    body = "".join(ssml_parts)
+    # Close final voice tag if we have content
+    if ssml_parts:
+        ssml_parts.append("</voice>")
+    
+    # Build final SSML - start with default voice if no chunks specified voice
+    body_parts = []
+    if chunks and not chunks[0].get("voice"):
+        body_parts.append(f"<voice name=\"{html.escape(voice)}\">")
+    body_parts.extend(ssml_parts)
+    
+    body = "".join(body_parts)
     speak = (
         "<speak version=\"1.0\" xmlns=\"http://www.w3.org/2001/10/synthesis\" "
         "xmlns:mstts=\"https://www.w3.org/2001/mstts\" xml:lang=\"en-US\">"
-        f"<voice name=\"{html.escape(voice)}\">"
         f"{body}"
-        "</voice>"
         "</speak>"
-    )
-
-    # Length guard
+    )    # Length guard
     if len(speak) > 50000:
         warnings.append(f"SSML length {len(speak)} exceeded 50k; consider chunking input further.")
 
