@@ -620,6 +620,7 @@ def api_preview():
         rate = data.get('rate', '+0%')
         volume = data.get('volume', '+0%')
         pitch = data.get('pitch', '+0Hz')
+        is_ssml = bool(data.get('is_ssml'))
         
         # Ensure proper formatting for rate, volume, and pitch
         if not rate.startswith(('+', '-')):
@@ -632,16 +633,28 @@ def api_preview():
         if not text:
             return jsonify({'success': False, 'error': 'No text provided'}), 400
         
-        # Enforce 150 character limit for preview
-        if len(text) > 150:
+        # Enforce 150 character limit for preview (count only actual text, not SSML markup)
+        if is_ssml:
+            # Extract text content from SSML to check length
+            import re
+            # Remove all XML tags to get just the text content
+            text_only = re.sub(r'<[^>]+>', '', text)
+            char_count = len(text_only)
+        else:
+            char_count = len(text)
+            
+        if char_count > 150:
             return jsonify({
                 'success': False, 
-                'error': f'Preview limited to 150 characters. You entered {len(text)}. Sign up for unlimited!'
+                'error': f'Preview limited to 150 characters. You entered {char_count}. Sign up for unlimited!'
             }), 400
         
         # Generate speech
         try:
-            output_file = run_async(generate_speech(text, voice, rate, volume, pitch))
+            if is_ssml:
+                output_file = run_async(generate_speech(text, voice, rate, volume, pitch, is_ssml=True))
+            else:
+                output_file = run_async(generate_speech(text, voice, rate, volume, pitch))
         except Exception as gen_error:
             return jsonify({'success': False, 'error': f'Speech generation failed: {str(gen_error)}'}), 500
         
