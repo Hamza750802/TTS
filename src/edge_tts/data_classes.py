@@ -86,6 +86,9 @@ class UtilArgs(argparse.Namespace):
     rate: str
     volume: str
     pitch: str
+    style: str
+    role: str
+    style_degree: float
     write_media: str
     write_subtitles: str
     proxy: str

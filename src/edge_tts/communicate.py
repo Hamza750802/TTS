@@ -274,13 +274,22 @@ def split_text_by_byte_length(
         yield remaining_chunk
 
 
-def mkssml(tc: TTSConfig, escaped_text: Union[str, bytes]) -> str:
+def mkssml(
+    tc: TTSConfig,
+    escaped_text: Union[str, bytes],
+    style: Optional[str] = None,
+    role: Optional[str] = None,
+    style_degree: Optional[float] = None,
+) -> str:
     """
     Creates a SSML string from the given parameters.
 
     Args:
         tc (TTSConfig): The TTS configuration.
         escaped_text (str or bytes): The escaped text. If bytes, it must be UTF-8 encoded.
+        style (Optional[str]): MSTTS style/emotion to apply (e.g., "cheerful").
+        role (Optional[str]): Optional MSTTS role (e.g., "Girl", "Boy").
+        style_degree (Optional[float]): Optional MSTTS style degree between 0.0 and 2.0.
 
     Returns:
         str: The SSML string.
@@ -289,7 +298,13 @@ def mkssml(tc: TTSConfig, escaped_text: Union[str, bytes]) -> str:
         escaped_text = escaped_text.decode("utf-8")
 
     # Check if text contains mstts tags that require the mstts namespace
-    needs_mstts_ns = "mstts:" in escaped_text or "<mstts:" in escaped_text
+    needs_mstts_ns = (
+        "mstts:" in escaped_text
+        or "<mstts:" in escaped_text
+        or style is not None
+        or role is not None
+        or style_degree is not None
+    )
 
     # Build namespace declarations
     namespaces = "xmlns='http://www.w3.org/2001/10/synthesis'"
@@ -302,12 +317,27 @@ def mkssml(tc: TTSConfig, escaped_text: Union[str, bytes]) -> str:
     )
     locale = locale_match.group(1) if locale_match else "en-US"
 
-    return (
-        f"<speak version='1.0' {namespaces} xml:lang='{locale}'>"
-        f"<voice name='{tc.voice}'>"
+    # Build the inner content with optional style wrapping
+    prosody_block = (
         f"<prosody pitch='{tc.pitch}' rate='{tc.rate}' volume='{tc.volume}'>"
         f"{escaped_text}"
         "</prosody>"
+    )
+    if style is not None or role is not None or style_degree is not None:
+        attrs = []
+        if style is not None:
+            attrs.append(f"style='{style}'")
+        if role is not None:
+            attrs.append(f"role='{role}'")
+        if style_degree is not None:
+            attrs.append(f"styledegree='{style_degree}'")
+        attr_str = " ".join(attrs)
+        prosody_block = f"<mstts:express-as {attr_str}>{prosody_block}</mstts:express-as>"
+
+    return (
+        f"<speak version='1.0' {namespaces} xml:lang='{locale}'>"
+        f"<voice name='{tc.voice}'>"
+        f"{prosody_block}"
         "</voice>"
         "</speak>"
     )
@@ -360,6 +390,9 @@ class Communicate:
         rate: str = "+0%",
         volume: str = "+0%",
         pitch: str = "+0Hz",
+        style: Optional[str] = None,
+        role: Optional[str] = None,
+        style_degree: Optional[float] = None,
         boundary: Literal["WordBoundary", "SentenceBoundary"] = "SentenceBoundary",
         connector: Optional[aiohttp.BaseConnector] = None,
         proxy: Optional[str] = None,
@@ -373,6 +406,22 @@ class Communicate:
         # Validate the text parameter.
         if not isinstance(text, str):
             raise TypeError("text must be str")
+
+        # Validate the style/emotion parameters.
+        if style is not None and not isinstance(style, str):
+            raise TypeError("style must be str or None")
+        if role is not None and not isinstance(role, str):
+            raise TypeError("role must be str or None")
+        if style_degree is not None:
+            if not isinstance(style_degree, (int, float)):
+                raise TypeError("style_degree must be int or float")
+            if not 0.0 <= float(style_degree) <= 2.0:
+                raise ValueError("style_degree must be between 0.0 and 2.0")
+        self.style: Optional[str] = style
+        self.role: Optional[str] = role
+        self.style_degree: Optional[float] = (
+            float(style_degree) if style_degree is not None else None
+        )
 
         # Split the text into multiple strings and store them.
         # If raw_ssml=True, the text contains pre-escaped SSML tags that should not be re-escaped
@@ -462,6 +511,9 @@ class Communicate:
                     mkssml(
                         self.tts_config,
                         self.state["partial_text"],
+                        style=self.style,
+                        role=self.role,
+                        style_degree=self.style_degree,
                     ),
                 )
             )

@@ -52,6 +52,9 @@ async def _run_tts(args: UtilArgs) -> None:
         rate=args.rate,
         volume=args.volume,
         pitch=args.pitch,
+        style=args.style,
+        role=args.role,
+        style_degree=args.style_degree,
         proxy=args.proxy,
     )
     submaker = SubMaker()
@@ -107,6 +110,13 @@ async def amain() -> None:
     parser.add_argument("--rate", help="set TTS rate. Default +0%%.", default="+0%")
     parser.add_argument("--volume", help="set TTS volume. Default +0%%.", default="+0%")
     parser.add_argument("--pitch", help="set TTS pitch. Default +0Hz.", default="+0Hz")
+    parser.add_argument("--style", help="set MSTTS style/emotion (e.g., cheerful).")
+    parser.add_argument("--role", help="set MSTTS role (e.g., Girl, Boy).")
+    parser.add_argument(
+        "--style-degree",
+        type=float,
+        help="set MSTTS style degree between 0.0 and 2.0 (default service value is 1.0).",
+    )
     parser.add_argument(
         "--write-media", help="send media output to file instead of stdout"
     )
