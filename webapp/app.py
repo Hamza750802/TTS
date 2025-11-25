@@ -824,10 +824,18 @@ def api_generate():
             if not isinstance(chunks, list) or not chunks:
                 return jsonify({'success': False, 'error': 'chunks must be a non-empty list'}), 400
 
+            # Check if client sent single-voice with emotion BEFORE processing
+            is_client_single_voice_emotion = (
+                len(chunks) == 1
+                and chunks[0].get('emotion')
+                and not chunks[0].get('voice')  # No voice override
+            )
+
             # DEBUG: Log received chunks
             print(f"[CHUNKS DEBUG] Received {len(chunks)} chunks from client")
             for i, ch in enumerate(chunks):
                 print(f"[CHUNKS DEBUG] Chunk {i}: emotion={ch.get('emotion')}, content_length={len(str(ch.get('content', '')))}")
+            print(f"[CHUNKS DEBUG] is_client_single_voice_emotion={is_client_single_voice_emotion}")
 
             sanitized_chunks = []
             style_warnings = []
@@ -839,6 +847,45 @@ def api_generate():
                 # Ensure voice is set for tracking
                 chunk_copy['voice'] = chunk_voice
                 sanitized_chunks.append(chunk_copy)
+
+            # If client sent single chunk with emotion, use native style parameter
+            if is_client_single_voice_emotion:
+                import inspect
+                import edge_tts as tts_module
+                communicate_sig = inspect.signature(tts_module.Communicate.__init__)
+                supports_style = 'style' in communicate_sig.parameters
+                
+                if supports_style:
+                    # Use native style parameter - bypass SSML building
+                    chunk = chunks[0]  # Use original chunk, not sanitized
+                    plain_text = chunk.get('content', '')
+                    emotion = chunk.get('emotion')
+                    intensity = chunk.get('intensity', 2)
+                    style_degree = {1: 0.7, 2: 1.0, 3: 1.3}.get(intensity, 1.0)
+                    
+                    cache_key = hashlib.md5(f"{voice}:{plain_text}:{emotion}:{style_degree}".encode()).hexdigest()[:16]
+                    
+                    output_file = run_async(
+                        generate_speech(
+                            plain_text,
+                            voice,
+                            rate=global_controls.get('rate', 0),
+                            volume=global_controls.get('volume', 0),
+                            pitch=global_controls.get('pitch', 0),
+                            is_ssml=False,
+                            cache_key=cache_key,
+                            style=emotion,
+                            style_degree=style_degree
+                        )
+                    )
+                    
+                    return jsonify({
+                        'success': True,
+                        'audioUrl': f'/api/audio/{output_file.name}',
+                        'warnings': []
+                    })
+
+            # Otherwise, use SSML building path
 
             ssml_result = build_ssml(
                 voice=voice,
@@ -853,94 +900,22 @@ def api_generate():
             ssml_text = ssml_result['ssml']
             is_full_ssml = ssml_result.get('is_full_ssml', False)
             
-            # DEBUG: Log after build_ssml
-            print(f"[CHUNKS DEBUG] After build_ssml: {len(ssml_result.get('chunk_map', []))} chunks in chunk_map")
-            
-            # Check if this is single-voice with emotion (can use native style parameter)
-            is_single_voice_emotion = (
-                len(sanitized_chunks) == 1
-                and not is_full_ssml
-                and sanitized_chunks[0].get('emotion')
-            )
-            
-            # DEBUG LOGGING
-            print(f"[EMOTION DEBUG] len(sanitized_chunks)={len(sanitized_chunks)}")
-            print(f"[EMOTION DEBUG] is_full_ssml={is_full_ssml}")
-            if sanitized_chunks:
-                print(f"[EMOTION DEBUG] chunk[0].emotion={sanitized_chunks[0].get('emotion')}")
-            print(f"[EMOTION DEBUG] is_single_voice_emotion={is_single_voice_emotion}")
-            
-            # Check if the installed edge-tts supports style parameter
-            import inspect
-            import edge_tts as tts_module
-            communicate_sig = inspect.signature(tts_module.Communicate.__init__)
-            supports_style = 'style' in communicate_sig.parameters
-            print(f"[EMOTION DEBUG] supports_style={supports_style}")
-            
-            if is_single_voice_emotion and supports_style:
-                # Use native style parameter (local modified edge-tts)
-                print("[EMOTION DEBUG] ✅ Using native style parameter path")
-                chunk = sanitized_chunks[0]
-                plain_text = chunk.get('content', '')
-                emotion = chunk.get('emotion')
-                intensity = chunk.get('intensity', 2)
-                style_degree = {1: 0.7, 2: 1.0, 3: 1.3}.get(intensity, 1.0)
-                
-                print(f"[EMOTION DEBUG] emotion={emotion}, style_degree={style_degree}")
-                
-                cache_key = hashlib.md5(f"{voice}:{plain_text}:{emotion}:{style_degree}".encode()).hexdigest()[:16]
-                
-                output_file = run_async(
-                    generate_speech(
-                        plain_text,
-                        voice,
-                        rate=global_controls.get('rate', 0),
-                        volume=global_controls.get('volume', 0),
-                        pitch=global_controls.get('pitch', 0),
-                        is_ssml=False,
-                        cache_key=cache_key,
-                        style=emotion,
-                        style_degree=style_degree
-                    )
-                )
-            elif is_single_voice_emotion and not supports_style:
-                # Pip version doesn't support style - use plain text without emotion
-                print("[EMOTION DEBUG] ⚠️ Using fallback - no style support")
-                chunk = sanitized_chunks[0]
-                plain_text = chunk.get('content', '')
-                
-                cache_key = hashlib.md5(f"{voice}:{plain_text}".encode()).hexdigest()[:16]
-                
-                output_file = run_async(
-                    generate_speech(
-                        plain_text,
-                        voice,
-                        rate=global_controls.get('rate', 0),
-                        volume=global_controls.get('volume', 0),
-                        pitch=global_controls.get('pitch', 0),
-                        is_ssml=False,
-                        cache_key=cache_key
-                    )
-                )
-                style_warnings.append("Emotion not supported on this server version - generating without emotion")
-            else:
-                # Multi-voice or complex SSML - use SSML building
-                print("[EMOTION DEBUG] ❌ Using SSML path (multi-voice or no emotion)")
-                primary_voice = sanitized_chunks[0].get('voice') if sanitized_chunks else voice
-                cache_key = hashlib.md5(f"{primary_voice}:{ssml_text}".encode()).hexdigest()[:16]
+            # Multi-voice or complex SSML - use SSML building
+            primary_voice = sanitized_chunks[0].get('voice') if sanitized_chunks else voice
+            cache_key = hashlib.md5(f"{primary_voice}:{ssml_text}".encode()).hexdigest()[:16]
 
-                output_file = run_async(
-                    generate_speech(
-                        ssml_text,
-                        primary_voice,
-                        rate=None,
-                        volume=None,
-                        pitch=None,
-                        is_ssml=True,
-                        cache_key=cache_key,
-                        is_full_ssml=is_full_ssml
-                    )
+            output_file = run_async(
+                generate_speech(
+                    ssml_text,
+                    primary_voice,
+                    rate=None,
+                    volume=None,
+                    pitch=None,
+                    is_ssml=True,
+                    cache_key=cache_key,
+                    is_full_ssml=is_full_ssml
                 )
+            )
             return jsonify({
                 'success': True,
                 'audioUrl': f'/api/audio/{output_file.name}',
