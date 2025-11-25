@@ -254,9 +254,11 @@ async def generate_speech(text, voice, rate=None, volume=None, pitch=None, is_ss
                 escaped_text = escaped_text.decode("utf-8")
             return escaped_text
         
-        # Replace mkssml temporarily (text is already complete SSML)
+        # Replace mkssml and escape temporarily
         original_mkssml = tts_comm.mkssml
+        original_escape = tts_comm.escape
         tts_comm.mkssml = mkssml_passthrough
+        tts_comm.escape = lambda x: x  # Don't escape SSML tags
         
         try:
             communicate = tts_module.Communicate(
@@ -264,25 +266,30 @@ async def generate_speech(text, voice, rate=None, volume=None, pitch=None, is_ss
                 voice=voice,
                 rate="+0%",
                 volume="+0%",
-                pitch="+0Hz",
-                raw_ssml=True  # Don't escape SSML tags
+                pitch="+0Hz"
             )
             await communicate.save(str(output_file))
         finally:
-            # Restore original
+            # Restore originals
             tts_comm.mkssml = original_mkssml
+            tts_comm.escape = original_escape
     elif is_ssml:
         # Inner SSML tags (like mstts:express-as, prosody, break) 
-        # Use raw_ssml=True to prevent double-escaping of SSML tags
-        communicate = tts_module.Communicate(
-            text=text,
-            voice=voice,
-            rate=rate or "+0%",
-            volume=volume or "+0%",
-            pitch=pitch or "+0Hz",
-            raw_ssml=True  # Don't escape SSML tags
-        )
-        await communicate.save(str(output_file))
+        # Must bypass escape() to prevent double-escaping of SSML tags
+        original_escape = tts_comm.escape
+        tts_comm.escape = lambda x: x  # Don't escape - text already has SSML tags
+        
+        try:
+            communicate = tts_module.Communicate(
+                text=text,
+                voice=voice,
+                rate=rate or "+0%",
+                volume=volume or "+0%",
+                pitch=pitch or "+0Hz"
+            )
+            await communicate.save(str(output_file))
+        finally:
+            tts_comm.escape = original_escape
     else:
         # Regular text-to-speech (non-SSML)
         communicate = tts_module.Communicate(
