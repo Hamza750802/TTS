@@ -93,6 +93,31 @@
             padding-right: 40px;
         }
         
+        .split-btn {
+            padding: 12px 20px;
+            background: linear-gradient(90deg, #10b981, #059669);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .split-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+        }
+        
+        .split-btn.secondary {
+            background: linear-gradient(90deg, #ef4444, #dc2626);
+        }
+        
+        .split-btn.secondary:hover {
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+        }
+        
         .controls {
             display: grid;
             grid-template-columns: 1fr 1fr 1fr;
@@ -335,14 +360,20 @@
             </select>
         </div>
         
+        <!-- Multi-Speaker Action Button (Always Visible) -->
+        <div class="form-group">
+            <label>🎙️ Multi-Speaker Dialogue:</label>
+            <div style="display: flex; gap: 10px;">
+                <button type="button" class="split-btn" onclick="splitTextIntoChunks()">✂️ Split Text into Chunks</button>
+                <button type="button" class="split-btn secondary" onclick="clearChunks()" id="clearChunksBtn" style="display: none;">🗑️ Clear Chunks</button>
+            </div>
+            <p style="color: #9ca3af; font-size: 12px; margin-top: 8px;">Split your text to assign different voices & emotions to each part</p>
+        </div>
+        
         <!-- Multi-Speaker Chunks Section -->
         <div class="chunks-section" id="chunksSection" style="display: none;">
             <div class="chunks-header">
-                <span class="chunks-title">🎙️ Multi-Speaker Dialogue</span>
-                <div class="chunks-actions">
-                    <button type="button" class="chunk-btn" onclick="splitTextIntoChunks()">Split Text</button>
-                    <button type="button" class="chunk-btn" onclick="clearChunks()">Clear</button>
-                </div>
+                <span class="chunks-title">🎙️ Dialogue Chunks</span>
             </div>
             <div id="chunksList"></div>
         </div>
@@ -480,12 +511,14 @@
             
             renderChunks();
             document.getElementById('chunksSection').style.display = 'block';
+            document.getElementById('clearChunksBtn').style.display = 'inline-block';
         }
         
         function clearChunks() {
             chunkState = [];
             renderChunks();
             document.getElementById('chunksSection').style.display = 'none';
+            document.getElementById('clearChunksBtn').style.display = 'none';
         }
         
         function renderChunks() {
