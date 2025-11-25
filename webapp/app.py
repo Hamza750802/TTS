@@ -182,15 +182,17 @@ async def get_voices():
 
 async def generate_speech(text, voice, rate=None, volume=None, pitch=None, is_ssml=False):
     """Generate speech from text or SSML"""
+    import re
+    import edge_tts as tts_module  # Rename to avoid shadowing
+    import edge_tts.communicate as tts_comm
+    from edge_tts.data_classes import TTSConfig
+    
     # Create unique filename
     unique_id = hashlib.md5(f"{text}{voice}{time.time()}".encode()).hexdigest()[:10]
     output_file = OUTPUT_DIR / f"speech_{unique_id}.mp3"
 
     if is_ssml:
         # For SSML with emotions, extract the inner content and inject mstts namespace
-        import re
-        import edge_tts.communicate
-        from edge_tts.data_classes import TTSConfig
         
         # Extract content between <voice name="..."> and </voice>
         voice_content_match = re.search(r'<voice[^>]*>(.*?)</voice>', text, re.DOTALL)
@@ -231,13 +233,13 @@ async def generate_speech(text, voice, rate=None, volume=None, pitch=None, is_ss
             )
         
         # Replace mkssml and escape temporarily
-        original_mkssml = edge_tts.communicate.mkssml
-        original_escape = edge_tts.communicate.escape
-        edge_tts.communicate.mkssml = mkssml_with_mstts
-        edge_tts.communicate.escape = lambda x: x  # Don't escape SSML tags
+        original_mkssml = tts_comm.mkssml
+        original_escape = tts_comm.escape
+        tts_comm.mkssml = mkssml_with_mstts
+        tts_comm.escape = lambda x: x  # Don't escape SSML tags
         
         try:
-            communicate = edge_tts.Communicate(
+            communicate = tts_module.Communicate(
                 text=final_text,
                 voice=voice,
                 rate="+0%",
@@ -247,11 +249,11 @@ async def generate_speech(text, voice, rate=None, volume=None, pitch=None, is_ss
             await communicate.save(str(output_file))
         finally:
             # Restore originals
-            edge_tts.communicate.mkssml = original_mkssml
-            edge_tts.communicate.escape = original_escape
+            tts_comm.mkssml = original_mkssml
+            tts_comm.escape = original_escape
     else:
         # Regular text-to-speech (non-SSML)
-        communicate = edge_tts.Communicate(
+        communicate = tts_module.Communicate(
             text=text,
             voice=voice,
             rate=rate or "+0%",
