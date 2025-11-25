@@ -873,6 +873,7 @@ def api_generate():
             
             # Check if the installed edge-tts supports style parameter
             import inspect
+            import edge_tts as tts_module
             communicate_sig = inspect.signature(tts_module.Communicate.__init__)
             supports_style = 'style' in communicate_sig.parameters
             
