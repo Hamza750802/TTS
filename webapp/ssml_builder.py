@@ -220,17 +220,29 @@ def build_ssml(
             }
         )
 
-    # Close final voice tag if we opened one
-    if current_voice is not None:
-        ssml_parts.append("</voice>")
+    # For single-voice: don't add voice tags - let edge-tts handle it
+    # For multi-voice: we need the full SSML with voice tags
+    if is_multi_voice:
+        # Close final voice tag if we opened one
+        if current_voice is not None:
+            ssml_parts.append("</voice>")
+        
+        body = "".join(ssml_parts)
+        speak = (
+            "<speak version=\"1.0\" xmlns=\"http://www.w3.org/2001/10/synthesis\" "
+            "xmlns:mstts=\"https://www.w3.org/2001/mstts\" xml:lang=\"en-US\">"
+            f"{body}"
+            "</speak>"
+        )
+        is_full_ssml = True
+    else:
+        # Single voice: just return the inner content, edge-tts will wrap it
+        # Remove any voice tags we might have added
+        body = "".join(ssml_parts).replace(f'<voice name="{html.escape(voice)}">', '').replace('</voice>', '')
+        speak = body
+        is_full_ssml = False
     
-    body = "".join(ssml_parts)
-    speak = (
-        "<speak version=\"1.0\" xmlns=\"http://www.w3.org/2001/10/synthesis\" "
-        "xmlns:mstts=\"https://www.w3.org/2001/mstts\" xml:lang=\"en-US\">"
-        f"{body}"
-        "</speak>"
-    )    # Length guard
+    # Length guard
     if len(speak) > 50000:
         warnings.append(f"SSML length {len(speak)} exceeded 50k; consider chunking input further.")
 
@@ -238,6 +250,7 @@ def build_ssml(
         "ssml": speak,
         "chunk_map": resolved_chunks,
         "warnings": warnings,
+        "is_full_ssml": is_full_ssml,  # New flag to indicate if full SSML wrapper is included
     }
 
 

@@ -224,8 +224,13 @@ async def get_voices():
     return _voices_cache
 
 
-async def generate_speech(text, voice, rate=None, volume=None, pitch=None, is_ssml=False, cache_key=None):
-    """Generate speech from text or SSML. Optional cache_key for deterministic filenames."""
+async def generate_speech(text, voice, rate=None, volume=None, pitch=None, is_ssml=False, cache_key=None, is_full_ssml=False):
+    """Generate speech from text or SSML. Optional cache_key for deterministic filenames.
+    
+    Args:
+        is_ssml: If True, text contains SSML tags (but may not be full SSML)
+        is_full_ssml: If True, text is complete SSML with <speak> wrapper (for multi-voice)
+    """
     import re
     import edge_tts as tts_module  # Rename to avoid shadowing
     import edge_tts.communicate as tts_comm
@@ -242,42 +247,22 @@ async def generate_speech(text, voice, rate=None, volume=None, pitch=None, is_ss
     if cache_key and output_file.exists():
         return output_file
 
-    if is_ssml:
-        final_text = text
-
-        # If text already contains a <speak> tag, pass-through without re-wrapping.
-        # Otherwise, wrap with mstts namespace + prosody.
-        if "<speak" in final_text:
-            def mkssml_passthrough(tc, escaped_text):
-                if isinstance(escaped_text, bytes):
-                    escaped_text = escaped_text.decode("utf-8")
-                return escaped_text
-            wrapper = mkssml_passthrough
-        else:
-            def mkssml_with_mstts(tc, escaped_text):
-                if isinstance(escaped_text, bytes):
-                    escaped_text = escaped_text.decode("utf-8")
-                return (
-                    "<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' "
-                    "xmlns:mstts='https://www.w3.org/2001/mstts' xml:lang='en-US'>"
-                    f"<voice name='{tc.voice}'>"
-                    f"<prosody pitch='{tc.pitch}' rate='{tc.rate}' volume='{tc.volume}'>"
-                    f"{escaped_text}"
-                    "</prosody>"
-                    "</voice>"
-                    "</speak>"
-                )
-            wrapper = mkssml_with_mstts
-
+    if is_full_ssml:
+        # Full SSML with <speak> wrapper (multi-voice) - need full passthrough
+        def mkssml_passthrough(tc, escaped_text):
+            if isinstance(escaped_text, bytes):
+                escaped_text = escaped_text.decode("utf-8")
+            return escaped_text
+        
         # Replace mkssml and escape temporarily
         original_mkssml = tts_comm.mkssml
         original_escape = tts_comm.escape
-        tts_comm.mkssml = wrapper
+        tts_comm.mkssml = mkssml_passthrough
         tts_comm.escape = lambda x: x  # Don't escape SSML tags
         
         try:
             communicate = tts_module.Communicate(
-                text=final_text,
+                text=text,
                 voice=voice,
                 rate="+0%",
                 volume="+0%",
@@ -288,6 +273,17 @@ async def generate_speech(text, voice, rate=None, volume=None, pitch=None, is_ss
             # Restore originals
             tts_comm.mkssml = original_mkssml
             tts_comm.escape = original_escape
+    elif is_ssml:
+        # Inner SSML tags (like mstts:express-as, prosody, break) 
+        # Pass directly to edge-tts - it will handle the tags properly
+        communicate = tts_module.Communicate(
+            text=text,
+            voice=voice,
+            rate=rate or "+0%",
+            volume=volume or "+0%",
+            pitch=pitch or "+0Hz"
+        )
+        await communicate.save(str(output_file))
     else:
         # Regular text-to-speech (non-SSML)
         communicate = tts_module.Communicate(
@@ -824,6 +820,7 @@ def api_generate():
                 global_volume=global_controls.get('volume'),
             )
             ssml_text = ssml_result['ssml']
+            is_full_ssml = ssml_result.get('is_full_ssml', False)
             
             # For multi-voice SSML, use the first chunk's voice
             primary_voice = sanitized_chunks[0].get('voice') if sanitized_chunks else voice
@@ -837,7 +834,8 @@ def api_generate():
                     volume=None,
                     pitch=None,
                     is_ssml=True,
-                    cache_key=cache_key
+                    cache_key=cache_key,
+                    is_full_ssml=is_full_ssml
                 )
             )
             return jsonify({
@@ -881,6 +879,7 @@ def api_generate():
                 global_volume=global_controls.get('volume'),
             )
             ssml_text = ssml_result['ssml']
+            is_full_ssml = ssml_result.get('is_full_ssml', False)
             cache_key = hashlib.md5(f"{voice}:{ssml_text}".encode()).hexdigest()[:16]
             output_file = run_async(
                 generate_speech(
@@ -890,7 +889,8 @@ def api_generate():
                     volume=None,
                     pitch=None,
                     is_ssml=True,
-                    cache_key=cache_key
+                    cache_key=cache_key,
+                    is_full_ssml=is_full_ssml
                 )
             )
             return jsonify({
@@ -1168,6 +1168,7 @@ def api_synthesize():
                 auto_emphasis=True,
             )
             ssml_text = ssml_result['ssml']
+            is_full_ssml = ssml_result.get('is_full_ssml', False)
             
             # For multi-voice SSML, use the first chunk's voice (or fallback to default)
             primary_voice = sanitized_chunks[0].get('voice') if sanitized_chunks else voice
@@ -1181,7 +1182,8 @@ def api_synthesize():
                     volume=None,
                     pitch=None,
                     is_ssml=True,
-                    cache_key=cache_key
+                    cache_key=cache_key,
+                    is_full_ssml=is_full_ssml
                 )
             )
             
