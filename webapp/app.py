@@ -733,6 +733,7 @@ def verify_api_key(api_key_string):
 
 
 @app.route('/api/v1/synthesize', methods=['POST'])
+@csrf.exempt  # API endpoint - no CSRF needed
 @limiter.limit("100 per hour")  # Rate limit for API endpoint
 def api_synthesize():
     """
