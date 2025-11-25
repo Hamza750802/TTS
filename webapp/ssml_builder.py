@@ -120,14 +120,14 @@ def build_ssml(
     warnings: List[str] = []
     resolved_chunks: List[Dict[str, Any]] = []
     ssml_parts: List[str] = []
-    current_voice = voice  # Track voice changes
+    current_voice = None  # Track voice changes, start with None
 
     for idx, raw_chunk in enumerate(chunks):
         text = str(raw_chunk.get("content", "")).strip()
         if not text:
             continue
 
-        chunk_voice = raw_chunk.get("voice") or current_voice
+        chunk_voice = raw_chunk.get("voice") or voice
         emotion = raw_chunk.get("emotion")
         intensity = raw_chunk.get("intensity")
 
@@ -174,11 +174,12 @@ def build_ssml(
             if pause:
                 chunk_ssml += f"<break time=\"{pause}\"/>"
 
-        # If voice changed, wrap in new voice tag
+        # Handle voice changes - open voice tag if needed, close previous if changing
         if chunk_voice != current_voice:
-            # Close previous voice if not first chunk
-            if ssml_parts:
+            if current_voice is not None:
+                # Close previous voice
                 ssml_parts.append("</voice>")
+            # Open new voice
             ssml_parts.append(f"<voice name=\"{html.escape(chunk_voice)}\">")
             current_voice = chunk_voice
 
@@ -195,17 +196,11 @@ def build_ssml(
             }
         )
 
-    # Close final voice tag if we have content
-    if ssml_parts:
+    # Close final voice tag if we opened one
+    if current_voice is not None:
         ssml_parts.append("</voice>")
     
-    # Build final SSML - start with default voice if no chunks specified voice
-    body_parts = []
-    if chunks and not chunks[0].get("voice"):
-        body_parts.append(f"<voice name=\"{html.escape(voice)}\">")
-    body_parts.extend(ssml_parts)
-    
-    body = "".join(body_parts)
+    body = "".join(ssml_parts)
     speak = (
         "<speak version=\"1.0\" xmlns=\"http://www.w3.org/2001/10/synthesis\" "
         "xmlns:mstts=\"https://www.w3.org/2001/mstts\" xml:lang=\"en-US\">"
