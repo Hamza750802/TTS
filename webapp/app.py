@@ -224,12 +224,14 @@ async def get_voices():
     return _voices_cache
 
 
-async def generate_speech(text, voice, rate=None, volume=None, pitch=None, is_ssml=False, cache_key=None, is_full_ssml=False):
+async def generate_speech(text, voice, rate=None, volume=None, pitch=None, is_ssml=False, cache_key=None, is_full_ssml=False, style=None, style_degree=None):
     """Generate speech from text or SSML. Optional cache_key for deterministic filenames.
     
     Args:
         is_ssml: If True, text contains SSML tags (but may not be full SSML)
         is_full_ssml: If True, text is complete SSML with <speak> wrapper (for multi-voice)
+        style: Emotion/style (e.g., "cheerful") for single-voice with emotion
+        style_degree: Style intensity (0.01-2.0) for single-voice with emotion
     """
     import re
     import edge_tts as tts_module  # Rename to avoid shadowing
@@ -285,7 +287,9 @@ async def generate_speech(text, voice, rate=None, volume=None, pitch=None, is_ss
                 voice=voice,
                 rate=rate or "+0%",
                 volume=volume or "+0%",
-                pitch=pitch or "+0Hz"
+                pitch=pitch or "+0Hz",
+                style=style,
+                style_degree=style_degree
             )
             await communicate.save(str(output_file))
         finally:
@@ -297,7 +301,9 @@ async def generate_speech(text, voice, rate=None, volume=None, pitch=None, is_ss
             voice=voice,
             rate=rate or "+0%",
             volume=volume or "+0%",
-            pitch=pitch or "+0Hz"
+            pitch=pitch or "+0Hz",
+            style=style,
+            style_degree=style_degree
         )
         await communicate.save(str(output_file))
 
@@ -828,22 +834,53 @@ def api_generate():
             ssml_text = ssml_result['ssml']
             is_full_ssml = ssml_result.get('is_full_ssml', False)
             
-            # For multi-voice SSML, use the first chunk's voice
-            primary_voice = sanitized_chunks[0].get('voice') if sanitized_chunks else voice
-            cache_key = hashlib.md5(f"{primary_voice}:{ssml_text}".encode()).hexdigest()[:16]
-
-            output_file = run_async(
-                generate_speech(
-                    ssml_text,
-                    primary_voice,
-                    rate=None,
-                    volume=None,
-                    pitch=None,
-                    is_ssml=True,
-                    cache_key=cache_key,
-                    is_full_ssml=is_full_ssml
-                )
+            # Check if this is single-voice with emotion (can use native style parameter)
+            is_single_voice_emotion = (
+                len(sanitized_chunks) == 1
+                and not is_full_ssml
+                and sanitized_chunks[0].get('emotion')
             )
+            
+            if is_single_voice_emotion:
+                # Use native style parameter instead of SSML
+                chunk = sanitized_chunks[0]
+                plain_text = chunk.get('content', '')
+                emotion = chunk.get('emotion')
+                intensity = chunk.get('intensity', 2)  # Default to medium intensity
+                style_degree = {1: 0.7, 2: 1.0, 3: 1.3}.get(intensity, 1.0)
+                
+                cache_key = hashlib.md5(f"{voice}:{plain_text}:{emotion}:{style_degree}".encode()).hexdigest()[:16]
+                
+                output_file = run_async(
+                    generate_speech(
+                        plain_text,
+                        voice,
+                        rate=global_controls.get('rate', 0),
+                        volume=global_controls.get('volume', 0),
+                        pitch=global_controls.get('pitch', 0),
+                        is_ssml=False,
+                        cache_key=cache_key,
+                        style=emotion,
+                        style_degree=style_degree
+                    )
+                )
+            else:
+                # Multi-voice or complex SSML - use SSML building
+                primary_voice = sanitized_chunks[0].get('voice') if sanitized_chunks else voice
+                cache_key = hashlib.md5(f"{primary_voice}:{ssml_text}".encode()).hexdigest()[:16]
+
+                output_file = run_async(
+                    generate_speech(
+                        ssml_text,
+                        primary_voice,
+                        rate=None,
+                        volume=None,
+                        pitch=None,
+                        is_ssml=True,
+                        cache_key=cache_key,
+                        is_full_ssml=is_full_ssml
+                    )
+                )
             return jsonify({
                 'success': True,
                 'audioUrl': f'/api/audio/{output_file.name}',
