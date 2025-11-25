@@ -824,12 +824,15 @@ def api_generate():
                 global_volume=global_controls.get('volume'),
             )
             ssml_text = ssml_result['ssml']
-            cache_key = hashlib.md5(f"{voice}:{ssml_text}".encode()).hexdigest()[:16]
+            
+            # For multi-voice SSML, use the first chunk's voice
+            primary_voice = sanitized_chunks[0].get('voice') if sanitized_chunks else voice
+            cache_key = hashlib.md5(f"{primary_voice}:{ssml_text}".encode()).hexdigest()[:16]
 
             output_file = run_async(
                 generate_speech(
                     ssml_text,
-                    voice,
+                    primary_voice,
                     rate=None,
                     volume=None,
                     pitch=None,
@@ -1155,12 +1158,15 @@ def api_synthesize():
                 auto_emphasis=True,
             )
             ssml_text = ssml_result['ssml']
-            cache_key = hashlib.md5(f"{voice}:{ssml_text}".encode()).hexdigest()[:16]
+            
+            # For multi-voice SSML, use the first chunk's voice (or fallback to default)
+            primary_voice = sanitized_chunks[0].get('voice') if sanitized_chunks else voice
+            cache_key = hashlib.md5(f"{primary_voice}:{ssml_text}".encode()).hexdigest()[:16]
 
             output_file = run_async(
                 generate_speech(
                     ssml_text,
-                    voice,
+                    primary_voice,
                     rate=None,
                     volume=None,
                     pitch=None,
