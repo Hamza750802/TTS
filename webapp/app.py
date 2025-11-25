@@ -1256,6 +1256,13 @@ def api_synthesize():
                 and sanitized_chunks[0].get('emotion')
             )
             
+            # DEBUG LOGGING for API v1
+            print(f"[API v1 DEBUG] len(sanitized_chunks)={len(sanitized_chunks)}")
+            print(f"[API v1 DEBUG] is_full_ssml={is_full_ssml}")
+            if sanitized_chunks:
+                print(f"[API v1 DEBUG] chunk[0].emotion={sanitized_chunks[0].get('emotion')}")
+            print(f"[API v1 DEBUG] is_single_voice_emotion={is_single_voice_emotion}")
+            
             # Check if style parameter is supported
             import inspect
             import edge_tts as tts_module
@@ -1265,13 +1272,18 @@ def api_synthesize():
             except Exception:
                 supports_style = False
             
+            print(f"[API v1 DEBUG] supports_style={supports_style}")
+            
             if is_single_voice_emotion and supports_style:
                 # Use native style parameter
+                print("[API v1 DEBUG] ✅ Using native style parameter path")
                 chunk = sanitized_chunks[0]
                 plain_text = chunk.get('content', '')
                 emotion = chunk.get('emotion')
                 intensity = chunk.get('intensity', 2)
                 style_degree = {1: 0.7, 2: 1.0, 3: 1.3}.get(intensity, 1.0)
+                
+                print(f"[API v1 DEBUG] emotion={emotion}, style_degree={style_degree}")
                 
                 cache_key = hashlib.md5(f"{voice}:{plain_text}:{emotion}:{style_degree}".encode()).hexdigest()[:16]
                 
@@ -1290,6 +1302,7 @@ def api_synthesize():
                 )
             elif is_single_voice_emotion and not supports_style:
                 # Fallback to plain text without emotion
+                print("[API v1 DEBUG] ⚠️ Using fallback - no style support")
                 chunk = sanitized_chunks[0]
                 plain_text = chunk.get('content', '')
                 cache_key = hashlib.md5(f"{voice}:{plain_text}".encode()).hexdigest()[:16]
@@ -1307,6 +1320,7 @@ def api_synthesize():
                 )
             else:
                 # Multi-voice or no emotion - use SSML
+                print("[API v1 DEBUG] ❌ Using SSML path (multi-voice or no emotion)")
                 primary_voice = sanitized_chunks[0].get('voice') if sanitized_chunks else voice
                 cache_key = hashlib.md5(f"{primary_voice}:{ssml_text}".encode()).hexdigest()[:16]
 
