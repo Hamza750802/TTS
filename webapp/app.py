@@ -139,25 +139,25 @@ HERO_PRESETS = [
     },
     {
         "id": "jenny_story_cheer",
-        "label": "Jenny (cheerful, story)",
+        "label": "Jenny (cheerful, story) ⭐ MOST VERSATILE",
         "voice": "en-US-JennyNeural",
         "emotion": "cheerful",
         "intensity": 2,
         "rate": -5,
         "pitch": 3,
         "volume": 0,
-        "description": "Storytelling tone with a hint of cheer."
+        "description": "14 emotions available. Perfect for multi-speaker dialogue, storytelling, and dynamic content."
     },
     {
         "id": "guy_serious",
-        "label": "Guy (serious)",
+        "label": "Guy (serious) ⭐ RECOMMENDED",
         "voice": "en-US-GuyNeural",
         "emotion": "serious",
         "intensity": 2,
         "rate": -3,
         "pitch": -2,
         "volume": 0,
-        "description": "Grounded male voice for statements."
+        "description": "11 emotions available. Ideal for podcasts, conversations, and professional voiceovers."
     }
 ]
 
@@ -963,11 +963,21 @@ def embed_widget():
     if api_key:
         auth_result = verify_api_key(api_key)
         if not auth_result.get('valid'):
-            return f"Invalid API key. Please check your key and try again.", 401
+            return render_template('embed_error.html', 
+                error_message="Invalid API key. Please check your key and try again.",
+                help_link="/api-keys"), 401
     else:
-        return "API key required. Add ?key=your_api_key to the URL.", 401
+        return render_template('embed_error.html',
+            error_message="API key required to use the widget.",
+            help_link="/api-keys"), 401
     
     return render_template('embed.html', api_key=api_key)
+
+
+@app.route('/widget')
+def public_widget():
+    """Public demo widget - no authentication required"""
+    return render_template('widget_public.html')
 
 
 @app.route('/api-keys')
