@@ -187,26 +187,67 @@ async def generate_speech(text, voice, rate=None, volume=None, pitch=None, is_ss
     output_file = OUTPUT_DIR / f"speech_{unique_id}.mp3"
 
     if is_ssml:
-        # For SSML, we need to bypass the escape() call in Communicate
-        # We'll use the internal edge_tts module structure
+        # For SSML with emotions, extract the inner content and inject mstts namespace
+        import re
         import edge_tts.communicate
-        from xml.sax.saxutils import escape
+        from edge_tts.data_classes import TTSConfig
         
-        # Temporarily replace escape with a no-op for SSML
+        # Extract content between <voice name="..."> and </voice>
+        voice_content_match = re.search(r'<voice[^>]*>(.*?)</voice>', text, re.DOTALL)
+        if voice_content_match:
+            inner_content = voice_content_match.group(1).strip()
+            
+            # Extract text from inside <prosody> tags if present
+            prosody_match = re.search(r'<prosody[^>]*>(.*?)</prosody>', inner_content, re.DOTALL)
+            if prosody_match:
+                text_content = prosody_match.group(1).strip()
+                
+                # Extract the mstts:express-as wrapper
+                mstts_match = re.search(r'(<mstts:express-as[^>]*>).*?</mstts:express-as>', inner_content, re.DOTALL)
+                if mstts_match:
+                    mstts_open_tag = mstts_match.group(1)
+                    final_text = f"{mstts_open_tag}{text_content}</mstts:express-as>"
+                else:
+                    final_text = text_content
+            else:
+                final_text = inner_content
+        else:
+            final_text = text
+        
+        # Create a custom mkssml function that includes mstts namespace
+        def mkssml_with_mstts(tc, escaped_text):
+            """Modified mkssml that includes mstts namespace"""
+            if isinstance(escaped_text, bytes):
+                escaped_text = escaped_text.decode("utf-8")
+            return (
+                "<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' "
+                "xmlns:mstts='https://www.w3.org/2001/mstts' xml:lang='en-US'>"
+                f"<voice name='{tc.voice}'>"
+                f"<prosody pitch='{tc.pitch}' rate='{tc.rate}' volume='{tc.volume}'>"
+                f"{escaped_text}"
+                "</prosody>"
+                "</voice>"
+                "</speak>"
+            )
+        
+        # Replace mkssml and escape temporarily
+        original_mkssml = edge_tts.communicate.mkssml
         original_escape = edge_tts.communicate.escape
+        edge_tts.communicate.mkssml = mkssml_with_mstts
         edge_tts.communicate.escape = lambda x: x  # Don't escape SSML tags
         
         try:
             communicate = edge_tts.Communicate(
-                text=text,
+                text=final_text,
                 voice=voice,
-                rate="+0%",  # SSML has its own prosody
+                rate="+0%",
                 volume="+0%",
                 pitch="+0Hz"
             )
             await communicate.save(str(output_file))
         finally:
-            # Restore original escape function
+            # Restore originals
+            edge_tts.communicate.mkssml = original_mkssml
             edge_tts.communicate.escape = original_escape
     else:
         # Regular text-to-speech (non-SSML)
