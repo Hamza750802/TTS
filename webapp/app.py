@@ -11,8 +11,6 @@ from functools import wraps
 from pathlib import Path
 
 import stripe
-from chunk_processor import process_text
-from ssml_builder import build_ssml
 
 # Load environment variables from .env file
 from dotenv import load_dotenv
@@ -41,6 +39,13 @@ from flask_wtf.csrf import CSRFProtect
 from werkzeug.security import check_password_hash, generate_password_hash
 
 import edge_tts
+
+# Import chunking and SSML modules from same directory
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent))
+from chunk_processor import process_text
+from ssml_builder import build_ssml
 
 load_dotenv()
 
