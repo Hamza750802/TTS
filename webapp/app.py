@@ -855,19 +855,30 @@ def api_generate():
                 and sanitized_chunks[0].get('emotion')
             )
             
+            # DEBUG LOGGING
+            print(f"[EMOTION DEBUG] len(sanitized_chunks)={len(sanitized_chunks)}")
+            print(f"[EMOTION DEBUG] is_full_ssml={is_full_ssml}")
+            if sanitized_chunks:
+                print(f"[EMOTION DEBUG] chunk[0].emotion={sanitized_chunks[0].get('emotion')}")
+            print(f"[EMOTION DEBUG] is_single_voice_emotion={is_single_voice_emotion}")
+            
             # Check if the installed edge-tts supports style parameter
             import inspect
             import edge_tts as tts_module
             communicate_sig = inspect.signature(tts_module.Communicate.__init__)
             supports_style = 'style' in communicate_sig.parameters
+            print(f"[EMOTION DEBUG] supports_style={supports_style}")
             
             if is_single_voice_emotion and supports_style:
                 # Use native style parameter (local modified edge-tts)
+                print("[EMOTION DEBUG] ✅ Using native style parameter path")
                 chunk = sanitized_chunks[0]
                 plain_text = chunk.get('content', '')
                 emotion = chunk.get('emotion')
                 intensity = chunk.get('intensity', 2)
                 style_degree = {1: 0.7, 2: 1.0, 3: 1.3}.get(intensity, 1.0)
+                
+                print(f"[EMOTION DEBUG] emotion={emotion}, style_degree={style_degree}")
                 
                 cache_key = hashlib.md5(f"{voice}:{plain_text}:{emotion}:{style_degree}".encode()).hexdigest()[:16]
                 
@@ -886,6 +897,7 @@ def api_generate():
                 )
             elif is_single_voice_emotion and not supports_style:
                 # Pip version doesn't support style - use plain text without emotion
+                print("[EMOTION DEBUG] ⚠️ Using fallback - no style support")
                 chunk = sanitized_chunks[0]
                 plain_text = chunk.get('content', '')
                 
@@ -905,6 +917,7 @@ def api_generate():
                 style_warnings.append("Emotion not supported on this server version - generating without emotion")
             else:
                 # Multi-voice or complex SSML - use SSML building
+                print("[EMOTION DEBUG] ❌ Using SSML path (multi-voice or no emotion)")
                 primary_voice = sanitized_chunks[0].get('voice') if sanitized_chunks else voice
                 cache_key = hashlib.md5(f"{primary_voice}:{ssml_text}".encode()).hexdigest()[:16]
 
