@@ -185,7 +185,8 @@ def build_ssml(
 
     body = "".join(ssml_parts)
     speak = (
-        "<speak version=\"1.0\" xml:lang=\"en-US\" xmlns:mstts=\"https://www.w3.org/2001/mstts\">"
+        "<speak version=\"1.0\" xmlns=\"http://www.w3.org/2001/10/synthesis\" "
+        "xmlns:mstts=\"https://www.w3.org/2001/mstts\" xml:lang=\"en-US\">"
         f"<voice name=\"{html.escape(voice)}\">"
         f"{body}"
         "</voice>"
