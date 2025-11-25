@@ -7,6 +7,7 @@ import json
 import ssl
 import time
 import uuid
+import re
 from contextlib import nullcontext
 from io import TextIOWrapper
 from queue import Queue
@@ -289,14 +290,20 @@ def mkssml(tc: TTSConfig, escaped_text: Union[str, bytes]) -> str:
 
     # Check if text contains mstts tags that require the mstts namespace
     needs_mstts_ns = "mstts:" in escaped_text or "<mstts:" in escaped_text
-    
+
     # Build namespace declarations
     namespaces = "xmlns='http://www.w3.org/2001/10/synthesis'"
     if needs_mstts_ns:
         namespaces += " xmlns:mstts='https://www.w3.org/2001/mstts'"
 
+    # Derive xml:lang from the voice locale so non-English voices work
+    locale_match = re.search(
+        r"\(([a-z]{2,}-[A-Z0-9-]+),", tc.voice, flags=re.IGNORECASE
+    )
+    locale = locale_match.group(1) if locale_match else "en-US"
+
     return (
-        f"<speak version='1.0' {namespaces} xml:lang='en-US'>"
+        f"<speak version='1.0' {namespaces} xml:lang='{locale}'>"
         f"<voice name='{tc.voice}'>"
         f"<prosody pitch='{tc.pitch}' rate='{tc.rate}' volume='{tc.volume}'>"
         f"{escaped_text}"
