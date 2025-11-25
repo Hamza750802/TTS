@@ -824,34 +824,12 @@ def api_generate():
             if not isinstance(chunks, list) or not chunks:
                 return jsonify({'success': False, 'error': 'chunks must be a non-empty list'}), 400
 
-            # Build voice -> allowed styles map for multi-speaker validation
-            try:
-                voices = run_async(get_voices())
-                voice_styles_map = {}
-                for v in voices:
-                    voice_styles_map[v.get('ShortName')] = v.get('StyleList') or []
-            except Exception:
-                voice_styles_map = {}
-
             sanitized_chunks = []
             style_warnings = []
             for idx, chunk in enumerate(chunks):
                 chunk_copy = dict(chunk)
                 # Use chunk-specific voice or fall back to global voice
                 chunk_voice = chunk_copy.get('voice') or voice
-                emotion = chunk_copy.get('emotion')
-                
-                # Validate emotion against chunk's specific voice
-                allowed_styles = voice_styles_map.get(chunk_voice, [])
-                
-                # DEBUG: Log validation details
-                print(f"[DEBUG] Chunk {idx}: voice={chunk_voice}, emotion={emotion}")
-                print(f"[DEBUG] Allowed styles for {chunk_voice}: {allowed_styles}")
-                
-                if emotion and allowed_styles and emotion not in allowed_styles:
-                    style_warnings.append(f"chunk {idx}: emotion '{emotion}' not supported by {chunk_voice}, removed")
-                    chunk_copy['emotion'] = None
-                    print(f"[DEBUG] Emotion removed due to validation failure")
                 
                 # Ensure voice is set for tracking
                 chunk_copy['voice'] = chunk_voice
@@ -1242,32 +1220,10 @@ def api_synthesize():
             if not isinstance(chunks, list) or not chunks:
                 return jsonify({'success': False, 'error': 'chunks must be a non-empty list'}), 400
 
-            # Build voice -> styles map for validation
-            try:
-                voices = run_async(get_voices())
-                voice_styles_map = {}
-                for v in voices:
-                    voice_styles_map[v.get('ShortName')] = v.get('StyleList') or []
-            except Exception:
-                voice_styles_map = {}
-
             sanitized_chunks = []
             for idx, chunk in enumerate(chunks):
                 chunk_copy = dict(chunk)
                 chunk_voice = chunk_copy.get('voice') or voice
-                emotion = chunk_copy.get('emotion')
-                
-                # Validate emotion
-                allowed_styles = voice_styles_map.get(chunk_voice, [])
-                
-                # DEBUG: Log validation details
-                print(f"[API v1 DEBUG] Chunk {idx}: voice={chunk_voice}, emotion={emotion}")
-                print(f"[API v1 DEBUG] Allowed styles for {chunk_voice}: {allowed_styles}")
-                
-                if emotion and allowed_styles and emotion not in allowed_styles:
-                    chunk_copy['emotion'] = None
-                    print(f"[API v1 DEBUG] Emotion removed due to validation failure")
-                
                 chunk_copy['voice'] = chunk_voice
                 sanitized_chunks.append(chunk_copy)
 
