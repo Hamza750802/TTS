@@ -984,6 +984,7 @@
         voice,
         chunks: payloadChunks.map(ch => ({
           content: ch.content,
+          voice: ch.voice || null,  // Include per-chunk voice selection
           emotion: ch.emotion || null,
           intensity: ch.intensity || 2,
           pitch: Number(ch.pitch || 0),
