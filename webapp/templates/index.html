@@ -492,11 +492,6 @@
           <audio id="audioElement" controls></audio>
           <a id="downloadLink" class="download-btn" download="speech.mp3">⬇️ Download MP3</a>
         </div>
-        <div class="form-section" id="ssmlSection" style="display:none">
-          <div class="section-title">SSML Preview</div>
-          <textarea id="ssmlPreview" class="ssml-preview" readonly></textarea>
-          <div id="warningList" style="margin-top:8px; color:#b45309; font-size:13px;"></div>
-        </div>
       </form>
     </div>
   {% endif %}
@@ -1009,14 +1004,6 @@
         const dl = document.getElementById('downloadLink');
         dl.href = data.audioUrl;
         document.getElementById('audioPlayer').style.display = 'block';
-        if(data.ssml_used){
-          const ssmlEl = document.getElementById('ssmlSection');
-          const ssmlTextarea = document.getElementById('ssmlPreview');
-          ssmlEl.style.display = 'block';
-          ssmlTextarea.value = data.ssml_used;
-          // Clear warnings (internal technical info, not shown to users)
-          document.getElementById('warningList').textContent = '';
-        }
         audio.play();
       } else {
         throw new Error(data.error || 'Failed to generate');
