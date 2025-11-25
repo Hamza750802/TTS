@@ -2,6 +2,64 @@
 
 This document shows how to use the Cheap TTS API programmatically.
 
+## New: Chunked Emotional SSML Endpoint
+
+Use this to drive the CheapTTS Emotion Engine 2.0 with per-chunk emotion/prosody.
+
+**Endpoint:** `POST /api/generate` (auth required)
+
+**Request Body (example):**
+```json
+{
+  "voice": "en-US-JennyNeural",
+  "chunks": [
+    {"content": "I'm really happy you're here.", "emotion": "cheerful", "intensity": 2, "speed": -2, "pitch": 3},
+    {"content": "But we need to talk.", "emotion": "serious", "intensity": 3, "pitch": -4}
+  ],
+  "auto_pauses": true,
+  "auto_emphasis": true,
+  "auto_breaths": false,
+  "global_controls": { "rate": 0, "pitch": 0, "volume": 0 }
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "audioUrl": "/api/audio/speech_ab12cd34ef.mp3",
+  "ssml_used": "<speak ...>...</speak>",
+  "chunk_map": [
+    {"content": "...", "emotion": "cheerful", "intensity": 2, "rate": -2.0, "pitch": 3.0, "volume": 0.0},
+    {"content": "...", "emotion": "serious", "intensity": 3, "rate": 0.0, "pitch": -4.0, "volume": 0.0}
+  ],
+  "warnings": []
+}
+```
+
+Tips:
+- Omit `emotion` to fall back to the voice default.
+- `intensity` maps to `styledegree` (1→0.7, 2→1.0, 3→1.3).
+- `speed`/`pitch` are percent deltas (clamped to -50..50). `volume` is in dB (clamped -10..+10).
+- Leave `chunks` empty to auto-split server-side from `text` (set `auto_chunk=true`).
+
+## Hero Presets
+
+Fetch curated presets tuned for expressive defaults:
+
+**Endpoint:** `GET /api/presets`
+
+**Response:**
+```json
+{
+  "success": true,
+  "presets": [
+    {"id": "aria_chat_bright", "voice": "en-US-AriaNeural", "emotion": "chat", "intensity": 2, "rate": -2, "pitch": 4, "volume": 0, "description": "Clear, friendly delivery for narration."}
+  ]
+}
+```
+Use these to seed your UI, then let users tweak per chunk.
+
 ## Your Admin API Key (FREE)
 
 Generate your own personal admin API key for unlimited FREE access:

@@ -248,6 +248,92 @@
     color: white;
     transform: translateY(-1px);
   }
+  .toggle-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+  .toggle-row label {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    margin: 0;
+  }
+  .timeline-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+  }
+  .timeline-actions button {
+    border: 1px solid #e5e7eb;
+    background: #f9fafb;
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .timeline-actions button:hover {
+    background: #eef2ff;
+    border-color: #c7d2fe;
+  }
+  .chunk-card {
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 14px;
+    margin-bottom: 12px;
+    background: #f9fafb;
+  }
+  .chunk-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    font-weight: 700;
+    color: #1f2937;
+  }
+  .chunk-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 10px;
+    align-items: end;
+  }
+  .chunk-content {
+    width: 100%;
+    border-radius: 10px;
+    border: 1px solid #e5e7eb;
+    padding: 10px;
+    background: white;
+    font-size: 14px;
+  }
+  .chunk-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+  }
+  .chunk-actions button {
+    border: 1px solid #e5e7eb;
+    background: #fff;
+    border-radius: 8px;
+    padding: 8px 12px;
+    cursor: pointer;
+    font-weight: 600;
+  }
+  .chunk-actions button:hover {
+    background: #eef2ff;
+    border-color: #c7d2fe;
+  }
+  .ssml-preview {
+    width: 100%;
+    min-height: 140px;
+    border-radius: 12px;
+    border: 1px solid #e5e7eb;
+    background: #f9fafb;
+    padding: 12px;
+    font-family: ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
+    font-size: 13px;
+  }
   .cta {
     display: grid;
     gap: 20px;
@@ -329,12 +415,41 @@
                 <option value="">Loading voices...</option>
               </select>
             </div>
+            <div class="input-group">
+              <label for="preset">Hero Presets</label>
+              <select id="preset">
+                <option value="">No preset (manual)</option>
+              </select>
+              <p id="presetDesc" style="font-size: 13px; color: #6b7280; margin-top: 6px;"></p>
+            </div>
             <div class="input-group" id="styleGroup" style="display: none;">
               <label for="style">Style (Emotion) 🎭</label>
               <select id="style">
                 <option value="">Default (no style)</option>
               </select>
             </div>
+          </div>
+
+          <!-- Automation Toggles -->
+          <div class="form-section">
+            <div class="section-title">Automation</div>
+            <div class="toggle-row">
+              <label><input type="checkbox" id="autoPauses" checked /> Auto pauses</label>
+              <label><input type="checkbox" id="autoEmphasis" checked /> Auto emphasis</label>
+              <label><input type="checkbox" id="autoBreaths" /> Auto breaths</label>
+            </div>
+          </div>
+
+          <!-- Emotional Timeline -->
+          <div class="form-section">
+            <div class="section-title">Emotional Timeline</div>
+            <p style="color:#6b7280; font-size:14px; margin-bottom:10px;">Split your text into chunks and set emotion, intensity, pitch, and speed per chunk.</p>
+            <div class="timeline-actions">
+              <button type="button" id="btnSplit">Split at punctuation</button>
+              <button type="button" id="btnMerge">Merge small chunks</button>
+              <button type="button" id="btnReset">Reset</button>
+            </div>
+            <div id="chunkList"></div>
           </div>
 
           <!-- Audio Adjustments Section -->
@@ -377,6 +492,11 @@
           <audio id="audioElement" controls></audio>
           <a id="downloadLink" class="download-btn" download="speech.mp3">⬇️ Download MP3</a>
         </div>
+        <div class="form-section" id="ssmlSection" style="display:none">
+          <div class="section-title">SSML Preview</div>
+          <textarea id="ssmlPreview" class="ssml-preview" readonly></textarea>
+          <div id="warningList" style="margin-top:8px; color:#b45309; font-size:13px;"></div>
+        </div>
       </form>
     </div>
   {% endif %}
@@ -387,15 +507,12 @@
 <script>
   let currentAudioUrl = null;
   let voiceIndex = {};
-  
-  function escapeXml(unsafe) {
-    return unsafe.replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&apos;");
-  }
-  
+  let chunkState = [];
+  let presets = [];
+
+  const chunkListEl = document.getElementById('chunkList');
+  const textArea = document.getElementById('text');
+
   async function loadVoices(){
     try{
       const response = await fetch('/api/voices');
@@ -469,7 +586,242 @@
     } else {
       styleGroup.style.display = 'none';
     }
+    renderChunks(); // Refresh options in timeline
   }
+
+  async function loadPresets(){
+    try{
+      const res = await fetch('/api/presets');
+      const data = await res.json();
+      if(data.success){
+        presets = data.presets || [];
+        const presetSelect = document.getElementById('preset');
+        const presetDesc = document.getElementById('presetDesc');
+        presets.forEach(p => {
+          const opt = document.createElement('option');
+          opt.value = p.id;
+          opt.textContent = p.label;
+          presetSelect.appendChild(opt);
+        });
+        presetSelect.addEventListener('change', () => {
+          const selected = presets.find(p => p.id === presetSelect.value);
+          if(!selected){ presetDesc.textContent=''; return; }
+          presetDesc.textContent = selected.description || '';
+          // apply voice
+          const voiceSel = document.getElementById('voice');
+          voiceSel.value = selected.voice;
+          onVoiceChange();
+          // apply style/emotion if available
+          const styleSel = document.getElementById('style');
+          if(selected.emotion){
+            styleSel.value = selected.emotion;
+          }
+          // apply sliders
+          const setSlider = (id, val) => {
+            const el = document.getElementById(id);
+            el.value = val;
+            el.dispatchEvent(new Event('input'));
+          };
+          setSlider('rate', selected.rate || 0);
+          setSlider('pitch', selected.pitch || 0);
+          setSlider('volume', (selected.volume || 0) * 5); // volume is dB, slider is percent bucket
+          // reset chunks to match preset emotion as default
+          chunkState.forEach(c => { c.emotion = selected.emotion || null; });
+          renderChunks();
+        });
+      }
+    }catch(err){
+      console.warn('Failed to load presets', err);
+    }
+  }
+
+  function getCurrentStyles(){
+    const selectedVoice = voiceIndex[document.getElementById('voice').value];
+    return (selectedVoice && selectedVoice.styles) ? selectedVoice.styles : [];
+  }
+
+  function splitTextIntoChunks(inputText){
+    const cleaned = (inputText || '').trim();
+    if(!cleaned){ return []; }
+    const parts = [];
+    const tokens = cleaned.split(/(\.{3,}|…|[.!?]|[,;]|—)/);
+    let buf = '';
+    tokens.forEach(tok => {
+      if(!tok){ return; }
+      if(/(\.{3,}|…|[.!?]|[,;]|—)/.test(tok)){
+        buf += tok;
+        parts.push(buf.trim());
+        buf = '';
+      } else {
+        if(buf){ parts.push(buf.trim()); buf=''; }
+        buf = tok;
+      }
+    });
+    if(buf.trim()){ parts.push(buf.trim()); }
+    // merge tiny fragments
+    const merged = [];
+    parts.forEach(p => {
+      if(merged.length && p.length < 15){
+        merged[merged.length-1] = (merged[merged.length-1] + ' ' + p).trim();
+      }else{
+        merged.push(p);
+      }
+    });
+    // split overly long
+    const finalChunks = [];
+    merged.forEach(p => {
+      if(p.length <= 240){ finalChunks.push(p); return; }
+      const words = p.split(/\s+/);
+      let buf2 = [];
+      words.forEach(w => {
+        const joined = [...buf2, w].join(' ');
+        if(joined.length > 240 && buf2.length){
+          finalChunks.push(buf2.join(' '));
+          buf2 = [w];
+        } else {
+          buf2.push(w);
+        }
+      });
+      if(buf2.length){ finalChunks.push(buf2.join(' ')); }
+    });
+    return finalChunks;
+  }
+
+  function mergeSmallChunks(state, minLen=20){
+    const merged = [];
+    state.forEach(chunk => {
+      if(merged.length && chunk.content.length < minLen){
+        merged[merged.length-1].content = (merged[merged.length-1].content + ' ' + chunk.content).trim();
+      } else {
+        merged.push({...chunk});
+      }
+    });
+    return merged;
+  }
+
+  function rebuildTimelineFromText(){
+    const baseEmotion = document.getElementById('style').value || null;
+    const splits = splitTextIntoChunks(textArea.value);
+    chunkState = splits.map(c => ({
+      content: c,
+      emotion: baseEmotion,
+      intensity: 2,
+      pitch: 0,
+      speed: 0,
+      volume: 0
+    }));
+    renderChunks();
+  }
+
+  function renderChunks(){
+    if(!chunkListEl){ return; }
+    chunkListEl.innerHTML = '';
+    if(!chunkState.length){
+      chunkListEl.innerHTML = '<p style="color:#9ca3af; font-size:13px;">No chunks yet. Click "Split at punctuation" to generate chunks from your text.</p>';
+      return;
+    }
+    const styles = getCurrentStyles();
+    chunkState.forEach((chunk, idx) => {
+      const card = document.createElement('div');
+      card.className = 'chunk-card';
+      const header = document.createElement('div');
+      header.className = 'chunk-header';
+      header.textContent = `Chunk ${idx+1}`;
+      card.appendChild(header);
+
+      const contentArea = document.createElement('textarea');
+      contentArea.className = 'chunk-content';
+      contentArea.value = chunk.content;
+      contentArea.addEventListener('input', (e)=> {
+        chunkState[idx].content = e.target.value;
+      });
+      card.appendChild(contentArea);
+
+      const grid = document.createElement('div');
+      grid.className = 'chunk-grid';
+
+      const emotionWrap = document.createElement('div');
+      const emotionLabel = document.createElement('label');
+      emotionLabel.textContent = 'Emotion';
+      const emotionSelect = document.createElement('select');
+      emotionSelect.innerHTML = '<option value="">Default</option>';
+      styles.forEach(style => {
+        const opt = document.createElement('option');
+        opt.value = style;
+        opt.textContent = style.charAt(0).toUpperCase() + style.slice(1);
+        emotionSelect.appendChild(opt);
+      });
+      emotionSelect.value = chunk.emotion || '';
+      emotionSelect.addEventListener('change', (e)=> {
+        chunkState[idx].emotion = e.target.value || null;
+      });
+      emotionWrap.appendChild(emotionLabel);
+      emotionWrap.appendChild(emotionSelect);
+      grid.appendChild(emotionWrap);
+
+      const intensityWrap = document.createElement('div');
+      const intensityLabel = document.createElement('label');
+      intensityLabel.textContent = 'Intensity (1-3)';
+      const intensityInput = document.createElement('input');
+      intensityInput.type = 'range';
+      intensityInput.min = 1;
+      intensityInput.max = 3;
+      intensityInput.step = 1;
+      intensityInput.value = chunk.intensity || 2;
+      intensityInput.addEventListener('input', (e)=> {
+        chunkState[idx].intensity = parseInt(e.target.value);
+      });
+      intensityWrap.appendChild(intensityLabel);
+      intensityWrap.appendChild(intensityInput);
+      grid.appendChild(intensityWrap);
+
+      const speedWrap = document.createElement('div');
+      const speedLabel = document.createElement('label');
+      speedLabel.textContent = 'Speed (+/-%)';
+      const speedInput = document.createElement('input');
+      speedInput.type = 'number';
+      speedInput.min = -50;
+      speedInput.max = 50;
+      speedInput.step = 5;
+      speedInput.value = chunk.speed || 0;
+      speedInput.addEventListener('input', (e)=> {
+        chunkState[idx].speed = parseInt(e.target.value || '0');
+      });
+      speedWrap.appendChild(speedLabel);
+      speedWrap.appendChild(speedInput);
+      grid.appendChild(speedWrap);
+
+      const pitchWrap = document.createElement('div');
+      const pitchLabel = document.createElement('label');
+      pitchLabel.textContent = 'Pitch (+/-%)';
+      const pitchInput = document.createElement('input');
+      pitchInput.type = 'number';
+      pitchInput.min = -50;
+      pitchInput.max = 50;
+      pitchInput.step = 5;
+      pitchInput.value = chunk.pitch || 0;
+      pitchInput.addEventListener('input', (e)=> {
+        chunkState[idx].pitch = parseInt(e.target.value || '0');
+      });
+      pitchWrap.appendChild(pitchLabel);
+      pitchWrap.appendChild(pitchInput);
+      grid.appendChild(pitchWrap);
+
+      card.appendChild(grid);
+
+      const actions = document.createElement('div');
+      actions.className = 'chunk-actions';
+      const previewBtn = document.createElement('button');
+      previewBtn.type = 'button';
+      previewBtn.textContent = 'Preview chunk';
+      previewBtn.addEventListener('click', () => previewChunk(idx, previewBtn));
+      actions.appendChild(previewBtn);
+      card.appendChild(actions);
+
+      chunkListEl.appendChild(card);
+    });
+  }
+
   function bindSlider(sliderId, outId, suffix){
     const s = document.getElementById(sliderId), d = document.getElementById(outId);
     s.addEventListener('input', () => {
@@ -481,6 +833,49 @@
   bindSlider('volume','volumeValue','%');
   bindSlider('pitch','pitchValue','Hz');
 
+  document.getElementById('btnSplit').addEventListener('click', rebuildTimelineFromText);
+  document.getElementById('btnReset').addEventListener('click', () => { chunkState = []; renderChunks(); });
+  document.getElementById('btnMerge').addEventListener('click', () => { chunkState = mergeSmallChunks(chunkState); renderChunks(); });
+
+  async function previewChunk(idx, btn){
+    const chunk = chunkState[idx];
+    if(!chunk || !chunk.content){ return; }
+    btn.disabled = true;
+    btn.textContent = 'Previewing...';
+    try{
+      const voice = document.getElementById('voice').value || 'en-US-EmmaMultilingualNeural';
+      const payload = {
+        voice,
+        chunk,
+        auto_pauses: document.getElementById('autoPauses').checked,
+        auto_emphasis: document.getElementById('autoEmphasis').checked,
+        auto_breaths: document.getElementById('autoBreaths').checked,
+        global_pitch: Number(document.getElementById('pitch').value || 0),
+        global_rate: Number(document.getElementById('rate').value || 0),
+        global_volume: Number(document.getElementById('volume').value || 0) / 5
+      };
+      const res = await fetch('/api/preview', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+      const data = await res.json();
+      if(!data.success){ throw new Error(data.error || 'Preview failed'); }
+      const audio = document.getElementById('audioElement');
+      audio.src = data.audioUrl;
+      document.getElementById('downloadLink').href = data.audioUrl;
+      document.getElementById('audioPlayer').style.display = 'block';
+      if(data.warnings && data.warnings.length){
+        const warnEl = document.getElementById('warningList');
+        warnEl.textContent = `Warnings: ${data.warnings.join('; ')}`;
+      }
+      audio.play();
+    }catch(err){
+      const el = document.getElementById('error');
+      el.textContent = 'Preview error: ' + err.message;
+      el.classList.add('visible');
+    }finally{
+      btn.disabled = false;
+      btn.textContent = 'Preview chunk';
+    }
+  }
+
   document.getElementById('ttsForm').addEventListener('submit', async (e)=>{
     e.preventDefault();
     const text = document.getElementById('text').value;
@@ -489,36 +884,51 @@
     const rate = document.getElementById('rate').value;
     const volume = document.getElementById('volume').value;
     const pitch = document.getElementById('pitch').value;
+    const autoPauses = document.getElementById('autoPauses').checked;
+    const autoEmphasis = document.getElementById('autoEmphasis').checked;
+    const autoBreaths = document.getElementById('autoBreaths').checked;
+
+    if(!text || !voice){
+      const el = document.getElementById('error');
+      el.textContent = 'Please enter text and choose a voice.';
+      el.classList.add('visible');
+      return;
+    }
+
+    const payloadChunks = (chunkState.length ? chunkState : splitTextIntoChunks(text).map(c => ({
+      content: c,
+      emotion: style || null,
+      intensity: 2,
+      pitch: 0,
+      speed: 0,
+      volume: 0
+    })));
+
     document.getElementById('loading').classList.add('visible');
     document.getElementById('error').classList.remove('visible');
     document.getElementById('audioPlayer').style.display = 'none';
     document.getElementById('generateBtn').disabled = true;
     try{
-      // Build request body
-      let requestBody;
-      if (style) {
-        // Use SSML with emotion
-        const rateStr = (rate>=0?'+':'')+rate+'%';
-        const volumeStr = (volume>=0?'+':'')+volume+'%';
-        const pitchStr = (pitch>=0?'+':'')+pitch+'Hz';
-        const escapedText = escapeXml(text);
-        const ssml = `<speak version="1.0" xml:lang="en-US" xmlns:mstts="https://www.w3.org/2001/mstts"><voice name="${voice}"><mstts:express-as style="${style}"><prosody rate="${rateStr}" volume="${volumeStr}" pitch="${pitchStr}">${escapedText}</prosody></mstts:express-as></voice></speak>`;
-        requestBody = {
-          text: ssml,
-          voice: voice,
-          is_ssml: true
-        };
-      } else {
-        // Plain text
-        requestBody = {
-          text, 
-          voice,
-          rate: (rate>=0?'+':'')+rate+'%',
-          volume: (volume>=0?'+':'')+volume+'%',
-          pitch: (pitch>=0?'+':'')+pitch+'Hz'
-        };
-      }
-      
+      const requestBody = {
+        voice,
+        chunks: payloadChunks.map(ch => ({
+          content: ch.content,
+          emotion: ch.emotion || null,
+          intensity: ch.intensity || 2,
+          pitch: Number(ch.pitch || 0),
+          speed: Number(ch.speed || 0),
+          volume: Number(ch.volume || 0)
+        })),
+        auto_pauses: autoPauses,
+        auto_emphasis: autoEmphasis,
+        auto_breaths: autoBreaths,
+        global_controls: {
+          rate: Number(rate || 0),
+          pitch: Number(pitch || 0),
+          // volume slider is -50..50; map to -10..10 dB to stay safe
+          volume: Number(volume || 0) / 5
+        }
+      };
       const res = await fetch('/api/generate', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(requestBody)});
       const data = await res.json();
       if(data.success){
@@ -529,6 +939,14 @@
         const dl = document.getElementById('downloadLink');
         dl.href = data.audioUrl;
         document.getElementById('audioPlayer').style.display = 'block';
+        if(data.ssml_used){
+          const ssmlEl = document.getElementById('ssmlSection');
+          const ssmlTextarea = document.getElementById('ssmlPreview');
+          ssmlEl.style.display = 'block';
+          ssmlTextarea.value = data.ssml_used;
+          const warnEl = document.getElementById('warningList');
+          warnEl.textContent = (data.warnings && data.warnings.length) ? `Warnings: ${data.warnings.join('; ')}` : '';
+        }
         audio.play();
       } else {
         throw new Error(data.error || 'Failed to generate');
@@ -543,6 +961,8 @@
     }
   });
   loadVoices();
+  loadPresets();
+  renderChunks();
 </script>
 {% endif %}
 

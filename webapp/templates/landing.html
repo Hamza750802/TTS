@@ -64,6 +64,40 @@
             margin: 0 auto 64px auto;
         }
 
+        /* --- Hero Voice Presets --- */
+        .preset-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 16px;
+            margin-top: 32px;
+        }
+        .preset-card {
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 18px;
+            background: #fff;
+            box-shadow: 0 10px 30px var(--shadow);
+        }
+        .preset-card h4 {
+            margin: 0 0 8px 0;
+            font-size: 18px;
+        }
+        .preset-chip {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 999px;
+            background: rgba(59,130,246,0.1);
+            color: #1f2937;
+            font-weight: 700;
+            font-size: 12px;
+            margin-right: 6px;
+        }
+        .preset-desc {
+            color: var(--text-secondary);
+            font-size: 14px;
+            margin: 8px 0 0 0;
+        }
+
         /* --- Hero Section --- */
         .hero {
             padding: 120px 0;
@@ -502,6 +536,30 @@
                 <div class="preview-error" id="previewError"></div>
                 <div class="preview-audio" id="previewAudio">
                     <audio id="previewAudioElement" controls></audio>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="section" style="background:#fff;">
+        <div class="container">
+            <h2 class="section-title">Hero Voices Tuned for Emotion</h2>
+            <p class="section-subtitle">Start with battle-tested presets, then fine-tune with the Emotional Timeline inside the app.</p>
+            <div class="preset-grid">
+                <div class="preset-card">
+                    <h4>Aria (chat, bright)</h4>
+                    <div><span class="preset-chip">en-US-AriaNeural</span><span class="preset-chip">chat</span></div>
+                    <div class="preset-desc">Clear, friendly delivery for narration with a slight lift in pitch.</div>
+                </div>
+                <div class="preset-card">
+                    <h4>Jenny (cheerful, story)</h4>
+                    <div><span class="preset-chip">en-US-JennyNeural</span><span class="preset-chip">cheerful</span></div>
+                    <div class="preset-desc">Storytelling warmth with moderate cheer; great for intros and ads.</div>
+                </div>
+                <div class="preset-card">
+                    <h4>Guy (serious)</h4>
+                    <div><span class="preset-chip">en-US-GuyNeural</span><span class="preset-chip">serious</span></div>
+                    <div class="preset-desc">Grounded, confident male read for announcements and statements.</div>
                 </div>
             </div>
         </div>

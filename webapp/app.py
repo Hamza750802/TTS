@@ -11,6 +11,8 @@ from functools import wraps
 from pathlib import Path
 
 import stripe
+from chunk_processor import process_text
+from ssml_builder import build_ssml
 
 # Load environment variables from .env file
 from dotenv import load_dotenv
@@ -117,6 +119,43 @@ def cleanup_old_files(days=7):
 # Cache for voices
 _voices_cache = None
 
+# Curated hero voice presets with tuned defaults
+HERO_PRESETS = [
+    {
+        "id": "aria_chat_bright",
+        "label": "Aria (chat, bright)",
+        "voice": "en-US-AriaNeural",
+        "emotion": "chat",
+        "intensity": 2,
+        "rate": -2,
+        "pitch": 4,
+        "volume": 0,
+        "description": "Clear, friendly delivery for narration."
+    },
+    {
+        "id": "jenny_story_cheer",
+        "label": "Jenny (cheerful, story)",
+        "voice": "en-US-JennyNeural",
+        "emotion": "cheerful",
+        "intensity": 2,
+        "rate": -5,
+        "pitch": 3,
+        "volume": 0,
+        "description": "Storytelling tone with a hint of cheer."
+    },
+    {
+        "id": "guy_serious",
+        "label": "Guy (serious)",
+        "voice": "en-US-GuyNeural",
+        "emotion": "serious",
+        "intensity": 2,
+        "rate": -3,
+        "pitch": -2,
+        "volume": 0,
+        "description": "Grounded male voice for statements."
+    }
+]
+
 
 class User(db.Model, UserMixin):
     id = db.Column(db.Integer, primary_key=True)
@@ -180,41 +219,27 @@ async def get_voices():
     return _voices_cache
 
 
-async def generate_speech(text, voice, rate=None, volume=None, pitch=None, is_ssml=False):
-    """Generate speech from text or SSML"""
+async def generate_speech(text, voice, rate=None, volume=None, pitch=None, is_ssml=False, cache_key=None):
+    """Generate speech from text or SSML. Optional cache_key for deterministic filenames."""
     import re
     import edge_tts as tts_module  # Rename to avoid shadowing
     import edge_tts.communicate as tts_comm
     from edge_tts.data_classes import TTSConfig
     
-    # Create unique filename
-    unique_id = hashlib.md5(f"{text}{voice}{time.time()}".encode()).hexdigest()[:10]
-    output_file = OUTPUT_DIR / f"speech_{unique_id}.mp3"
+    # Create filename (cache-aware)
+    if cache_key:
+        fname = f"speech_{cache_key}.mp3"
+    else:
+        unique_id = hashlib.md5(f"{text}{voice}{time.time()}".encode()).hexdigest()[:10]
+        fname = f"speech_{unique_id}.mp3"
+    output_file = OUTPUT_DIR / fname
+
+    if cache_key and output_file.exists():
+        return output_file
 
     if is_ssml:
-        # For SSML with emotions, extract the inner content and inject mstts namespace
-        
-        # Extract content between <voice name="..."> and </voice>
-        voice_content_match = re.search(r'<voice[^>]*>(.*?)</voice>', text, re.DOTALL)
-        if voice_content_match:
-            inner_content = voice_content_match.group(1).strip()
-            
-            # Extract text from inside <prosody> tags if present
-            prosody_match = re.search(r'<prosody[^>]*>(.*?)</prosody>', inner_content, re.DOTALL)
-            if prosody_match:
-                text_content = prosody_match.group(1).strip()
-                
-                # Extract the mstts:express-as wrapper
-                mstts_match = re.search(r'(<mstts:express-as[^>]*>).*?</mstts:express-as>', inner_content, re.DOTALL)
-                if mstts_match:
-                    mstts_open_tag = mstts_match.group(1)
-                    final_text = f"{mstts_open_tag}{text_content}</mstts:express-as>"
-                else:
-                    final_text = text_content
-            else:
-                final_text = inner_content
-        else:
-            final_text = text
+        # If caller already provided a full <speak> we use it directly.
+        final_text = text
         
         # Create a custom mkssml function that includes mstts namespace
         def mkssml_with_mstts(tc, escaped_text):
@@ -397,6 +422,12 @@ def api_voices():
         return jsonify({'success': True, 'voices': formatted_voices})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/presets', methods=['GET'])
+def api_presets():
+    """Return curated hero voice presets"""
+    return jsonify({"success": True, "presets": HERO_PRESETS})
 
 
 # -------- Stripe billing --------
@@ -621,6 +652,7 @@ def api_preview():
         volume = data.get('volume', '+0%')
         pitch = data.get('pitch', '+0Hz')
         is_ssml = bool(data.get('is_ssml'))
+        chunk = data.get('chunk')  # optional chunk preview payload
         
         # Ensure proper formatting for rate, volume, and pitch
         if not rate.startswith(('+', '-')):
@@ -630,28 +662,53 @@ def api_preview():
         if not pitch.startswith(('+', '-')):
             pitch = '+' + pitch
         
-        if not text:
+        if not text and not chunk:
             return jsonify({'success': False, 'error': 'No text provided'}), 400
         
         # Enforce 150 character limit for preview (count only actual text, not SSML markup)
-        if is_ssml:
-            # Extract text content from SSML to check length
-            import re
-            # Remove all XML tags to get just the text content
-            text_only = re.sub(r'<[^>]+>', '', text)
-            char_count = len(text_only)
+        char_count = 0
+        ssml_text = None
+        warnings_out = []
+        if chunk:
+            # Build SSML for single chunk
+            if not isinstance(chunk, dict) or not chunk.get('content'):
+                return jsonify({'success': False, 'error': 'chunk must include content'}), 400
+            char_count = len(chunk.get('content', ''))
+            ssml_result = build_ssml(
+                voice=voice,
+                chunks=[chunk],
+                auto_pauses=data.get('auto_pauses', True),
+                auto_emphasis=data.get('auto_emphasis', True),
+                auto_breaths=data.get('auto_breaths', False),
+                global_rate=data.get('global_rate'),
+                global_pitch=data.get('global_pitch'),
+                global_volume=data.get('global_volume'),
+            )
+            ssml_text = ssml_result['ssml']
+            warnings_out = ssml_result['warnings']
+            is_ssml = True
         else:
-            char_count = len(text)
-            
-        if char_count > 150:
+            if is_ssml:
+                import re
+                text_only = re.sub(r'<[^>]+>', '', text)
+                char_count = len(text_only)
+            else:
+                char_count = len(text)
+                ssml_text = text
+        
+        limit = 220 if chunk else 150
+        if char_count > limit:
             return jsonify({
                 'success': False, 
-                'error': f'Preview limited to 150 characters. You entered {char_count}. Sign up for unlimited!'
+                'error': f'Preview limited to {limit} characters. You entered {char_count}. Sign up for unlimited!'
             }), 400
         
         # Generate speech
         try:
-            if is_ssml:
+            if ssml_text and is_ssml:
+                cache_key = hashlib.md5(f"preview:{voice}:{ssml_text}".encode()).hexdigest()[:16]
+                output_file = run_async(generate_speech(ssml_text, voice, None, None, None, is_ssml=True, cache_key=cache_key))
+            elif is_ssml:
                 output_file = run_async(generate_speech(text, voice, rate, volume, pitch, is_ssml=True))
             else:
                 output_file = run_async(generate_speech(text, voice, rate, volume, pitch))
@@ -660,7 +717,8 @@ def api_preview():
         
         return jsonify({
             'success': True,
-            'audioUrl': f'/api/audio/{output_file.name}'
+            'audioUrl': f'/api/audio/{output_file.name}',
+            'warnings': warnings_out
         })
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -674,26 +732,100 @@ def api_generate():
     """Generate speech from text"""
     try:
         data = request.get_json(silent=True) or {}
-        raw_text = data.get('text', '')
+        raw_text = data.get('text', '') or ''
         text = raw_text.strip()
         voice = data.get('voice', 'en-US-EmmaMultilingualNeural')
+        is_ssml = bool(data.get('is_ssml')) or raw_text.strip().lower().startswith('<speak')
+        chunks = data.get('chunks')
+
+        # Auto flags / global controls for SSML builder
+        auto_pauses = data.get('auto_pauses', True)
+        auto_emphasis = data.get('auto_emphasis', True)
+        auto_breaths = data.get('auto_breaths', False)
+        global_controls = data.get('global_controls', {}) or {}
+
+        # Legacy params for plain text mode
         rate = data.get('rate', '+0%')
         volume = data.get('volume', '+0%')
         pitch = data.get('pitch', '+0Hz')
-        is_ssml = bool(data.get('is_ssml')) or raw_text.strip().lower().startswith('<speak')
-        
-        # Ensure proper formatting for rate, volume, and pitch
+
+        # Ensure proper formatting for rate, volume, and pitch (legacy path)
         if not rate.startswith(('+', '-')):
             rate = '+' + rate
         if not volume.startswith(('+', '-')):
             volume = '+' + volume
         if not pitch.startswith(('+', '-')):
             pitch = '+' + pitch
-        
+
+        # --- Chunked SSML path ---
+        if chunks is not None:
+            if not isinstance(chunks, list) or not chunks:
+                return jsonify({'success': False, 'error': 'chunks must be a non-empty list'}), 400
+
+            ssml_result = build_ssml(
+                voice=voice,
+                chunks=chunks,
+                auto_pauses=auto_pauses,
+                auto_emphasis=auto_emphasis,
+                auto_breaths=auto_breaths,
+                global_rate=global_controls.get('rate'),
+                global_pitch=global_controls.get('pitch'),
+                global_volume=global_controls.get('volume'),
+            )
+            ssml_text = ssml_result['ssml']
+            cache_key = hashlib.md5(f"{voice}:{ssml_text}".encode()).hexdigest()[:16]
+
+            output_file = run_async(
+                generate_speech(
+                    ssml_text,
+                    voice,
+                    is_ssml=True,
+                    cache_key=cache_key
+                )
+            )
+            return jsonify({
+                'success': True,
+                'audioUrl': f'/api/audio/{output_file.name}',
+                'ssml_used': ssml_text,
+                'chunk_map': ssml_result['chunk_map'],
+                'warnings': ssml_result['warnings'],
+            })
+
+        # --- Auto-chunk path when plain text provided ---
+        if text and data.get('auto_chunk', True) and not is_ssml:
+            chunk_map = process_text(text)
+            ssml_result = build_ssml(
+                voice=voice,
+                chunks=chunk_map,
+                auto_pauses=auto_pauses,
+                auto_emphasis=auto_emphasis,
+                auto_breaths=auto_breaths,
+                global_rate=global_controls.get('rate'),
+                global_pitch=global_controls.get('pitch'),
+                global_volume=global_controls.get('volume'),
+            )
+            ssml_text = ssml_result['ssml']
+            cache_key = hashlib.md5(f"{voice}:{ssml_text}".encode()).hexdigest()[:16]
+            output_file = run_async(
+                generate_speech(
+                    ssml_text,
+                    voice,
+                    is_ssml=True,
+                    cache_key=cache_key
+                )
+            )
+            return jsonify({
+                'success': True,
+                'audioUrl': f'/api/audio/{output_file.name}',
+                'ssml_used': ssml_text,
+                'chunk_map': ssml_result['chunk_map'],
+                'warnings': ssml_result['warnings'],
+            })
+
+        # --- Legacy plain text / direct SSML path ---
         if not text:
             return jsonify({'success': False, 'error': 'No text provided'}), 400
 
-        # Generate speech (SSML uses embedded prosody; skip rate/volume/pitch overrides)
         output_file = run_async(
             generate_speech(
                 text,
@@ -711,6 +843,21 @@ def api_generate():
         })
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/pro/generate', methods=['POST'])
+@login_required
+@subscription_required
+@csrf.exempt
+def api_generate_pro():
+    """
+    Placeholder for Pro Engine (e.g., CosyVoice-2 CPU).
+    Currently not enabled; returns a clear message.
+    """
+    return jsonify({
+        'success': False,
+        'error': 'Pro engine not enabled yet. This endpoint is reserved for CosyVoice-2 CPU mode.'
+    }), 501
 
 
 @app.route('/api/audio/<filename>')
