@@ -9,7 +9,7 @@
         <h3 style="margin-bottom: 20px; color: #ffffff; font-size: 20px;">📚 API Documentation</h3>
         <p style="margin-bottom: 12px; color: #ffffff;"><strong style="color: #a78bfa;">Endpoint:</strong> <code style="background: rgba(167,139,250,.25); padding: 6px 10px; border-radius: 6px; color: #e0e7ff; font-weight: 600; border: 1px solid rgba(167,139,250,.4);">POST /api/v1/synthesize</code></p>
         <p style="margin-bottom: 15px; color: #ffffff;"><strong style="color: #a78bfa;">Header:</strong> <code style="background: rgba(167,139,250,.25); padding: 6px 10px; border-radius: 6px; color: #e0e7ff; font-weight: 600; border: 1px solid rgba(167,139,250,.4);">X-API-Key: your_api_key_here</code></p>
-        <p style="margin-bottom: 12px; color: #ffffff; font-weight: 600; font-size: 15px;">Example Request:</p>
+        <p style="margin-bottom: 12px; color: #ffffff; font-weight: 600; font-size: 15px;">Example Request (Plain Text):</p>
         <pre style="background: #1a1a2e; padding: 18px; border-radius: 8px; overflow-x: auto; font-size: 14px; color: #ffffff; border: 1px solid rgba(167,139,250,.5); line-height: 1.6;">curl -X POST {{ request.url_root }}api/v1/synthesize \
   -H "Content-Type: application/json" \
   -H "X-API-Key: your_api_key_here" \
@@ -20,6 +20,20 @@
     "volume": "+0%",
     "pitch": "+0Hz"
   }'</pre>
+        
+        <p style="margin: 20px 0 12px 0; color: #ffffff; font-weight: 600; font-size: 15px;">🎭 Emotion Control (SSML):</p>
+        <p style="color: #d1d5db; margin-bottom: 10px; font-size: 14px;">For voices with 🎭 emoji, use SSML to add emotions like cheerful, sad, angry, excited, etc.</p>
+        <pre style="background: #1a1a2e; padding: 18px; border-radius: 8px; overflow-x: auto; font-size: 14px; color: #ffffff; border: 1px solid rgba(167,139,250,.5); line-height: 1.6;">curl -X POST {{ request.url_root }}api/v1/synthesize \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: your_api_key_here" \
+  -d '{
+    "text": "&lt;speak version=\"1.0\" xml:lang=\"en-US\" xmlns:mstts=\"https://www.w3.org/2001/mstts\"&gt;&lt;voice name=\"en-US-JennyNeural\"&gt;&lt;mstts:express-as style=\"cheerful\"&gt;&lt;prosody rate=\"+0%\" volume=\"+0%\" pitch=\"+0Hz\"&gt;I am so happy today!&lt;/prosody&gt;&lt;/mstts:express-as&gt;&lt;/voice&gt;&lt;/speak&gt;",
+    "voice": "en-US-JennyNeural",
+    "is_ssml": true
+  }'</pre>
+        <p style="color: #fbbf24; font-size: 13px; background: rgba(251,191,36,.1); padding: 12px; border-radius: 8px; border: 1px solid rgba(251,191,36,.3); margin-top: 12px;">
+            💡 <strong>Tip:</strong> Each voice supports different emotions. Common styles: cheerful, sad, angry, excited, friendly, terrified, shouting, whispering, hopeful. Check the voice list below for supported styles.
+        </p>
         
         <p style="margin: 20px 0 12px 0; color: #ffffff; font-weight: 600; font-size: 15px;">List Voices:</p>
         <p style="margin-bottom: 12px; color: #ffffff;"><code style="background: rgba(167,139,250,.25); padding: 6px 10px; border-radius: 6px; color: #e0e7ff; font-weight: 600; border: 1px solid rgba(167,139,250,.4);">GET /api/voices</code></p>
@@ -156,13 +170,16 @@ function displayVoices(voices) {
         
         grouped[lang].forEach(voice => {
             const genderColor = voice.gender === 'Female' ? '#ec4899' : '#3b82f6';
+            const hasStyles = voice.has_styles;
+            const stylesText = hasStyles && voice.styles ? voice.styles.join(', ') : '';
             html += `
                 <div style="background: rgba(0,0,0,.3); padding: 12px; border-radius: 8px; border: 1px solid rgba(167,139,250,.2);">
-                    <div style="font-weight: 600; color: #ffffff; margin-bottom: 4px;">${voice.localName}</div>
+                    <div style="font-weight: 600; color: #ffffff; margin-bottom: 4px;">${hasStyles ? '🎭 ' : ''}${voice.localName}</div>
                     <div style="font-size: 12px; color: #c4b5fd; font-family: monospace; margin-bottom: 4px;">${voice.shortName}</div>
-                    <div style="display: flex; gap: 8px; font-size: 11px;">
+                    <div style="display: flex; gap: 8px; font-size: 11px; flex-wrap: wrap;">
                         <span style="background: rgba(167,139,250,.2); color: #c4b5fd; padding: 2px 6px; border-radius: 4px;">${voice.locale}</span>
                         <span style="background: ${genderColor}22; color: ${genderColor}; padding: 2px 6px; border-radius: 4px;">${voice.gender}</span>
+                        ${hasStyles ? `<span style="background: rgba(251,191,36,.2); color: #fbbf24; padding: 2px 6px; border-radius: 4px;" title="${stylesText}">🎭 ${voice.styles.length} styles</span>` : ''}
                     </div>
                 </div>`;
         });
