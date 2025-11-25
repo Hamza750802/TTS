@@ -35,6 +35,29 @@
             💡 <strong>Tip:</strong> Each voice supports different emotions. Common styles: cheerful, sad, angry, excited, friendly, terrified, shouting, whispering, hopeful. Check the voice list below for supported styles.
         </p>
         
+        <p style="margin: 20px 0 12px 0; color: #ffffff; font-weight: 600; font-size: 15px;">🎙️ Multi-Speaker Dialogue (NEW!):</p>
+        <p style="color: #d1d5db; margin-bottom: 10px; font-size: 14px;">Create conversations with different voices and emotions. Perfect for podcasts, audiobooks, and training content.</p>
+        <pre style="background: #1a1a2e; padding: 18px; border-radius: 8px; overflow-x: auto; font-size: 14px; color: #ffffff; border: 1px solid rgba(167,139,250,.5); line-height: 1.6;">curl -X POST {{ request.url_root }}api/v1/synthesize \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: your_api_key_here" \
+  -d '{
+    "chunks": [
+      {
+        "content": "Hello! Welcome to our podcast.",
+        "voice": "en-US-JennyNeural",
+        "emotion": "cheerful"
+      },
+      {
+        "content": "Thanks for having me!",
+        "voice": "en-US-GuyNeural",
+        "emotion": "excited"
+      }
+    ]
+  }'</pre>
+        <p style="color: #10b981; font-size: 13px; background: rgba(16,185,129,.1); padding: 12px; border-radius: 8px; border: 1px solid rgba(16,185,129,.3); margin-top: 12px;">
+            ⭐ <strong>Recommended Voices:</strong> Jenny (14 emotions) and Guy (11 emotions) are the most versatile for multi-speaker dialogue!
+        </p>
+        
         <p style="margin: 20px 0 12px 0; color: #ffffff; font-weight: 600; font-size: 15px;">List Voices:</p>
         <p style="margin-bottom: 12px; color: #ffffff;"><code style="background: rgba(167,139,250,.25); padding: 6px 10px; border-radius: 6px; color: #e0e7ff; font-weight: 600; border: 1px solid rgba(167,139,250,.4);">GET /api/voices</code></p>
         <pre style="background: #1a1a2e; padding: 18px; border-radius: 8px; overflow-x: auto; font-size: 14px; color: #ffffff; border: 1px solid rgba(167,139,250,.5);">curl {{ request.url_root }}api/voices</pre>

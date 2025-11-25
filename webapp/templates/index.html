@@ -759,12 +759,64 @@
       const grid = document.createElement('div');
       grid.className = 'chunk-grid';
 
+      // Voice selection
+      const voiceWrap = document.createElement('div');
+      const voiceLabel = document.createElement('label');
+      voiceLabel.textContent = '🎙️ Voice';
+      const voiceSelect = document.createElement('select');
+      voiceSelect.innerHTML = '<option value="">Use Global Voice</option>';
+      
+      // Add recommended voices
+      const recommendedGroup = document.createElement('optgroup');
+      recommendedGroup.label = '⭐ Recommended Multi-Speaker';
+      const jennyOpt = document.createElement('option');
+      jennyOpt.value = 'en-US-JennyNeural';
+      jennyOpt.textContent = '🎭 Jenny (14 emotions)';
+      recommendedGroup.appendChild(jennyOpt);
+      const guyOpt = document.createElement('option');
+      guyOpt.value = 'en-US-GuyNeural';
+      guyOpt.textContent = '🎭 Guy (11 emotions)';
+      recommendedGroup.appendChild(guyOpt);
+      voiceSelect.appendChild(recommendedGroup);
+      
+      // Add all voices
+      const allVoicesGroup = document.createElement('optgroup');
+      allVoicesGroup.label = 'All Voices';
+      Object.keys(voiceIndex).forEach(shortName => {
+        const voice = voiceIndex[shortName];
+        const opt = document.createElement('option');
+        opt.value = shortName;
+        opt.textContent = `${voice.has_styles ? '🎭 ' : ''}${voice.localName} (${voice.gender})`;
+        opt.dataset.hasStyles = voice.has_styles;
+        opt.dataset.styles = (voice.styles || []).join(',');
+        allVoicesGroup.appendChild(opt);
+      });
+      voiceSelect.appendChild(allVoicesGroup);
+      
+      voiceSelect.value = chunk.voice || '';
+      voiceSelect.addEventListener('change', (e)=> {
+        chunkState[idx].voice = e.target.value || null;
+        // Update available emotions based on selected voice
+        renderChunks();
+      });
+      voiceWrap.appendChild(voiceLabel);
+      voiceWrap.appendChild(voiceSelect);
+      grid.appendChild(voiceWrap);
+
+      // Emotion selection - filtered by chunk's voice
       const emotionWrap = document.createElement('div');
       const emotionLabel = document.createElement('label');
-      emotionLabel.textContent = 'Emotion';
+      emotionLabel.textContent = '🎭 Emotion';
       const emotionSelect = document.createElement('select');
       emotionSelect.innerHTML = '<option value="">Default</option>';
-      styles.forEach(style => {
+      
+      // Get styles for chunk's specific voice, or fall back to global voice
+      let chunkStyles = styles;
+      if (chunk.voice && voiceIndex[chunk.voice]) {
+        chunkStyles = voiceIndex[chunk.voice].styles || [];
+      }
+      
+      chunkStyles.forEach(style => {
         const opt = document.createElement('option');
         opt.value = style;
         opt.textContent = style.charAt(0).toUpperCase() + style.slice(1);
