@@ -121,6 +121,16 @@ def build_ssml(
     resolved_chunks: List[Dict[str, Any]] = []
     ssml_parts: List[str] = []
     current_voice = None  # Track voice changes, start with None
+    
+    # Check if we have multi-voice scenario (prosody causes issues with voice switching)
+    voices_used = set()
+    for chunk in chunks:
+        chunk_voice = chunk.get("voice") or voice
+        voices_used.add(chunk_voice)
+    is_multi_voice = len(voices_used) > 1
+    
+    if is_multi_voice:
+        warnings.append("Multi-voice detected: prosody tags disabled for compatibility")
 
     for idx, raw_chunk in enumerate(chunks):
         text = str(raw_chunk.get("content", "")).strip()
@@ -153,20 +163,34 @@ def build_ssml(
 
         # Escape and optionally emphasize
         escaped_text = _escape_text(text)
-        if auto_emphasis:
+        if auto_emphasis and not is_multi_voice:  # Skip emphasis in multi-voice to avoid issues
             keywords = _find_keywords(text)
             escaped_text = _apply_emphasis(escaped_text, keywords)
 
         # Wrap with express-as if emotion present
         if emotion:
             degree = _styledegree(intensity)
-            chunk_ssml = (
-                f'<mstts:express-as style="{html.escape(str(emotion))}" styledegree="{degree:.2f}">'
-                f"<prosody rate=\"{rate_str}\" pitch=\"{pitch_str}\" volume=\"{volume_str}\">{escaped_text}</prosody>"
-                f"</mstts:express-as>"
-            )
+            if is_multi_voice:
+                # Multi-voice: skip prosody tags for compatibility
+                chunk_ssml = (
+                    f'<mstts:express-as style="{html.escape(str(emotion))}" styledegree="{degree:.2f}">'
+                    f"{escaped_text}"
+                    f"</mstts:express-as>"
+                )
+            else:
+                # Single voice: include prosody
+                chunk_ssml = (
+                    f'<mstts:express-as style="{html.escape(str(emotion))}" styledegree="{degree:.2f}">'
+                    f"<prosody rate=\"{rate_str}\" pitch=\"{pitch_str}\" volume=\"{volume_str}\">{escaped_text}</prosody>"
+                    f"</mstts:express-as>"
+                )
         else:
-            chunk_ssml = f"<prosody rate=\"{rate_str}\" pitch=\"{pitch_str}\" volume=\"{volume_str}\">{escaped_text}</prosody>"
+            if is_multi_voice:
+                # Multi-voice: no prosody
+                chunk_ssml = escaped_text
+            else:
+                # Single voice: include prosody
+                chunk_ssml = f"<prosody rate=\"{rate_str}\" pitch=\"{pitch_str}\" volume=\"{volume_str}\">{escaped_text}</prosody>"
 
         # Auto pauses
         if auto_pauses:
