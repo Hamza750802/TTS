@@ -242,6 +242,13 @@
             </select>
         </div>
         
+        <div class="form-group" id="styleGroup" style="display: none;">
+            <label for="style">Style (emotion):</label>
+            <select id="style">
+                <option value="">Default (no style)</option>
+            </select>
+        </div>
+        
         <div class="controls">
             <div class="control-group">
                 <label for="rate">Speed:</label>
@@ -274,9 +281,21 @@
         const API_KEY = "{{ api_key }}";
         const API_BASE = window.location.origin;
         let allVoices = [];
+        let voiceIndex = {};
         
         // Load voices on page load
-        window.addEventListener('DOMContentLoaded', loadVoices);
+        window.addEventListener('DOMContentLoaded', () => {
+            loadVoices();
+            document.getElementById('voice').addEventListener('change', onVoiceChange);
+        });
+        
+        function escapeXml(unsafe) {
+            return unsafe.replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/\"/g, "&quot;")
+                .replace(/'/g, "&apos;");
+        }
         
         async function loadVoices() {
             try {
@@ -285,6 +304,7 @@
                 
                 if (data.success && data.voices) {
                     allVoices = data.voices;
+                    voiceIndex = {};
                     const voiceSelect = document.getElementById('voice');
                     voiceSelect.innerHTML = '';
                     
@@ -294,6 +314,7 @@
                         const lang = v.locale.split('-')[0].toUpperCase();
                         if (!grouped[lang]) grouped[lang] = [];
                         grouped[lang].push(v);
+                        voiceIndex[v.shortName] = v;
                     });
                     
                     // Add voices grouped by language
@@ -304,7 +325,9 @@
                         grouped[lang].forEach(voice => {
                             const option = document.createElement('option');
                             option.value = voice.shortName;
-                            option.textContent = `${voice.localName} (${voice.gender}) - ${voice.locale}`;
+                            option.textContent = `${voice.has_styles ? '🎭 ' : ''}${voice.localName} (${voice.gender}) - ${voice.locale}`;
+                            option.dataset.hasStyles = voice.has_styles;
+                            option.dataset.styles = (voice.styles || []).join(',');
                             optgroup.appendChild(option);
                         });
                         
@@ -319,9 +342,41 @@
             }
         }
         
+                    // Set default
+                    voiceSelect.value = 'en-US-AriaNeural';
+                    onVoiceChange();
+                }
+            } catch (error) {
+                showError('Failed to load voices: ' + error.message);
+            }
+        }
+        
+        function onVoiceChange() {
+            const voiceSelect = document.getElementById('voice');
+            const styleGroup = document.getElementById('styleGroup');
+            const styleSelect = document.getElementById('style');
+            const selectedVoice = voiceIndex[voiceSelect.value];
+            
+            // Reset styles
+            styleSelect.innerHTML = '<option value=\"\">Default (no style)</option>';
+            
+            if (selectedVoice && selectedVoice.styles && selectedVoice.styles.length) {
+                selectedVoice.styles.forEach(style => {
+                    const opt = document.createElement('option');
+                    opt.value = style;
+                    opt.textContent = `${style} (emotion)`;
+                    styleSelect.appendChild(opt);
+                });
+                styleGroup.style.display = 'block';
+            } else {
+                styleGroup.style.display = 'none';
+            }
+        }
+        
         async function generateSpeech() {
             const text = document.getElementById('text').value.trim();
             const voice = document.getElementById('voice').value;
+            const style = document.getElementById('style').value;
             const rate = document.getElementById('rate').value || '+0%';
             const volume = document.getElementById('volume').value || '+0%';
             const pitch = document.getElementById('pitch').value || '+0Hz';
@@ -346,6 +401,25 @@
             btn.disabled = true;
             btn.textContent = 'Generating...';
             
+            // Build payload; if style selected, send SSML
+            let payload;
+            if (style) {
+                const escaped = escapeXml(text);
+                payload = {
+                    voice: voice,
+                    is_ssml: true,
+                    text: `<speak version=\"1.0\" xml:lang=\"en-US\" xmlns:mstts=\"https://www.w3.org/2001/mstts\"><voice name=\"${voice}\"><mstts:express-as style=\"${style}\"><prosody rate=\"${rate}\" volume=\"${volume}\" pitch=\"${pitch}\">${escaped}</prosody></mstts:express-as></voice></speak>`
+                };
+            } else {
+                payload = {
+                    text: text,
+                    voice: voice,
+                    rate: rate,
+                    volume: volume,
+                    pitch: pitch
+                };
+            }
+            
             try {
                 const response = await fetch(`${API_BASE}/api/v1/synthesize`, {
                     method: 'POST',
@@ -353,13 +427,7 @@
                         'Content-Type': 'application/json',
                         'X-API-Key': API_KEY
                     },
-                    body: JSON.stringify({
-                        text: text,
-                        voice: voice,
-                        rate: rate,
-                        volume: volume,
-                        pitch: pitch
-                    })
+                    body: JSON.stringify(payload)
                 });
                 
                 const data = await response.json();

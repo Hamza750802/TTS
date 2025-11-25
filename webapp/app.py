@@ -177,24 +177,25 @@ async def get_voices():
     return _voices_cache
 
 
-async def generate_speech(text, voice, rate, volume, pitch):
-    """Generate speech from text"""
+async def generate_speech(text, voice, rate=None, volume=None, pitch=None, is_ssml=False):
+    """Generate speech from text or SSML"""
     # Create unique filename
     import hashlib
     import time
     unique_id = hashlib.md5(f"{text}{voice}{time.time()}".encode()).hexdigest()[:10]
     output_file = OUTPUT_DIR / f"speech_{unique_id}.mp3"
-    
+
     # Generate speech
     communicate = edge_tts.Communicate(
         text=text,
         voice=voice,
         rate=rate,
         volume=volume,
-        pitch=pitch
+        pitch=pitch,
+        ssml=is_ssml
     )
     await communicate.save(str(output_file))
-    
+
     return output_file
 
 
@@ -316,12 +317,15 @@ def api_voices():
         # Format voices for frontend
         formatted_voices = []
         for voice in voices:
+            styles = voice.get('StyleList', []) or []
             formatted_voices.append({
                 'name': voice['Name'],
                 'shortName': voice['ShortName'],
                 'gender': voice['Gender'],
                 'locale': voice['Locale'],
-                'localName': voice.get('LocalName', voice['ShortName'])
+                'localName': voice.get('LocalName', voice['ShortName']),
+                'styles': styles,
+                'has_styles': bool(styles),
             })
         
         return jsonify({'success': True, 'voices': formatted_voices})
@@ -591,11 +595,13 @@ def api_generate():
     """Generate speech from text"""
     try:
         data = request.get_json(silent=True) or {}
-        text = data.get('text', '')
+        raw_text = data.get('text', '')
+        text = raw_text.strip()
         voice = data.get('voice', 'en-US-EmmaMultilingualNeural')
         rate = data.get('rate', '+0%')
         volume = data.get('volume', '+0%')
         pitch = data.get('pitch', '+0Hz')
+        is_ssml = bool(data.get('is_ssml')) or raw_text.strip().lower().startswith('<speak')
         
         # Ensure proper formatting for rate, volume, and pitch
         if not rate.startswith(('+', '-')):
@@ -608,8 +614,17 @@ def api_generate():
         if not text:
             return jsonify({'success': False, 'error': 'No text provided'}), 400
 
-        # Generate speech
-        output_file = run_async(generate_speech(text, voice, rate, volume, pitch))
+        # Generate speech (SSML uses embedded prosody; skip rate/volume/pitch overrides)
+        output_file = run_async(
+            generate_speech(
+                text,
+                voice,
+                None if is_ssml else rate,
+                None if is_ssml else volume,
+                None if is_ssml else pitch,
+                is_ssml=is_ssml
+            )
+        )
         
         return jsonify({
             'success': True,
@@ -786,11 +801,13 @@ def api_synthesize():
     
     try:
         data = request.get_json(silent=True) or {}
-        text = data.get('text', '').strip()
+        raw_text = data.get('text', '')
+        text = raw_text.strip()
         voice = data.get('voice', 'en-US-AriaNeural')
         rate = data.get('rate', '+0%')
         volume = data.get('volume', '+0%')
         pitch = data.get('pitch', '+0Hz')
+        is_ssml = bool(data.get('is_ssml')) or raw_text.strip().lower().startswith('<speak')
         
         # Ensure proper formatting
         if not rate.startswith(('+', '-')):
@@ -803,8 +820,17 @@ def api_synthesize():
         if not text:
             return jsonify({'success': False, 'error': 'Text is required'}), 400
         
-        # Generate speech
-        output_file = run_async(generate_speech(text, voice, rate, volume, pitch))
+        # Generate speech (SSML uses embedded prosody; skip rate/volume/pitch overrides)
+        output_file = run_async(
+            generate_speech(
+                text,
+                voice,
+                None if is_ssml else rate,
+                None if is_ssml else volume,
+                None if is_ssml else pitch,
+                is_ssml=is_ssml
+            )
+        )
         
         # Return the audio URL
         audio_url = request.url_root.rstrip('/') + f'/api/audio/{output_file.name}'
@@ -838,12 +864,15 @@ def api_list_voices():
         
         formatted_voices = []
         for voice in voices:
+            styles = voice.get('StyleList', []) or []
             formatted_voices.append({
                 'name': voice['Name'],
                 'short_name': voice['ShortName'],
                 'gender': voice['Gender'],
                 'locale': voice['Locale'],
-                'local_name': voice.get('LocalName', voice['ShortName'])
+                'local_name': voice.get('LocalName', voice['ShortName']),
+                'styles': styles,
+                'has_styles': bool(styles),
             })
         
         return jsonify({'success': True, 'voices': formatted_voices, 'count': len(formatted_voices)})
