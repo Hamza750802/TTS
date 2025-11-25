@@ -1278,8 +1278,11 @@ def api_synthesize():
             # Check if style parameter is supported
             import inspect
             import edge_tts as tts_module
-            communicate_sig = inspect.signature(tts_module.Communicate.__init__)
-            supports_style = 'style' in communicate_sig.parameters
+            try:
+                communicate_sig = inspect.signature(tts_module.Communicate.__init__)
+                supports_style = 'style' in communicate_sig.parameters
+            except Exception:
+                supports_style = False
             
             if is_single_voice_emotion and supports_style:
                 # Use native style parameter
