@@ -12,70 +12,92 @@
         }
         
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%);
             padding: 20px;
             min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
         
         .widget {
-            background: white;
-            border-radius: 16px;
-            padding: 30px;
-            max-width: 600px;
-            margin: 0 auto;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            background: #ffffff;
+            border-radius: 24px;
+            padding: 40px;
+            max-width: 650px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.08), 0 0 1px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(0, 0, 0, 0.04);
         }
         
         h2 {
-            color: #333;
-            margin-bottom: 20px;
-            font-size: 24px;
+            color: #1a1a1a;
+            margin-bottom: 8px;
+            font-size: 28px;
+            font-weight: 700;
             text-align: center;
+            letter-spacing: -0.5px;
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: #6b7280;
+            font-size: 14px;
+            margin-bottom: 32px;
         }
         
         .form-group {
-            margin-bottom: 20px;
+            margin-bottom: 24px;
         }
         
         label {
             display: block;
-            color: #555;
+            color: #374151;
             font-weight: 600;
-            margin-bottom: 8px;
+            margin-bottom: 10px;
             font-size: 14px;
+            letter-spacing: -0.2px;
         }
         
         textarea, select {
             width: 100%;
-            padding: 12px;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
-            font-size: 14px;
+            padding: 14px 16px;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            font-size: 15px;
             font-family: inherit;
-            transition: border-color 0.3s;
+            transition: all 0.2s ease;
+            background: #fafbfc;
         }
         
         textarea {
             resize: vertical;
-            min-height: 100px;
+            min-height: 120px;
+            line-height: 1.6;
         }
         
         textarea:focus, select:focus {
             outline: none;
-            border-color: #667eea;
+            border-color: #3b82f6;
+            background: #ffffff;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
         }
         
         select {
             cursor: pointer;
-            background: white;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%23374151' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 16px center;
+            padding-right: 40px;
         }
         
         .controls {
             display: grid;
             grid-template-columns: 1fr 1fr 1fr;
-            gap: 15px;
-            margin-bottom: 20px;
+            gap: 16px;
+            margin-bottom: 24px;
         }
         
         .control-group {
@@ -84,49 +106,62 @@
         }
         
         .control-group label {
-            font-size: 12px;
-            margin-bottom: 5px;
+            font-size: 13px;
+            margin-bottom: 8px;
+            color: #6b7280;
         }
         
         .control-group input {
-            padding: 8px;
-            border: 2px solid #e0e0e0;
-            border-radius: 6px;
-            font-size: 13px;
+            padding: 10px 12px;
+            border: 2px solid #e5e7eb;
+            border-radius: 10px;
+            font-size: 14px;
+            background: #fafbfc;
+            transition: all 0.2s ease;
         }
         
         .control-group input:focus {
             outline: none;
-            border-color: #667eea;
+            border-color: #3b82f6;
+            background: #ffffff;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
         }
         
         button {
             width: 100%;
-            padding: 15px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 16px;
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
             color: white;
             border: none;
-            border-radius: 10px;
+            border-radius: 12px;
             font-size: 16px;
             font-weight: 600;
             cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
         }
         
         button:hover:not(:disabled) {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+            transform: translateY(-1px);
+            box-shadow: 0 8px 20px rgba(59, 130, 246, 0.4);
+        }
+        
+        button:active:not(:disabled) {
+            transform: translateY(0);
         }
         
         button:disabled {
             opacity: 0.6;
             cursor: not-allowed;
+            transform: none;
         }
         
         .audio-player {
-            margin-top: 20px;
+            margin-top: 24px;
             width: 100%;
             display: none;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
         }
         
         .audio-player.show {
@@ -134,22 +169,24 @@
         }
         
         .error, .success {
-            padding: 12px;
-            border-radius: 8px;
-            margin-top: 15px;
+            padding: 14px 16px;
+            border-radius: 12px;
+            margin-top: 16px;
             display: none;
+            font-size: 14px;
+            font-weight: 500;
         }
         
         .error {
             background: #fef2f2;
-            border: 1px solid #ef4444;
+            border: 1px solid #fecaca;
             color: #dc2626;
         }
         
         .success {
-            background: #ecfdf5;
-            border: 1px solid #10b981;
-            color: #059669;
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            color: #16a34a;
         }
         
         .error.show, .success.show {
@@ -158,9 +195,11 @@
         
         .loading {
             text-align: center;
-            color: #667eea;
+            color: #3b82f6;
             font-weight: 600;
             display: none;
+            margin-top: 16px;
+            font-size: 14px;
         }
         
         .loading.show {
@@ -169,21 +208,27 @@
         
         .powered-by {
             text-align: center;
-            margin-top: 20px;
-            font-size: 12px;
-            color: #999;
+            margin-top: 32px;
+            font-size: 13px;
+            color: #9ca3af;
         }
         
         .powered-by a {
-            color: #667eea;
+            color: #3b82f6;
             text-decoration: none;
             font-weight: 600;
+            transition: color 0.2s;
+        }
+        
+        .powered-by a:hover {
+            color: #2563eb;
         }
     </style>
 </head>
 <body>
     <div class="widget">
-        <h2>🎤 Text to Speech</h2>
+        <h2>🎙️ Text to Speech</h2>
+        <p class="subtitle">Convert any text into natural-sounding speech</p>
         
         <div class="form-group">
             <label for="text">Enter Text:</label>
