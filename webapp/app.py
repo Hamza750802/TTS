@@ -2,7 +2,10 @@
 Web app for Cheap TTS with auth + Stripe subscriptions
 """
 import asyncio
+import hashlib
 import os
+import secrets
+import time
 from datetime import datetime
 from functools import wraps
 from pathlib import Path
@@ -180,21 +183,41 @@ async def get_voices():
 async def generate_speech(text, voice, rate=None, volume=None, pitch=None, is_ssml=False):
     """Generate speech from text or SSML"""
     # Create unique filename
-    import hashlib
-    import time
     unique_id = hashlib.md5(f"{text}{voice}{time.time()}".encode()).hexdigest()[:10]
     output_file = OUTPUT_DIR / f"speech_{unique_id}.mp3"
 
-    # Generate speech
-    communicate = edge_tts.Communicate(
-        text=text,
-        voice=voice,
-        rate=rate,
-        volume=volume,
-        pitch=pitch,
-        ssml=is_ssml
-    )
-    await communicate.save(str(output_file))
+    if is_ssml:
+        # For SSML, we need to bypass the escape() call in Communicate
+        # We'll use the internal edge_tts module structure
+        import edge_tts.communicate
+        from xml.sax.saxutils import escape
+        
+        # Temporarily replace escape with a no-op for SSML
+        original_escape = edge_tts.communicate.escape
+        edge_tts.communicate.escape = lambda x: x  # Don't escape SSML tags
+        
+        try:
+            communicate = edge_tts.Communicate(
+                text=text,
+                voice=voice,
+                rate="+0%",  # SSML has its own prosody
+                volume="+0%",
+                pitch="+0Hz"
+            )
+            await communicate.save(str(output_file))
+        finally:
+            # Restore original escape function
+            edge_tts.communicate.escape = original_escape
+    else:
+        # Regular text-to-speech (non-SSML)
+        communicate = edge_tts.Communicate(
+            text=text,
+            voice=voice,
+            rate=rate or "+0%",
+            volume=volume or "+0%",
+            pitch=pitch or "+0Hz"
+        )
+        await communicate.save(str(output_file))
 
     return output_file
 
