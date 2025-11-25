@@ -824,6 +824,11 @@ def api_generate():
             if not isinstance(chunks, list) or not chunks:
                 return jsonify({'success': False, 'error': 'chunks must be a non-empty list'}), 400
 
+            # DEBUG: Log received chunks
+            print(f"[CHUNKS DEBUG] Received {len(chunks)} chunks from client")
+            for i, ch in enumerate(chunks):
+                print(f"[CHUNKS DEBUG] Chunk {i}: emotion={ch.get('emotion')}, content_length={len(str(ch.get('content', '')))}")
+
             sanitized_chunks = []
             style_warnings = []
             for idx, chunk in enumerate(chunks):
@@ -847,6 +852,9 @@ def api_generate():
             )
             ssml_text = ssml_result['ssml']
             is_full_ssml = ssml_result.get('is_full_ssml', False)
+            
+            # DEBUG: Log after build_ssml
+            print(f"[CHUNKS DEBUG] After build_ssml: {len(ssml_result.get('chunk_map', []))} chunks in chunk_map")
             
             # Check if this is single-voice with emotion (can use native style parameter)
             is_single_voice_emotion = (
