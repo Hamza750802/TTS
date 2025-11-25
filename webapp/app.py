@@ -243,29 +243,36 @@ async def generate_speech(text, voice, rate=None, volume=None, pitch=None, is_ss
         return output_file
 
     if is_ssml:
-        # If caller already provided a full <speak> we use it directly.
         final_text = text
-        
-        # Create a custom mkssml function that includes mstts namespace
-        def mkssml_with_mstts(tc, escaped_text):
-            """Modified mkssml that includes mstts namespace"""
-            if isinstance(escaped_text, bytes):
-                escaped_text = escaped_text.decode("utf-8")
-            return (
-                "<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' "
-                "xmlns:mstts='https://www.w3.org/2001/mstts' xml:lang='en-US'>"
-                f"<voice name='{tc.voice}'>"
-                f"<prosody pitch='{tc.pitch}' rate='{tc.rate}' volume='{tc.volume}'>"
-                f"{escaped_text}"
-                "</prosody>"
-                "</voice>"
-                "</speak>"
-            )
-        
+
+        # If text already contains a <speak> tag, pass-through without re-wrapping.
+        # Otherwise, wrap with mstts namespace + prosody.
+        if "<speak" in final_text:
+            def mkssml_passthrough(tc, escaped_text):
+                if isinstance(escaped_text, bytes):
+                    escaped_text = escaped_text.decode("utf-8")
+                return escaped_text
+            wrapper = mkssml_passthrough
+        else:
+            def mkssml_with_mstts(tc, escaped_text):
+                if isinstance(escaped_text, bytes):
+                    escaped_text = escaped_text.decode("utf-8")
+                return (
+                    "<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' "
+                    "xmlns:mstts='https://www.w3.org/2001/mstts' xml:lang='en-US'>"
+                    f"<voice name='{tc.voice}'>"
+                    f"<prosody pitch='{tc.pitch}' rate='{tc.rate}' volume='{tc.volume}'>"
+                    f"{escaped_text}"
+                    "</prosody>"
+                    "</voice>"
+                    "</speak>"
+                )
+            wrapper = mkssml_with_mstts
+
         # Replace mkssml and escape temporarily
         original_mkssml = tts_comm.mkssml
         original_escape = tts_comm.escape
-        tts_comm.mkssml = mkssml_with_mstts
+        tts_comm.mkssml = wrapper
         tts_comm.escape = lambda x: x  # Don't escape SSML tags
         
         try:
