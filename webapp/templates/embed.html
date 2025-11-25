@@ -223,6 +223,92 @@
         .powered-by a:hover {
             color: #2563eb;
         }
+        
+        /* Multi-speaker chunks styling */
+        .chunks-section {
+            margin-top: 24px;
+            padding: 20px;
+            background: #f9fafb;
+            border-radius: 12px;
+            border: 1px solid #e5e7eb;
+        }
+        
+        .chunks-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        
+        .chunks-title {
+            font-weight: 600;
+            color: #374151;
+            font-size: 14px;
+        }
+        
+        .chunks-actions {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .chunk-btn {
+            padding: 6px 12px;
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: #374151;
+            font-weight: 500;
+        }
+        
+        .chunk-btn:hover {
+            border-color: #3b82f6;
+            color: #3b82f6;
+        }
+        
+        .chunk-card {
+            background: white;
+            border-radius: 10px;
+            padding: 16px;
+            margin-bottom: 12px;
+            border: 1px solid #e5e7eb;
+        }
+        
+        .chunk-header {
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 10px;
+            font-size: 13px;
+        }
+        
+        .chunk-content {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 14px;
+            margin-bottom: 12px;
+            min-height: 60px;
+            background: #fafbfc;
+        }
+        
+        .chunk-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+        
+        .chunk-grid label {
+            font-size: 12px;
+            margin-bottom: 6px;
+        }
+        
+        .chunk-grid select {
+            font-size: 13px;
+            padding: 8px 12px;
+        }
     </style>
 </head>
 <body>
@@ -247,6 +333,18 @@
             <select id="style">
                 <option value="">Default (no style)</option>
             </select>
+        </div>
+        
+        <!-- Multi-Speaker Chunks Section -->
+        <div class="chunks-section" id="chunksSection" style="display: none;">
+            <div class="chunks-header">
+                <span class="chunks-title">🎙️ Multi-Speaker Dialogue</span>
+                <div class="chunks-actions">
+                    <button type="button" class="chunk-btn" onclick="splitTextIntoChunks()">Split Text</button>
+                    <button type="button" class="chunk-btn" onclick="clearChunks()">Clear</button>
+                </div>
+            </div>
+            <div id="chunksList"></div>
         </div>
         
         <div class="controls">
@@ -282,6 +380,7 @@
         const API_BASE = window.location.origin;
         let allVoices = [];
         let voiceIndex = {};
+        let chunkState = [];
         
         // Load voices on page load
         window.addEventListener('DOMContentLoaded', () => {
@@ -365,6 +464,134 @@
             }
         }
         
+        function splitTextIntoChunks() {
+            const text = document.getElementById('text').value.trim();
+            if (!text) {
+                showError('Please enter text first!');
+                return;
+            }
+            
+            // Split by sentences
+            const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
+            chunkState = sentences.map(s => ({
+                content: s.trim(),
+                voice: null,
+                emotion: null
+            }));
+            
+            renderChunks();
+            document.getElementById('chunksSection').style.display = 'block';
+        }
+        
+        function clearChunks() {
+            chunkState = [];
+            renderChunks();
+            document.getElementById('chunksSection').style.display = 'none';
+        }
+        
+        function renderChunks() {
+            const container = document.getElementById('chunksList');
+            if (!chunkState.length) {
+                container.innerHTML = '<p style="color:#9ca3af;font-size:13px;">Click "Split Text" to create chunks for multi-speaker dialogue.</p>';
+                return;
+            }
+            
+            container.innerHTML = '';
+            chunkState.forEach((chunk, idx) => {
+                const card = document.createElement('div');
+                card.className = 'chunk-card';
+                
+                const header = document.createElement('div');
+                header.className = 'chunk-header';
+                header.textContent = `Chunk ${idx + 1}`;
+                card.appendChild(header);
+                
+                const textarea = document.createElement('textarea');
+                textarea.className = 'chunk-content';
+                textarea.value = chunk.content;
+                textarea.addEventListener('input', (e) => {
+                    chunkState[idx].content = e.target.value;
+                });
+                card.appendChild(textarea);
+                
+                const grid = document.createElement('div');
+                grid.className = 'chunk-grid';
+                
+                // Voice selector
+                const voiceWrap = document.createElement('div');
+                const voiceLabel = document.createElement('label');
+                voiceLabel.textContent = '🎙️ Voice';
+                const voiceSelect = document.createElement('select');
+                voiceSelect.innerHTML = '<option value="">Use Global Voice</option>';
+                
+                // Add recommended voices
+                const recGroup = document.createElement('optgroup');
+                recGroup.label = '⭐ Recommended';
+                const jennyOpt = document.createElement('option');
+                jennyOpt.value = 'en-US-JennyNeural';
+                jennyOpt.textContent = '🎭 Jenny (14 emotions)';
+                recGroup.appendChild(jennyOpt);
+                const guyOpt = document.createElement('option');
+                guyOpt.value = 'en-US-GuyNeural';
+                guyOpt.textContent = '🎭 Guy (11 emotions)';
+                recGroup.appendChild(guyOpt);
+                voiceSelect.appendChild(recGroup);
+                
+                // Add all voices
+                const allGroup = document.createElement('optgroup');
+                allGroup.label = 'All Voices';
+                Object.keys(voiceIndex).forEach(shortName => {
+                    const v = voiceIndex[shortName];
+                    const opt = document.createElement('option');
+                    opt.value = shortName;
+                    opt.textContent = `${v.has_styles ? '🎭 ' : ''}${v.localName}`;
+                    allGroup.appendChild(opt);
+                });
+                voiceSelect.appendChild(allGroup);
+                
+                voiceSelect.value = chunk.voice || '';
+                voiceSelect.addEventListener('change', (e) => {
+                    chunkState[idx].voice = e.target.value || null;
+                    renderChunks();
+                });
+                voiceWrap.appendChild(voiceLabel);
+                voiceWrap.appendChild(voiceSelect);
+                grid.appendChild(voiceWrap);
+                
+                // Emotion selector
+                const emotionWrap = document.createElement('div');
+                const emotionLabel = document.createElement('label');
+                emotionLabel.textContent = '🎭 Emotion';
+                const emotionSelect = document.createElement('select');
+                emotionSelect.innerHTML = '<option value="">Default</option>';
+                
+                // Get emotions for chunk's voice or global voice
+                let emotions = [];
+                const chunkVoice = chunk.voice || document.getElementById('voice').value;
+                if (chunkVoice && voiceIndex[chunkVoice]) {
+                    emotions = voiceIndex[chunkVoice].styles || [];
+                }
+                
+                emotions.forEach(style => {
+                    const opt = document.createElement('option');
+                    opt.value = style;
+                    opt.textContent = style.charAt(0).toUpperCase() + style.slice(1);
+                    emotionSelect.appendChild(opt);
+                });
+                
+                emotionSelect.value = chunk.emotion || '';
+                emotionSelect.addEventListener('change', (e) => {
+                    chunkState[idx].emotion = e.target.value || null;
+                });
+                emotionWrap.appendChild(emotionLabel);
+                emotionWrap.appendChild(emotionSelect);
+                grid.appendChild(emotionWrap);
+                
+                card.appendChild(grid);
+                container.appendChild(card);
+            });
+        }
+        
         async function generateSpeech() {
             const text = document.getElementById('text').value.trim();
             const voice = document.getElementById('voice').value;
@@ -393,9 +620,21 @@
             btn.disabled = true;
             btn.textContent = 'Generating...';
             
-            // Build payload; if style selected, send SSML
             let payload;
-            if (style) {
+            
+            // If chunks exist, use multi-speaker mode
+            if (chunkState.length > 0) {
+                payload = {
+                    voice: voice,
+                    chunks: chunkState.map(ch => ({
+                        content: ch.content,
+                        voice: ch.voice || null,
+                        emotion: ch.emotion || null
+                    }))
+                };
+            }
+            // Otherwise, use single-voice mode
+            else if (style) {
                 const escaped = escapeXml(text);
                 payload = {
                     voice: voice,
