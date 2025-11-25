@@ -585,7 +585,11 @@
       styleGroup.style.display = 'block';
     } else {
       styleGroup.style.display = 'none';
+      styleSelect.value = '';
+      // Strip any per-chunk emotion if voice has no styles
+      chunkState = chunkState.map(c => ({...c, emotion: null}));
     }
+    enforceChunkEmotionForVoice();
     renderChunks(); // Refresh options in timeline
   }
 
@@ -638,6 +642,21 @@
   function getCurrentStyles(){
     const selectedVoice = voiceIndex[document.getElementById('voice').value];
     return (selectedVoice && selectedVoice.styles) ? selectedVoice.styles : [];
+  }
+
+  function enforceChunkEmotionForVoice(){
+    const allowed = getCurrentStyles();
+    const styleSel = document.getElementById('style');
+    if(!allowed.length){
+      styleSel.value = '';
+    } else if (styleSel.value && !allowed.includes(styleSel.value)){
+      styleSel.value = '';
+    }
+    chunkState = chunkState.map(c => {
+      if(!allowed.length){ return {...c, emotion: null}; }
+      if(c.emotion && !allowed.includes(c.emotion)){ return {...c, emotion: null}; }
+      return c;
+    });
   }
 
   function splitTextIntoChunks(inputText){

@@ -679,6 +679,18 @@ def api_preview():
             if not isinstance(chunk, dict) or not chunk.get('content'):
                 return jsonify({'success': False, 'error': 'chunk must include content'}), 400
             char_count = len(chunk.get('content', ''))
+            try:
+                voices = run_async(get_voices())
+                allowed_styles = []
+                for v in voices:
+                    if v.get('ShortName') == voice:
+                        allowed_styles = v.get('StyleList') or []
+                        break
+            except Exception:
+                allowed_styles = []
+            if chunk.get('emotion') and allowed_styles and chunk['emotion'] not in allowed_styles:
+                chunk['emotion'] = None
+                warnings_out.append(f"emotion not supported by {voice}, removed")
             ssml_result = build_ssml(
                 voice=voice,
                 chunks=[chunk],
@@ -767,9 +779,30 @@ def api_generate():
             if not isinstance(chunks, list) or not chunks:
                 return jsonify({'success': False, 'error': 'chunks must be a non-empty list'}), 400
 
+            # Sanitize emotions against allowed styles for voice
+            try:
+                voices = run_async(get_voices())
+                allowed_styles = []
+                for v in voices:
+                    if v.get('ShortName') == voice:
+                        allowed_styles = v.get('StyleList') or []
+                        break
+            except Exception:
+                allowed_styles = []
+
+            sanitized_chunks = []
+            style_warnings = []
+            for idx, chunk in enumerate(chunks):
+                chunk_copy = dict(chunk)
+                emotion = chunk_copy.get('emotion')
+                if emotion and allowed_styles and emotion not in allowed_styles:
+                    style_warnings.append(f"chunk {idx}: emotion '{emotion}' not supported by {voice}, removed")
+                    chunk_copy['emotion'] = None
+                sanitized_chunks.append(chunk_copy)
+
             ssml_result = build_ssml(
                 voice=voice,
-                chunks=chunks,
+                chunks=sanitized_chunks,
                 auto_pauses=auto_pauses,
                 auto_emphasis=auto_emphasis,
                 auto_breaths=auto_breaths,
@@ -793,15 +826,34 @@ def api_generate():
                 'audioUrl': f'/api/audio/{output_file.name}',
                 'ssml_used': ssml_text,
                 'chunk_map': ssml_result['chunk_map'],
-                'warnings': ssml_result['warnings'],
+                'warnings': (style_warnings + ssml_result['warnings']),
             })
 
         # --- Auto-chunk path when plain text provided ---
         if text and data.get('auto_chunk', True) and not is_ssml:
             chunk_map = process_text(text)
+            try:
+                voices = run_async(get_voices())
+                allowed_styles = []
+                for v in voices:
+                    if v.get('ShortName') == voice:
+                        allowed_styles = v.get('StyleList') or []
+                        break
+            except Exception:
+                allowed_styles = []
+            style_warnings = []
+            sanitized_chunks = []
+            for idx, chunk in enumerate(chunk_map):
+                chunk_copy = dict(chunk)
+                emotion = chunk_copy.get('emotion')
+                if emotion and allowed_styles and emotion not in allowed_styles:
+                    style_warnings.append(f"chunk {idx}: emotion '{emotion}' not supported by {voice}, removed")
+                    chunk_copy['emotion'] = None
+                sanitized_chunks.append(chunk_copy)
+
             ssml_result = build_ssml(
                 voice=voice,
-                chunks=chunk_map,
+                chunks=sanitized_chunks,
                 auto_pauses=auto_pauses,
                 auto_emphasis=auto_emphasis,
                 auto_breaths=auto_breaths,
@@ -824,7 +876,7 @@ def api_generate():
                 'audioUrl': f'/api/audio/{output_file.name}',
                 'ssml_used': ssml_text,
                 'chunk_map': ssml_result['chunk_map'],
-                'warnings': ssml_result['warnings'],
+                'warnings': (style_warnings + ssml_result['warnings']),
             })
 
         # --- Legacy plain text / direct SSML path ---
