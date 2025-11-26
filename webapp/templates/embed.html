@@ -666,13 +666,18 @@
                     }))
                 };
             }
-            // Otherwise, use single-voice mode
+            // Otherwise, use single-voice mode with emotion
             else if (style) {
-                const escaped = escapeXml(text);
                 payload = {
                     voice: voice,
-                    is_ssml: true,
-                    text: `<speak version=\"1.0\" xml:lang=\"en-US\" xmlns:mstts=\"https://www.w3.org/2001/mstts\"><voice name=\"${voice}\"><mstts:express-as style=\"${style}\"><prosody rate=\"${rate}\" volume=\"${volume}\" pitch=\"${pitch}\">${escaped}</prosody></mstts:express-as></voice></speak>`
+                    rate: rate,
+                    volume: volume,
+                    pitch: pitch,
+                    chunks: [{
+                        content: text,
+                        emotion: style,
+                        intensity: 2
+                    }]
                 };
             } else {
                 payload = {
