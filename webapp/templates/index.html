@@ -511,6 +511,15 @@
       <!-- Emotional Timeline -->
       <div class="form-section">
         <div class="section-title">🎙️ Multi-Speaker Dialogue</div>
+        <div
+          style="background: #f0fdf4; border: 1px solid #bbf7d0; padding: 12px; border-radius: 8px; margin-bottom: 12px;">
+          <strong style="color: #16a34a;">💡 Pro Tip: Use Dialogue Markup!</strong>
+          <p style="color: #15803d; font-size: 13px; margin: 4px 0 0 0;">
+            Type <code style="background: #dcfce7; padding: 2px 6px; border-radius: 4px;">[SpeakerA]: Hello!</code> or
+            <code style="background: #dcfce7; padding: 2px 6px; border-radius: 4px;">[SpeakerA:cheerful]: Hello!</code>
+            to auto-create multi-speaker chunks.
+          </p>
+        </div>
         <p style="color:#6b7280; font-size:14px; margin-bottom:10px;">Split your text to assign different voices &
           emotions to each part</p>
         <div class="timeline-actions">
@@ -567,6 +576,7 @@
 
 {% block scripts %}
 {% if current_user.is_authenticated and current_user.is_subscribed %}
+<script src="{{ url_for('static', filename='dialogue-markup.js') }}"></script>
 <script>
   let currentAudioUrl = null;
   let voiceIndex = {};
@@ -782,16 +792,34 @@
   }
 
   function rebuildTimelineFromText() {
-    const baseEmotion = document.getElementById('style').value || null;
-    const splits = splitTextIntoChunks(textArea.value);
-    chunkState = splits.map(c => ({
-      content: c,
-      emotion: baseEmotion,
-      intensity: 2,
-      pitch: 0,
-      speed: 0,
-      volume: 0
-    }));
+    const inputText = textArea.value.trim();
+    if (!inputText) return;
+
+    // Auto-detect if text has dialogue markup
+    if (typeof hasDialogueMarkup !== 'undefined' && hasDialogueMarkup(inputText)) {
+      // Parse as dialogue markup
+      chunkState = parseDialogueMarkup(inputText);
+
+      // Show success message
+      const infoMsg = document.createElement('div');
+      infoMsg.style.cssText = 'background: #eff6ff; border: 1px solid #dbeafe; padding: 12px; border-radius: 8px; margin-bottom: 12px; color: #3b82f6; font-size: 14px;';
+      infoMsg.textContent = `✨ Detected dialogue markup! Created ${chunkState.length} chunks from your text.`;
+      setTimeout(() => infoMsg.remove(), 5000);
+      chunkListEl.insertBefore(infoMsg, chunkListEl.firstChild);
+    } else {
+      // Regular text splitting
+      const baseEmotion = document.getElementById('style').value || null;
+      const splits = splitTextIntoChunks(inputText);
+      chunkState = splits.map(c => ({
+        content: c,
+        emotion: baseEmotion,
+        intensity: 2,
+        pitch: 0,
+        speed: 0,
+        volume: 0
+      }));
+    }
+
     renderChunks();
   }
 
