@@ -593,7 +593,7 @@ def synthesize_and_merge_chunks(chunks, voice, auto_pauses, auto_emphasis, auto_
         # Process each chunk in this batch
         for chunk in batch_chunks:
             ssml_result = build_ssml(
-                voice=voice,
+                voice=chunk.get('voice') or voice,
                 chunks=[chunk],
                 auto_pauses=auto_pauses,
                 auto_emphasis=auto_emphasis,
