@@ -6,7 +6,8 @@ import hashlib
 import os
 import secrets
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
+from email.message import EmailMessage
 from functools import wraps
 from pathlib import Path
 
@@ -99,6 +100,21 @@ STRIPE_WEBHOOK_SECRET = os.environ.get('STRIPE_WEBHOOK_SECRET', '')
 
 # Admin API key (for your personal projects - free access)
 ADMIN_API_KEY = os.environ.get('ADMIN_API_KEY', '')  # Set this in .env
+
+# Password reset + email settings
+try:
+    RESET_TOKEN_EXPIRATION_HOURS = int(os.environ.get('RESET_TOKEN_EXPIRATION_HOURS') or 1)
+except (TypeError, ValueError):
+    RESET_TOKEN_EXPIRATION_HOURS = 1
+SMTP_HOST = os.environ.get('SMTP_HOST')
+try:
+    SMTP_PORT = int(os.environ.get('SMTP_PORT') or 587)
+except (TypeError, ValueError):
+    SMTP_PORT = 587
+SMTP_USERNAME = os.environ.get('SMTP_USERNAME')
+SMTP_PASSWORD = os.environ.get('SMTP_PASSWORD')
+SMTP_USE_TLS = os.environ.get('SMTP_USE_TLS', 'true').lower() in ('true', '1', 'yes')
+PASSWORD_RESET_SENDER = os.environ.get('PASSWORD_RESET_SENDER', SMTP_USERNAME or 'no-reply@cheaptts.com')
 
 
 def billing_enabled() -> bool:
@@ -202,6 +218,80 @@ class APIKey(db.Model):
             candidate = f"ctts_{secrets.token_urlsafe(32)}"
             if not APIKey.query.filter_by(key=candidate).first():
                 return candidate
+
+
+class PasswordResetToken(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    token_hash = db.Column(db.String(64), unique=True, nullable=False, index=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    expires_at = db.Column(db.DateTime, nullable=False)
+    used_at = db.Column(db.DateTime)
+
+    user = db.relationship('User', backref=db.backref('password_reset_tokens', lazy=True))
+
+
+def _hash_token(raw_token: str) -> str:
+    return hashlib.sha256(raw_token.encode()).hexdigest()
+
+
+def create_reset_token(user: User) -> str:
+    """Create a one-time password reset token for a user."""
+    # Remove existing tokens so only the newest link remains valid.
+    PasswordResetToken.query.filter_by(user_id=user.id).delete()
+
+    raw_token = secrets.token_urlsafe(32)
+    token = PasswordResetToken(
+        user_id=user.id,
+        token_hash=_hash_token(raw_token),
+        expires_at=datetime.utcnow() + timedelta(hours=RESET_TOKEN_EXPIRATION_HOURS),
+    )
+    db.session.add(token)
+    db.session.commit()
+    return raw_token
+
+
+def verify_reset_token(raw_token: str):
+    """Return token record if valid and unused; otherwise None."""
+    token_hash = _hash_token(raw_token)
+    token = PasswordResetToken.query.filter_by(token_hash=token_hash).first()
+    if not token or token.used_at:
+        return None
+    if token.expires_at < datetime.utcnow():
+        return None
+    return token
+
+
+def send_password_reset_email(to_email: str, reset_link: str) -> None:
+    """Send the reset link via SMTP, with console fallback for local/dev."""
+    message = EmailMessage()
+    message['Subject'] = "Reset your Cheap TTS password"
+    message['From'] = PASSWORD_RESET_SENDER
+    message['To'] = to_email
+    message.set_content(
+        "Hi,\n\n"
+        "We received a request to reset your Cheap TTS password. "
+        "Use the link below to set a new password:\n\n"
+        f"{reset_link}\n\n"
+        "If you did not request this, you can ignore this email.\n"
+    )
+
+    if SMTP_HOST:
+        try:
+            import smtplib
+            with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=10) as server:
+                if SMTP_USE_TLS:
+                    server.starttls()
+                if SMTP_USERNAME and SMTP_PASSWORD:
+                    server.login(SMTP_USERNAME, SMTP_PASSWORD)
+                server.send_message(message)
+            print(f"[PASSWORD RESET] Sent reset email to {to_email}")
+            return
+        except Exception as exc:
+            print(f"[PASSWORD RESET] Failed to send email via SMTP: {exc}")
+
+    # Local/dev fallback
+    print(f"[PASSWORD RESET] Reset link for {to_email}: {reset_link}")
 
 
 # Initialize database tables (creates tables on app startup, works with Gunicorn)
@@ -414,6 +504,53 @@ def login():
         flash('Signed in successfully.', 'success')
         return redirect(url_for('index'))
     return render_template('login.html')
+
+
+@app.route('/forgot-password', methods=['GET', 'POST'])
+def forgot_password():
+    if request.method == 'POST':
+        email = request.form.get('email', '').strip().lower()
+        if email:
+            user = User.query.filter_by(email=email).first()
+            if user:
+                raw_token = create_reset_token(user)
+                reset_link = url_for('reset_password', token=raw_token, _external=True)
+                send_password_reset_email(user.email, reset_link)
+        flash('If that email is registered, a reset link is on the way.', 'success')
+        return redirect(url_for('login'))
+    return render_template('forgot_password.html')
+
+
+@app.route('/reset-password/<token>', methods=['GET', 'POST'])
+def reset_password(token):
+    token_record = verify_reset_token(token)
+    if not token_record:
+        flash('That reset link is invalid or has expired. Please request a new one.', 'error')
+        return redirect(url_for('forgot_password'))
+
+    if request.method == 'POST':
+        password = request.form.get('password', '')
+        confirm_password = request.form.get('confirm_password', '')
+
+        if not password or len(password) < 8:
+            flash('Password must be at least 8 characters.', 'error')
+            return redirect(url_for('reset_password', token=token))
+        if password != confirm_password:
+            flash('Passwords do not match.', 'error')
+            return redirect(url_for('reset_password', token=token))
+
+        token_record.user.set_password(password)
+        token_record.used_at = datetime.utcnow()
+        PasswordResetToken.query.filter(
+            PasswordResetToken.user_id == token_record.user_id,
+            PasswordResetToken.token_hash != token_record.token_hash,
+        ).delete()
+        db.session.commit()
+
+        flash('Your password has been updated. Please sign in.', 'success')
+        return redirect(url_for('login'))
+
+    return render_template('reset_password.html', token=token)
 
 
 @app.route('/logout')
