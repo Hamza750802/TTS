@@ -1453,10 +1453,10 @@ def api_synthesize():
                         )
                     )
                     
-        return jsonify({
-            'success': True,
-            'audioUrl': f'/api/audio/{output_file.name}'
-        })
+                    return jsonify({
+                        'success': True,
+                        'audioUrl': f'/api/audio/{output_file.name}'
+                    })
 
             # Otherwise, continue with SSML building path
             sanitized_chunks = []
