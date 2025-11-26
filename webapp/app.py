@@ -239,6 +239,7 @@ async def generate_speech(text, voice, rate=None, volume=None, pitch=None, is_ss
     import edge_tts as tts_module  # Rename to avoid shadowing
     import edge_tts.communicate as tts_comm
     from edge_tts.data_classes import TTSConfig
+    from edge_tts.exceptions import NoAudioReceived, UnexpectedResponse
     
     # Create filename (cache-aware)
     if cache_key:
@@ -335,7 +336,22 @@ async def generate_speech(text, voice, rate=None, volume=None, pitch=None, is_ss
                 volume=volume or "+0%",
                 pitch=pitch or "+0Hz"
             )
-        await communicate.save(str(output_file))
+        try:
+            await communicate.save(str(output_file))
+        except (NoAudioReceived, UnexpectedResponse) as e:
+            # If style triggers a rejection, retry once without style to avoid 500s
+            if style is not None or style_degree is not None:
+                print(f"[STYLE FALLBACK] Retrying without style due to: {e}")
+                communicate = tts_module.Communicate(
+                    text=text,
+                    voice=voice,
+                    rate=rate or "+0%",
+                    volume=volume or "+0%",
+                    pitch=pitch or "+0Hz",
+                )
+                await communicate.save(str(output_file))
+            else:
+                raise
 
     return output_file
 
@@ -1104,8 +1120,14 @@ def public_widget():
 @csrf.exempt
 def widget_generate():
     """Public endpoint for widget - no authentication required"""
+    import traceback
+    
     try:
+        print(f"[WIDGET] Received request from {request.remote_addr}")
+        print(f"[WIDGET] Content-Type: {request.content_type}")
+        
         data = request.get_json(silent=True) or {}
+        print(f"[WIDGET] Parsed JSON data: {data}")
         voice = data.get('voice', 'en-US-AriaNeural')
         chunks = data.get('chunks')
         auto_pauses = data.get('auto_pauses', True)
@@ -1236,6 +1258,10 @@ def widget_generate():
         })
         
     except Exception as e:
+        print(f"[WIDGET ERROR] Exception type: {type(e).__name__}")
+        print(f"[WIDGET ERROR] Exception message: {str(e)}")
+        print(f"[WIDGET ERROR] Full traceback:")
+        traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -1363,6 +1389,8 @@ def api_synthesize():
             "filename": "speech_xxxxx.mp3"
         }
     """
+    import traceback
+    
     # Get API key from header
     api_key = (request.headers.get('X-API-Key') or '').strip()
     if not api_key:
@@ -1374,7 +1402,12 @@ def api_synthesize():
         return jsonify({'success': False, 'error': auth_result.get('error', 'Invalid API key')}), 401
     
     try:
+        print(f"[API V1] Received request from {request.remote_addr}")
+        print(f"[API V1] Headers: {dict(request.headers)}")
+        print(f"[API V1] Content-Type: {request.content_type}")
+        
         data = request.get_json(silent=True) or {}
+        print(f"[API V1] Parsed JSON data: {data}")
         raw_text = data.get('text', '')
         text = raw_text.strip()
         voice = data.get('voice', 'en-US-AriaNeural')
@@ -1541,6 +1574,10 @@ def api_synthesize():
         })
     
     except Exception as e:
+        print(f"[API V1 ERROR] Exception type: {type(e).__name__}")
+        print(f"[API V1 ERROR] Exception message: {str(e)}")
+        print(f"[API V1 ERROR] Full traceback:")
+        traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
