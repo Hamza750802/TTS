@@ -1080,6 +1080,125 @@ def public_widget():
     return render_template('widget_public.html')
 
 
+@app.route('/api/widget/generate', methods=['POST'])
+@csrf.exempt
+def widget_generate():
+    """Public endpoint for widget - no authentication required"""
+    try:
+        data = request.get_json(silent=True) or {}
+        voice = data.get('voice', 'en-US-AriaNeural')
+        chunks = data.get('chunks')
+        auto_pauses = data.get('auto_pauses', True)
+        auto_emphasis = data.get('auto_emphasis', False)
+        auto_breaths = data.get('auto_breaths', False)
+        global_controls = data.get('global_controls', {}) or {}
+        
+        if not chunks or not isinstance(chunks, list):
+            return jsonify({'success': False, 'error': 'chunks required'}), 400
+        
+        # Check if single chunk with emotion
+        is_single_emotion = (
+            len(chunks) == 1
+            and chunks[0].get('emotion')
+            and not chunks[0].get('voice')
+        )
+        
+        if is_single_emotion:
+            # Use native style parameter
+            import inspect
+            import edge_tts as tts_module
+            communicate_sig = inspect.signature(tts_module.Communicate.__init__)
+            supports_style = 'style' in communicate_sig.parameters
+            
+            if supports_style:
+                chunk = chunks[0]
+                emotion = chunk.get('emotion')
+                
+                # Validate emotion
+                try:
+                    voices = run_async(get_voices())
+                    voice_obj = next((v for v in voices if v.get('ShortName') == voice), None)
+                    supported_styles = set(voice_obj.get('StyleList', []) if voice_obj else [])
+                    
+                    if emotion and emotion not in supported_styles:
+                        return jsonify({
+                            'success': False,
+                            'error': f"Style '{emotion}' not supported by {voice}. Supported: {sorted(supported_styles) if supported_styles else 'none'}"
+                        }), 400
+                except Exception:
+                    pass
+                
+                # Generate with emotion
+                plain_text = chunk.get('content', '')
+                intensity = chunk.get('intensity', 2)
+                style_degree = {1: 0.7, 2: 1.0, 3: 1.3}.get(intensity, 1.0)
+                cache_key = hashlib.md5(f"{voice}:{plain_text}:{emotion}:{style_degree}".encode()).hexdigest()[:16]
+                
+                output_file = run_async(
+                    generate_speech(
+                        plain_text,
+                        voice,
+                        rate=global_controls.get('rate', 0),
+                        volume=global_controls.get('volume', 0),
+                        pitch=global_controls.get('pitch', 0),
+                        is_ssml=False,
+                        cache_key=cache_key,
+                        style=emotion,
+                        style_degree=style_degree
+                    )
+                )
+                
+                return jsonify({
+                    'success': True,
+                    'audioUrl': f'/api/audio/{output_file.name}'
+                })
+        
+        # Multi-voice or no emotion - use SSML
+        sanitized_chunks = []
+        for chunk in chunks:
+            chunk_copy = dict(chunk)
+            chunk_copy['voice'] = chunk_copy.get('voice') or voice
+            sanitized_chunks.append(chunk_copy)
+        
+        ssml_result = build_ssml(
+            voice=voice,
+            chunks=sanitized_chunks,
+            auto_pauses=auto_pauses,
+            auto_emphasis=auto_emphasis,
+            auto_breaths=auto_breaths,
+            global_rate=global_controls.get('rate'),
+            global_pitch=global_controls.get('pitch'),
+            global_volume=global_controls.get('volume'),
+        )
+        
+        ssml_text = ssml_result['ssml']
+        is_full_ssml = ssml_result.get('is_full_ssml', False)
+        primary_voice = sanitized_chunks[0].get('voice') if sanitized_chunks else voice
+        cache_key = hashlib.md5(f"{primary_voice}:{ssml_text}".encode()).hexdigest()[:16]
+        
+        output_file = run_async(
+            generate_speech(
+                ssml_text,
+                primary_voice,
+                rate=None,
+                volume=None,
+                pitch=None,
+                is_ssml=True,
+                cache_key=cache_key,
+                is_full_ssml=is_full_ssml
+            )
+        )
+        
+        return jsonify({
+            'success': True,
+            'audioUrl': f'/api/audio/{output_file.name}',
+            'warnings': ssml_result.get('warnings', [])
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @app.route('/api-keys')
 @login_required
 @subscription_required
