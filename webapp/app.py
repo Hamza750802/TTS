@@ -1388,7 +1388,8 @@ def api_synthesize():
                                 'error': f"Style '{emotion}' is not supported by voice {voice}. Supported styles: {sorted(supported_styles) if supported_styles else 'none'}"
                             }), 400
                     except Exception as e:
-                        # If validation fails, proceed without validation (fallback)
+                        # If validation fails, log but proceed
+                        print(f"[VALIDATION ERROR] {e}")
                         pass
                     
                     # Use native style parameter - bypass SSML building
