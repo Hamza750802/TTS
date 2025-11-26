@@ -116,6 +116,12 @@ SMTP_PASSWORD = os.environ.get('SMTP_PASSWORD')
 SMTP_USE_TLS = os.environ.get('SMTP_USE_TLS', 'true').lower() in ('true', '1', 'yes')
 PASSWORD_RESET_SENDER = os.environ.get('PASSWORD_RESET_SENDER', SMTP_USERNAME or 'no-reply@cheaptts.com')
 
+# Per-request guardrail: keep each TTS call comfortably under the service timeout
+try:
+    MAX_CHARS_PER_CHUNK = int(os.environ.get('MAX_CHARS_PER_CHUNK') or 900)
+except (TypeError, ValueError):
+    MAX_CHARS_PER_CHUNK = 900
+
 
 def billing_enabled() -> bool:
     """Return True when Stripe billing is configured."""
@@ -472,6 +478,109 @@ async def generate_speech(text, voice, rate=None, volume=None, pitch=None, is_ss
                 raise
 
     return output_file
+
+
+def enforce_chunk_limits(chunks, max_chars=MAX_CHARS_PER_CHUNK):
+    """Split any incoming chunk that is too long to keep each TTS call under the limit."""
+    normalized = []
+    for chunk in chunks or []:
+        content = str(chunk.get('content', '') or '').strip()
+        if not content:
+            continue
+        if len(content) <= max_chars:
+            normalized.append(chunk)
+            continue
+        # Further split oversized chunks while preserving metadata
+        sub_chunks = process_text(content, max_chars=max_chars)
+        for sub in sub_chunks:
+            merged = dict(chunk)  # start with original metadata
+            merged['content'] = sub.get('content', '')
+            for key in ('voice', 'emotion', 'intensity', 'pitch', 'speed', 'rate', 'volume'):
+                if sub.get(key) is not None:
+                    merged[key] = sub.get(key)
+            normalized.append(merged)
+    return normalized
+
+
+def sanitize_chunks_with_styles(chunks, default_voice, voice_map):
+    """Ensure voice defaults are set and strip unsupported styles, returning chunks + warnings."""
+    sanitized = []
+    style_warnings = []
+    for idx, chunk in enumerate(chunks or []):
+        chunk_copy = dict(chunk)
+        chunk_voice = chunk_copy.get('voice') or default_voice
+        chunk_copy['voice'] = chunk_voice
+
+        emotion = chunk_copy.get('emotion')
+        supported_styles = voice_map.get(chunk_voice, set())
+        if emotion and supported_styles and emotion not in supported_styles:
+            style_warnings.append(
+                f"chunk {idx}: emotion '{emotion}' not supported by {chunk_voice}, removed"
+            )
+            chunk_copy['emotion'] = None
+
+        sanitized.append(chunk_copy)
+    return sanitized, style_warnings
+
+
+def merge_audio_files(file_paths, job_label="speech"):
+    """Concatenate mp3 parts in order without re-encoding."""
+    if not file_paths:
+        raise ValueError("No audio parts to merge")
+    paths = [Path(p) for p in file_paths]
+    if len(paths) == 1:
+        return paths[0]
+
+    unique_id = hashlib.md5("|".join(str(p) for p in paths).encode()).hexdigest()[:10]
+    output_file = OUTPUT_DIR / f"{job_label}_{unique_id}.mp3"
+    with open(output_file, "wb") as dest:
+        for path in paths:
+            with open(path, "rb") as src:
+                dest.write(src.read())
+    return output_file
+
+
+def synthesize_and_merge_chunks(chunks, voice, auto_pauses, auto_emphasis, auto_breaths, global_controls, job_label="speech"):
+    """Render each chunk separately then merge to avoid per-request limits."""
+    part_files = []
+    ssml_preview_parts = []
+    chunk_map_out = []
+    warnings_out = []
+
+    for idx, chunk in enumerate(chunks):
+        ssml_result = build_ssml(
+            voice=voice,
+            chunks=[chunk],
+            auto_pauses=auto_pauses,
+            auto_emphasis=auto_emphasis,
+            auto_breaths=auto_breaths,
+            global_rate=global_controls.get('rate'),
+            global_pitch=global_controls.get('pitch'),
+            global_volume=global_controls.get('volume'),
+        )
+        ssml_text = ssml_result['ssml']
+        ssml_preview_parts.append(ssml_text)
+        chunk_voice = ssml_result.get('chunk_map', [{}])[0].get('voice', chunk.get('voice') or voice)
+        cache_key = hashlib.md5(f"{chunk_voice}:{ssml_text}".encode()).hexdigest()[:16]
+
+        output_file = run_async(
+            generate_speech(
+                ssml_text,
+                chunk_voice,
+                rate=None,
+                volume=None,
+                pitch=None,
+                is_ssml=True,
+                cache_key=cache_key,
+                is_full_ssml=ssml_result.get('is_full_ssml', False)
+            )
+        )
+        part_files.append(output_file)
+        warnings_out.extend(ssml_result.get('warnings', []))
+        chunk_map_out.extend(ssml_result.get('chunk_map', []))
+
+    merged_file = merge_audio_files(part_files, job_label=job_label)
+    return merged_file, warnings_out, chunk_map_out, "".join(ssml_preview_parts)
 
 
 @app.route('/')
@@ -1005,22 +1114,10 @@ def api_generate():
             if not isinstance(chunks, list) or not chunks:
                 return jsonify({'success': False, 'error': 'chunks must be a non-empty list'}), 400
 
-            # Check if client sent single-voice with emotion BEFORE processing
-            is_client_single_voice_emotion = (
-                len(chunks) == 1
-                and chunks[0].get('emotion')
-                # Accept if no voice override or if it matches the global voice
-                and (not chunks[0].get('voice') or chunks[0].get('voice') == voice)
-            )
+            normalized_chunks = enforce_chunk_limits(chunks, max_chars=MAX_CHARS_PER_CHUNK)
+            if not normalized_chunks:
+                return jsonify({'success': False, 'error': 'No valid chunk content provided'}), 400
 
-            # DEBUG: Log received chunks
-            print(f"[CHUNKS DEBUG] Received {len(chunks)} chunks from client")
-            for i, ch in enumerate(chunks):
-                print(f"[CHUNKS DEBUG] Chunk {i}: emotion={ch.get('emotion')}, content_length={len(str(ch.get('content', '')))}")
-            print(f"[CHUNKS DEBUG] is_client_single_voice_emotion={is_client_single_voice_emotion}")
-
-            sanitized_chunks = []
-            style_warnings = []
             try:
                 voices = run_async(get_voices())
                 voice_map = {
@@ -1030,69 +1127,42 @@ def api_generate():
                 print(f"[STYLE VALIDATION ERROR] failed to load voices: {e}")
                 voice_map = {}
 
-            for idx, chunk in enumerate(chunks):
-                chunk_copy = dict(chunk)
-                # Use chunk-specific voice or fall back to global voice
-                chunk_voice = chunk_copy.get('voice') or voice
-                
-                # Ensure voice is set for tracking
-                chunk_copy['voice'] = chunk_voice
+            sanitized_chunks, style_warnings = sanitize_chunks_with_styles(normalized_chunks, voice, voice_map)
 
-                # Validate emotion against the specific voice's StyleList
-                emotion = chunk_copy.get('emotion')
-                supported_styles = voice_map.get(chunk_voice, set())
-                if emotion and supported_styles and emotion not in supported_styles:
-                    style_warnings.append(
-                        f"chunk {idx}: emotion '{emotion}' not supported by {chunk_voice}, removed"
-                    )
-                    chunk_copy['emotion'] = None
+            # If we have exactly one chunk with an emotion that matches the global voice, use native style param
+            is_single_emotion = (
+                len(sanitized_chunks) == 1
+                and sanitized_chunks[0].get('emotion')
+                and sanitized_chunks[0].get('voice') == voice
+            )
 
-                sanitized_chunks.append(chunk_copy)
-
-            # If client sent single chunk with emotion, validate and use native style parameter
-            if is_client_single_voice_emotion:
+            if is_single_emotion:
                 import inspect
                 import edge_tts as tts_module
                 communicate_sig = inspect.signature(tts_module.Communicate.__init__)
                 supports_style = 'style' in communicate_sig.parameters
-                
+
                 if supports_style:
-                    chunk = chunks[0]
+                    chunk = sanitized_chunks[0]
                     emotion = chunk.get('emotion')
-                    
-                    # Validate emotion against voice's StyleList
-                    try:
-                        voices = run_async(get_voices())
-                        voice_obj = next((v for v in voices if v.get('ShortName') == voice), None)
-                        supported_styles = set(voice_obj.get('StyleList', []) if voice_obj else [])
-                        
-                        print(f"[STYLE VALIDATION] Voice: {voice}")
-                        print(f"[STYLE VALIDATION] Requested emotion: {emotion}")
-                        print(f"[STYLE VALIDATION] Supported styles: {supported_styles}")
-                        
-                        if emotion and emotion not in supported_styles:
-                            # Style not supported - return clear error
-                            return jsonify({
-                                'success': False,
-                                'error': f"Style '{emotion}' is not supported by voice {voice}. Supported styles: {sorted(supported_styles) if supported_styles else 'none'}"
-                            }), 400
-                    except Exception as e:
-                        print(f"[STYLE VALIDATION ERROR] {e}")
-                        # If validation fails, proceed without validation (fallback)
-                        pass
-                    
-                    # Use native style parameter - bypass SSML building
+                    # If voice_map is populated and emotion is unsupported, fail fast
+                    supported_styles = voice_map.get(voice, set())
+                    if supported_styles and emotion not in supported_styles:
+                        return jsonify({
+                            'success': False,
+                            'error': f"Style '{emotion}' is not supported by voice {voice}. Supported styles: {sorted(supported_styles) if supported_styles else 'none'}"
+                        }), 400
+
                     plain_text = chunk.get('content', '')
                     intensity = chunk.get('intensity', 2)
                     style_degree = {1: 0.7, 2: 1.0, 3: 1.3}.get(intensity, 1.0)
-                    
-                    # Use chunk-specific prosody settings, falling back to global controls
+
                     chunk_rate = chunk.get('speed', chunk.get('rate', global_controls.get('rate', 0)))
                     chunk_pitch = chunk.get('pitch', global_controls.get('pitch', 0))
                     chunk_volume = chunk.get('volume', global_controls.get('volume', 0))
-                    
+
                     cache_key = hashlib.md5(f"{voice}:{plain_text}:{emotion}:{style_degree}:{chunk_rate}:{chunk_pitch}:{chunk_volume}".encode()).hexdigest()[:16]
-                    
+
                     output_file = run_async(
                         generate_speech(
                             plain_text,
@@ -1106,55 +1176,44 @@ def api_generate():
                             style_degree=style_degree
                         )
                     )
-                    
+
                     return jsonify({
                         'success': True,
                         'audioUrl': f'/api/audio/{output_file.name}',
-                        'warnings': []
+                        'warnings': style_warnings,
+                        'chunk_map': [{
+                            'content': plain_text,
+                            'voice': voice,
+                            'emotion': emotion,
+                            'intensity': intensity,
+                            'rate': chunk_rate,
+                            'pitch': chunk_pitch,
+                            'volume': chunk_volume,
+                        }],
+                        'ssml_used': plain_text,  # For compatibility in tests/logs
                     })
 
-            # Otherwise, use SSML building path
-
-            ssml_result = build_ssml(
-                voice=voice,
-                chunks=sanitized_chunks,
-                auto_pauses=auto_pauses,
-                auto_emphasis=auto_emphasis,
-                auto_breaths=auto_breaths,
-                global_rate=global_controls.get('rate'),
-                global_pitch=global_controls.get('pitch'),
-                global_volume=global_controls.get('volume'),
-            )
-            ssml_text = ssml_result['ssml']
-            is_full_ssml = ssml_result.get('is_full_ssml', False)
-            
-            # Multi-voice or complex SSML - use SSML building
-            primary_voice = sanitized_chunks[0].get('voice') if sanitized_chunks else voice
-            cache_key = hashlib.md5(f"{primary_voice}:{ssml_text}".encode()).hexdigest()[:16]
-
-            output_file = run_async(
-                generate_speech(
-                    ssml_text,
-                    primary_voice,
-                    rate=None,
-                    volume=None,
-                    pitch=None,
-                    is_ssml=True,
-                    cache_key=cache_key,
-                    is_full_ssml=is_full_ssml
-                )
+            # Multi-chunk or multi-voice path: render and merge parts
+            merged_file, chunk_warnings, chunk_map_out, ssml_preview = synthesize_and_merge_chunks(
+                sanitized_chunks,
+                voice,
+                auto_pauses,
+                auto_emphasis,
+                auto_breaths,
+                global_controls,
+                job_label="speech"
             )
             return jsonify({
                 'success': True,
-                'audioUrl': f'/api/audio/{output_file.name}',
-                'ssml_used': ssml_text,
-                'chunk_map': ssml_result['chunk_map'],
-                'warnings': (style_warnings + ssml_result['warnings']),
+                'audioUrl': f'/api/audio/{merged_file.name}',
+                'ssml_used': ssml_preview,
+                'chunk_map': chunk_map_out,
+                'warnings': (style_warnings + chunk_warnings),
             })
 
         # --- Auto-chunk path when plain text provided ---
         if text and data.get('auto_chunk', True) and not is_ssml:
-            chunk_map = process_text(text)
+            chunk_map = process_text(text, max_chars=MAX_CHARS_PER_CHUNK)
             try:
                 voices = run_async(get_voices())
                 allowed_styles = []
@@ -1174,37 +1233,24 @@ def api_generate():
                     chunk_copy['emotion'] = None
                 sanitized_chunks.append(chunk_copy)
 
-            ssml_result = build_ssml(
-                voice=voice,
-                chunks=sanitized_chunks,
-                auto_pauses=auto_pauses,
-                auto_emphasis=auto_emphasis,
-                auto_breaths=auto_breaths,
-                global_rate=global_controls.get('rate'),
-                global_pitch=global_controls.get('pitch'),
-                global_volume=global_controls.get('volume'),
-            )
-            ssml_text = ssml_result['ssml']
-            is_full_ssml = ssml_result.get('is_full_ssml', False)
-            cache_key = hashlib.md5(f"{voice}:{ssml_text}".encode()).hexdigest()[:16]
-            output_file = run_async(
-                generate_speech(
-                    ssml_text,
-                    voice,
-                    rate=None,
-                    volume=None,
-                    pitch=None,
-                    is_ssml=True,
-                    cache_key=cache_key,
-                    is_full_ssml=is_full_ssml
-                )
+            if not sanitized_chunks:
+                return jsonify({'success': False, 'error': 'No text provided after chunking'}), 400
+
+            merged_file, chunk_warnings, chunk_map_out, ssml_preview = synthesize_and_merge_chunks(
+                sanitized_chunks,
+                voice,
+                auto_pauses,
+                auto_emphasis,
+                auto_breaths,
+                global_controls,
+                job_label="speech"
             )
             return jsonify({
                 'success': True,
-                'audioUrl': f'/api/audio/{output_file.name}',
-                'ssml_used': ssml_text,
-                'chunk_map': ssml_result['chunk_map'],
-                'warnings': (style_warnings + ssml_result['warnings']),
+                'audioUrl': f'/api/audio/{merged_file.name}',
+                'ssml_used': ssml_preview,
+                'chunk_map': chunk_map_out,
+                'warnings': (style_warnings + chunk_warnings),
             })
 
         # --- Legacy plain text / direct SSML path ---
@@ -1307,73 +1353,11 @@ def widget_generate():
         
         if not chunks or not isinstance(chunks, list):
             return jsonify({'success': False, 'error': 'chunks required'}), 400
-        
-        # Check if single chunk with emotion
-        is_single_emotion = (
-            len(chunks) == 1
-            and chunks[0].get('emotion')
-            and (not chunks[0].get('voice') or chunks[0].get('voice') == voice)
-        )
-        
-        if is_single_emotion:
-            # Use native style parameter
-            import inspect
-            import edge_tts as tts_module
-            communicate_sig = inspect.signature(tts_module.Communicate.__init__)
-            supports_style = 'style' in communicate_sig.parameters
-            
-            if supports_style:
-                chunk = chunks[0]
-                emotion = chunk.get('emotion')
-                
-                # Validate emotion
-                try:
-                    voices = run_async(get_voices())
-                    voice_obj = next((v for v in voices if v.get('ShortName') == voice), None)
-                    supported_styles = set(voice_obj.get('StyleList', []) if voice_obj else [])
-                    
-                    if emotion and emotion not in supported_styles:
-                        return jsonify({
-                            'success': False,
-                            'error': f"Style '{emotion}' not supported by {voice}. Supported: {sorted(supported_styles) if supported_styles else 'none'}"
-                        }), 400
-                except Exception:
-                    pass
-                
-                # Generate with emotion
-                plain_text = chunk.get('content', '')
-                intensity = chunk.get('intensity', 2)
-                style_degree = {1: 0.7, 2: 1.0, 3: 1.3}.get(intensity, 1.0)
-                
-                # Use chunk-specific prosody settings, falling back to global controls
-                chunk_rate = chunk.get('speed', chunk.get('rate', global_controls.get('rate', 0)))
-                chunk_pitch = chunk.get('pitch', global_controls.get('pitch', 0))
-                chunk_volume = chunk.get('volume', global_controls.get('volume', 0))
-                
-                cache_key = hashlib.md5(f"{voice}:{plain_text}:{emotion}:{style_degree}:{chunk_rate}:{chunk_pitch}:{chunk_volume}".encode()).hexdigest()[:16]
-                
-                output_file = run_async(
-                    generate_speech(
-                        plain_text,
-                        voice,
-                        rate=chunk_rate,
-                        volume=chunk_volume,
-                        pitch=chunk_pitch,
-                        is_ssml=False,
-                        cache_key=cache_key,
-                        style=emotion,
-                        style_degree=style_degree
-                    )
-                )
-                
-                return jsonify({
-                    'success': True,
-                    'audioUrl': f'/api/audio/{output_file.name}'
-                })
-        
-        # Multi-voice or no emotion - use SSML
-        sanitized_chunks = []
-        style_warnings = []
+
+        normalized_chunks = enforce_chunk_limits(chunks, max_chars=MAX_CHARS_PER_CHUNK)
+        if not normalized_chunks:
+            return jsonify({'success': False, 'error': 'No chunk content provided'}), 400
+
         try:
             voices = run_async(get_voices())
             voice_map = {
@@ -1383,54 +1367,75 @@ def widget_generate():
             print(f"[STYLE VALIDATION ERROR] failed to load voices: {e}")
             voice_map = {}
 
-        for idx, chunk in enumerate(chunks):
-            chunk_copy = dict(chunk)
-            chunk_voice = chunk_copy.get('voice') or voice
-            chunk_copy['voice'] = chunk_voice
+        sanitized_chunks, style_warnings = sanitize_chunks_with_styles(normalized_chunks, voice, voice_map)
 
-            emotion = chunk_copy.get('emotion')
-            supported_styles = voice_map.get(chunk_voice, set())
-            if emotion and supported_styles and emotion not in supported_styles:
-                style_warnings.append(
-                    f"chunk {idx}: emotion '{emotion}' not supported by {chunk_voice}, removed"
+        is_single_emotion = (
+            len(sanitized_chunks) == 1
+            and sanitized_chunks[0].get('emotion')
+        )
+
+        if is_single_emotion:
+            import inspect
+            import edge_tts as tts_module
+            communicate_sig = inspect.signature(tts_module.Communicate.__init__)
+            supports_style = 'style' in communicate_sig.parameters
+
+            if supports_style:
+                chunk = sanitized_chunks[0]
+                chunk_voice = chunk.get('voice') or voice
+                emotion = chunk.get('emotion')
+
+                supported_styles = voice_map.get(chunk_voice, set())
+                if supported_styles and emotion not in supported_styles:
+                    return jsonify({
+                        'success': False,
+                        'error': f"Style '{emotion}' not supported by {chunk_voice}. Supported: {sorted(supported_styles) if supported_styles else 'none'}"
+                    }), 400
+
+                plain_text = chunk.get('content', '')
+                intensity = chunk.get('intensity', 2)
+                style_degree = {1: 0.7, 2: 1.0, 3: 1.3}.get(intensity, 1.0)
+
+                chunk_rate = chunk.get('speed', chunk.get('rate', global_controls.get('rate', 0)))
+                chunk_pitch = chunk.get('pitch', global_controls.get('pitch', 0))
+                chunk_volume = chunk.get('volume', global_controls.get('volume', 0))
+
+                cache_key = hashlib.md5(f"{chunk_voice}:{plain_text}:{emotion}:{style_degree}:{chunk_rate}:{chunk_pitch}:{chunk_volume}".encode()).hexdigest()[:16]
+
+                output_file = run_async(
+                    generate_speech(
+                        plain_text,
+                        chunk_voice,
+                        rate=chunk_rate,
+                        volume=chunk_volume,
+                        pitch=chunk_pitch,
+                        is_ssml=False,
+                        cache_key=cache_key,
+                        style=emotion,
+                        style_degree=style_degree
+                    )
                 )
-                chunk_copy['emotion'] = None
 
-            sanitized_chunks.append(chunk_copy)
-        
-        ssml_result = build_ssml(
-            voice=voice,
-            chunks=sanitized_chunks,
-            auto_pauses=auto_pauses,
-            auto_emphasis=auto_emphasis,
-            auto_breaths=auto_breaths,
-            global_rate=global_controls.get('rate'),
-            global_pitch=global_controls.get('pitch'),
-            global_volume=global_controls.get('volume'),
+                return jsonify({
+                    'success': True,
+                    'audioUrl': f'/api/audio/{output_file.name}',
+                    'warnings': style_warnings
+                })
+
+        merged_file, chunk_warnings, _, _ = synthesize_and_merge_chunks(
+            sanitized_chunks,
+            voice,
+            auto_pauses,
+            auto_emphasis,
+            auto_breaths,
+            global_controls,
+            job_label="widget"
         )
-        
-        ssml_text = ssml_result['ssml']
-        is_full_ssml = ssml_result.get('is_full_ssml', False)
-        primary_voice = sanitized_chunks[0].get('voice') if sanitized_chunks else voice
-        cache_key = hashlib.md5(f"{primary_voice}:{ssml_text}".encode()).hexdigest()[:16]
-        
-        output_file = run_async(
-            generate_speech(
-                ssml_text,
-                primary_voice,
-                rate=None,
-                volume=None,
-                pitch=None,
-                is_ssml=True,
-                cache_key=cache_key,
-                is_full_ssml=is_full_ssml
-            )
-        )
-        
+
         return jsonify({
             'success': True,
-            'audioUrl': f'/api/audio/{output_file.name}',
-            'warnings': (style_warnings + ssml_result.get('warnings', []))
+            'audioUrl': f'/api/audio/{merged_file.name}',
+            'warnings': (style_warnings + chunk_warnings)
         })
         
     except Exception as e:
