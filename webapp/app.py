@@ -541,46 +541,93 @@ def merge_audio_files(file_paths, job_label="speech"):
 
 
 def synthesize_and_merge_chunks(chunks, voice, auto_pauses, auto_emphasis, auto_breaths, global_controls, job_label="speech"):
-    """Render each chunk separately then merge to avoid per-request limits."""
-    part_files = []
-    ssml_preview_parts = []
-    chunk_map_out = []
-    warnings_out = []
-
-    for idx, chunk in enumerate(chunks):
-        ssml_result = build_ssml(
-            voice=voice,
-            chunks=[chunk],
-            auto_pauses=auto_pauses,
-            auto_emphasis=auto_emphasis,
-            auto_breaths=auto_breaths,
-            global_rate=global_controls.get('rate'),
-            global_pitch=global_controls.get('pitch'),
-            global_volume=global_controls.get('volume'),
-        )
-        ssml_text = ssml_result['ssml']
-        ssml_preview_parts.append(ssml_text)
-        chunk_voice = ssml_result.get('chunk_map', [{}])[0].get('voice', chunk.get('voice') or voice)
-        cache_key = hashlib.md5(f"{chunk_voice}:{ssml_text}".encode()).hexdigest()[:16]
-
-        output_file = run_async(
-            generate_speech(
-                ssml_text,
-                chunk_voice,
-                rate=None,
-                volume=None,
-                pitch=None,
-                is_ssml=True,
-                cache_key=cache_key,
-                is_full_ssml=ssml_result.get('is_full_ssml', False)
+    """Render chunks in batches then merge to avoid per-request limits.
+    
+    Batching strategy:
+    - Group chunks into batches where total chars per batch < MAX_BATCH_CHARS
+    - Generate audio for each batch separately
+    - Merge all batch audio files together
+    """
+    MAX_BATCH_CHARS = 2500  # Conservative limit per batch to stay under API constraints
+    MAX_CHUNKS_PER_BATCH = 5  # Also limit number of chunks per batch
+    
+    # Group chunks into batches
+    batches = []
+    current_batch = []
+    current_batch_chars = 0
+    
+    for chunk in chunks:
+        chunk_content = str(chunk.get('content', '') or '')
+        chunk_len = len(chunk_content)
+        
+        # Check if adding this chunk would exceed limits
+        would_exceed_chars = (current_batch_chars + chunk_len) > MAX_BATCH_CHARS
+        would_exceed_count = len(current_batch) >= MAX_CHUNKS_PER_BATCH
+        
+        if current_batch and (would_exceed_chars or would_exceed_count):
+            # Start new batch
+            batches.append(current_batch)
+            current_batch = [chunk]
+            current_batch_chars = chunk_len
+        else:
+            # Add to current batch
+            current_batch.append(chunk)
+            current_batch_chars += chunk_len
+    
+    # Don't forget the last batch
+    if current_batch:
+        batches.append(current_batch)
+    
+    print(f"[BATCH] Processing {len(chunks)} chunks in {len(batches)} batches")
+    
+    # Process each batch
+    all_part_files = []
+    all_warnings = []
+    all_chunk_map = []
+    all_ssml_preview = []
+    
+    for batch_idx, batch_chunks in enumerate(batches):
+        batch_char_count = sum(len(str(c.get('content', '') or '')) for c in batch_chunks)
+        print(f"[BATCH {batch_idx + 1}/{len(batches)}] Processing {len(batch_chunks)} chunks ({batch_char_count} chars)")
+        
+        # Process each chunk in this batch
+        for chunk in batch_chunks:
+            ssml_result = build_ssml(
+                voice=voice,
+                chunks=[chunk],
+                auto_pauses=auto_pauses,
+                auto_emphasis=auto_emphasis,
+                auto_breaths=auto_breaths,
+                global_rate=global_controls.get('rate'),
+                global_pitch=global_controls.get('pitch'),
+                global_volume=global_controls.get('volume'),
             )
-        )
-        part_files.append(output_file)
-        warnings_out.extend(ssml_result.get('warnings', []))
-        chunk_map_out.extend(ssml_result.get('chunk_map', []))
+            ssml_text = ssml_result['ssml']
+            all_ssml_preview.append(ssml_text)
+            chunk_voice = ssml_result.get('chunk_map', [{}])[0].get('voice', chunk.get('voice') or voice)
+            cache_key = hashlib.md5(f"{chunk_voice}:{ssml_text}".encode()).hexdigest()[:16]
 
-    merged_file = merge_audio_files(part_files, job_label=job_label)
-    return merged_file, warnings_out, chunk_map_out, "".join(ssml_preview_parts)
+            output_file = run_async(
+                generate_speech(
+                    ssml_text,
+                    chunk_voice,
+                    rate=None,
+                    volume=None,
+                    pitch=None,
+                    is_ssml=True,
+                    cache_key=cache_key,
+                    is_full_ssml=ssml_result.get('is_full_ssml', False)
+                )
+            )
+            all_part_files.append(output_file)
+            all_warnings.extend(ssml_result.get('warnings', []))
+            all_chunk_map.extend(ssml_result.get('chunk_map', []))
+    
+    print(f"[BATCH] Generated {len(all_part_files)} audio parts, merging...")
+    merged_file = merge_audio_files(all_part_files, job_label=job_label)
+    print(f"[BATCH] Merge complete: {merged_file.name}")
+    
+    return merged_file, all_warnings, all_chunk_map, "".join(all_ssml_preview)
 
 
 @app.route('/')
