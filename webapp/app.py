@@ -1486,9 +1486,11 @@ def api_synthesize():
                         )
                     )
                     
+                    audio_url = request.url_root.rstrip('/') + f'/api/audio/{output_file.name}'
                     return jsonify({
                         'success': True,
-                        'audioUrl': f'/api/audio/{output_file.name}'
+                        'audio_url': audio_url,
+                        'filename': output_file.name
                     })
 
             # Otherwise, continue with SSML building path
