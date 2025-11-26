@@ -921,15 +921,20 @@ def api_generate():
                     intensity = chunk.get('intensity', 2)
                     style_degree = {1: 0.7, 2: 1.0, 3: 1.3}.get(intensity, 1.0)
                     
-                    cache_key = hashlib.md5(f"{voice}:{plain_text}:{emotion}:{style_degree}".encode()).hexdigest()[:16]
+                    # Use chunk-specific prosody settings, falling back to global controls
+                    chunk_rate = chunk.get('speed', chunk.get('rate', global_controls.get('rate', 0)))
+                    chunk_pitch = chunk.get('pitch', global_controls.get('pitch', 0))
+                    chunk_volume = chunk.get('volume', global_controls.get('volume', 0))
+                    
+                    cache_key = hashlib.md5(f"{voice}:{plain_text}:{emotion}:{style_degree}:{chunk_rate}:{chunk_pitch}:{chunk_volume}".encode()).hexdigest()[:16]
                     
                     output_file = run_async(
                         generate_speech(
                             plain_text,
                             voice,
-                            rate=global_controls.get('rate', 0),
-                            volume=global_controls.get('volume', 0),
-                            pitch=global_controls.get('pitch', 0),
+                            rate=chunk_rate,
+                            volume=chunk_volume,
+                            pitch=chunk_pitch,
                             is_ssml=False,
                             cache_key=cache_key,
                             style=emotion,
@@ -1174,15 +1179,21 @@ def widget_generate():
                 plain_text = chunk.get('content', '')
                 intensity = chunk.get('intensity', 2)
                 style_degree = {1: 0.7, 2: 1.0, 3: 1.3}.get(intensity, 1.0)
-                cache_key = hashlib.md5(f"{voice}:{plain_text}:{emotion}:{style_degree}".encode()).hexdigest()[:16]
+                
+                # Use chunk-specific prosody settings, falling back to global controls
+                chunk_rate = chunk.get('speed', chunk.get('rate', global_controls.get('rate', 0)))
+                chunk_pitch = chunk.get('pitch', global_controls.get('pitch', 0))
+                chunk_volume = chunk.get('volume', global_controls.get('volume', 0))
+                
+                cache_key = hashlib.md5(f"{voice}:{plain_text}:{emotion}:{style_degree}:{chunk_rate}:{chunk_pitch}:{chunk_volume}".encode()).hexdigest()[:16]
                 
                 output_file = run_async(
                     generate_speech(
                         plain_text,
                         voice,
-                        rate=global_controls.get('rate', 0),
-                        volume=global_controls.get('volume', 0),
-                        pitch=global_controls.get('pitch', 0),
+                        rate=chunk_rate,
+                        volume=chunk_volume,
+                        pitch=chunk_pitch,
                         is_ssml=False,
                         cache_key=cache_key,
                         style=emotion,
@@ -1470,15 +1481,20 @@ def api_synthesize():
                     intensity = chunk.get('intensity', 2)
                     style_degree = {1: 0.7, 2: 1.0, 3: 1.3}.get(intensity, 1.0)
                     
-                    cache_key = hashlib.md5(f"{voice}:{plain_text}:{emotion}:{style_degree}".encode()).hexdigest()[:16]
+                    # Use chunk-specific prosody settings if provided
+                    chunk_rate = chunk.get('speed', chunk.get('rate', rate))
+                    chunk_pitch = chunk.get('pitch', pitch)
+                    chunk_volume = chunk.get('volume', volume)
+                    
+                    cache_key = hashlib.md5(f"{voice}:{plain_text}:{emotion}:{style_degree}:{chunk_rate}:{chunk_pitch}:{chunk_volume}".encode()).hexdigest()[:16]
                     
                     output_file = run_async(
                         generate_speech(
                             plain_text,
                             voice,
-                            rate=rate,
-                            volume=volume,
-                            pitch=pitch,
+                            rate=chunk_rate,
+                            volume=chunk_volume,
+                            pitch=chunk_pitch,
                             is_ssml=False,
                             cache_key=cache_key,
                             style=emotion,
