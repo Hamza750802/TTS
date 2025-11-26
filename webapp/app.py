@@ -364,7 +364,15 @@ async def generate_speech(text, voice, rate=None, volume=None, pitch=None, is_ss
                 pitch="+0Hz",
                 receive_timeout=600  # 10 minutes for long-form content
             )
-            await communicate.save(str(output_file))
+            print(f"[TTS] Generating speech (full SSML): text_length={len(text)}, voice={voice}")
+            try:
+                await communicate.save(str(output_file))
+                print(f"[TTS] Success: {output_file.name}, size={output_file.stat().st_size} bytes")
+            except Exception as e:
+                print(f"[TTS ERROR] Failed: {type(e).__name__}: {str(e)}")
+                import traceback
+                traceback.print_exc()
+                raise
         finally:
             # Restore originals
             tts_comm.mkssml = original_mkssml
@@ -401,7 +409,15 @@ async def generate_speech(text, voice, rate=None, volume=None, pitch=None, is_ss
                     pitch=pitch or "+0Hz",
                     receive_timeout=600  # 10 minutes for long-form content
                 )
-            await communicate.save(str(output_file))
+            print(f"[TTS] Generating speech (SSML): text_length={len(text)}, voice={voice}, style={style}")
+            try:
+                await communicate.save(str(output_file))
+                print(f"[TTS] Success: {output_file.name}, size={output_file.stat().st_size} bytes")
+            except Exception as e:
+                print(f"[TTS ERROR] Failed: {type(e).__name__}: {str(e)}")
+                import traceback
+                traceback.print_exc()
+                raise
         finally:
             tts_comm.escape = original_escape
     else:
@@ -431,8 +447,10 @@ async def generate_speech(text, voice, rate=None, volume=None, pitch=None, is_ss
                 pitch=pitch or "+0Hz",
                 receive_timeout=600  # 10 minutes for long-form content
             )
+        print(f"[TTS] Generating speech (regular): text_length={len(text)}, voice={voice}, style={style}")
         try:
             await communicate.save(str(output_file))
+            print(f"[TTS] Success: {output_file.name}, size={output_file.stat().st_size} bytes")
         except (NoAudioReceived, UnexpectedResponse) as e:
             # If style triggers a rejection, retry once without style to avoid 500s
             if style is not None or style_degree is not None:
@@ -446,7 +464,11 @@ async def generate_speech(text, voice, rate=None, volume=None, pitch=None, is_ss
                     receive_timeout=600  # 10 minutes for long-form content
                 )
                 await communicate.save(str(output_file))
+                print(f"[TTS] Fallback success: {output_file.name}, size={output_file.stat().st_size} bytes")
             else:
+                print(f"[TTS ERROR] Failed: {type(e).__name__}: {str(e)}")
+                import traceback
+                traceback.print_exc()
                 raise
 
     return output_file
