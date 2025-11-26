@@ -361,7 +361,8 @@ async def generate_speech(text, voice, rate=None, volume=None, pitch=None, is_ss
                 voice=voice,
                 rate="+0%",
                 volume="+0%",
-                pitch="+0Hz"
+                pitch="+0Hz",
+                receive_timeout=300  # 5 minutes for long-form content
             )
             await communicate.save(str(output_file))
         finally:
@@ -388,7 +389,8 @@ async def generate_speech(text, voice, rate=None, volume=None, pitch=None, is_ss
                     volume=volume or "+0%",
                     pitch=pitch or "+0Hz",
                     style=style,
-                    style_degree=style_degree
+                    style_degree=style_degree,
+                    receive_timeout=300  # 5 minutes for long-form content
                 )
             else:
                 communicate = tts_module.Communicate(
@@ -396,7 +398,8 @@ async def generate_speech(text, voice, rate=None, volume=None, pitch=None, is_ss
                     voice=voice,
                     rate=rate or "+0%",
                     volume=volume or "+0%",
-                    pitch=pitch or "+0Hz"
+                    pitch=pitch or "+0Hz",
+                    receive_timeout=300  # 5 minutes for long-form content
                 )
             await communicate.save(str(output_file))
         finally:
@@ -416,7 +419,8 @@ async def generate_speech(text, voice, rate=None, volume=None, pitch=None, is_ss
                 volume=volume or "+0%",
                 pitch=pitch or "+0Hz",
                 style=style,
-                style_degree=style_degree
+                style_degree=style_degree,
+                receive_timeout=300  # 5 minutes for long-form content
             )
         else:
             communicate = tts_module.Communicate(
@@ -424,7 +428,8 @@ async def generate_speech(text, voice, rate=None, volume=None, pitch=None, is_ss
                 voice=voice,
                 rate=rate or "+0%",
                 volume=volume or "+0%",
-                pitch=pitch or "+0Hz"
+                pitch=pitch or "+0Hz",
+                receive_timeout=300  # 5 minutes for long-form content
             )
         try:
             await communicate.save(str(output_file))
@@ -438,6 +443,7 @@ async def generate_speech(text, voice, rate=None, volume=None, pitch=None, is_ss
                     rate=rate or "+0%",
                     volume=volume or "+0%",
                     pitch=pitch or "+0Hz",
+                    receive_timeout=300  # 5 minutes for long-form content
                 )
                 await communicate.save(str(output_file))
             else:
