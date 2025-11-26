@@ -267,16 +267,25 @@
     margin-bottom: 12px;
   }
   .timeline-actions button {
-    border: 1px solid #e5e7eb;
-    background: #f9fafb;
+    padding: 12px 20px;
+    background: linear-gradient(90deg, #10b981, #059669);
+    color: white;
+    border: none;
     border-radius: 10px;
-    padding: 10px 14px;
+    font-size: 14px;
     font-weight: 600;
     cursor: pointer;
+    transition: all 0.2s;
   }
   .timeline-actions button:hover {
-    background: #eef2ff;
-    border-color: #c7d2fe;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+  }
+  .timeline-actions button.secondary {
+    background: linear-gradient(90deg, #ef4444, #dc2626);
+  }
+  .timeline-actions button.secondary:hover {
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
   }
   .chunk-card {
     border: 1px solid #e5e7eb;
@@ -442,12 +451,11 @@
 
           <!-- Emotional Timeline -->
           <div class="form-section">
-            <div class="section-title">Emotional Timeline</div>
-            <p style="color:#6b7280; font-size:14px; margin-bottom:10px;">Split your text into chunks and set emotion, intensity, pitch, and speed per chunk.</p>
+            <div class="section-title">🎙️ Multi-Speaker Dialogue</div>
+            <p style="color:#6b7280; font-size:14px; margin-bottom:10px;">Split your text to assign different voices & emotions to each part</p>
             <div class="timeline-actions">
-              <button type="button" id="btnSplit">Split at punctuation</button>
-              <button type="button" id="btnMerge">Merge small chunks</button>
-              <button type="button" id="btnReset">Reset</button>
+              <button type="button" id="btnSplit">✂️ Split Text into Chunks</button>
+              <button type="button" class="secondary" id="btnReset" style="display: none;">🗑️ Clear Chunks</button>
             </div>
             <div id="chunkList"></div>
           </div>
@@ -730,10 +738,13 @@
   function renderChunks(){
     if(!chunkListEl){ return; }
     chunkListEl.innerHTML = '';
+    const clearBtn = document.getElementById('btnReset');
     if(!chunkState.length){
-      chunkListEl.innerHTML = '<p style="color:#9ca3af; font-size:13px;">No chunks yet. Click "Split at punctuation" to generate chunks from your text.</p>';
+      chunkListEl.innerHTML = '<p style="color:#9ca3af; font-size:13px;">No chunks yet. Click "Split Text into Chunks" to generate chunks from your text.</p>';
+      if(clearBtn) clearBtn.style.display = 'none';
       return;
     }
+    if(clearBtn) clearBtn.style.display = 'inline-block';
     const styles = getCurrentStyles();
     chunkState.forEach((chunk, idx) => {
       const card = document.createElement('div');
@@ -901,7 +912,6 @@
 
   document.getElementById('btnSplit').addEventListener('click', rebuildTimelineFromText);
   document.getElementById('btnReset').addEventListener('click', () => { chunkState = []; renderChunks(); });
-  document.getElementById('btnMerge').addEventListener('click', () => { chunkState = mergeSmallChunks(chunkState); renderChunks(); });
 
   async function previewChunk(idx, btn){
     const chunk = chunkState[idx];
