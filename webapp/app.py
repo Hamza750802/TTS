@@ -828,7 +828,8 @@ def api_generate():
             is_client_single_voice_emotion = (
                 len(chunks) == 1
                 and chunks[0].get('emotion')
-                and not chunks[0].get('voice')  # No voice override
+                # Accept if no voice override or if it matches the global voice
+                and (not chunks[0].get('voice') or chunks[0].get('voice') == voice)
             )
 
             # DEBUG: Log received chunks
@@ -839,6 +840,15 @@ def api_generate():
 
             sanitized_chunks = []
             style_warnings = []
+            try:
+                voices = run_async(get_voices())
+                voice_map = {
+                    v.get('ShortName'): set(v.get('StyleList') or []) for v in voices
+                }
+            except Exception as e:
+                print(f"[STYLE VALIDATION ERROR] failed to load voices: {e}")
+                voice_map = {}
+
             for idx, chunk in enumerate(chunks):
                 chunk_copy = dict(chunk)
                 # Use chunk-specific voice or fall back to global voice
@@ -846,6 +856,16 @@ def api_generate():
                 
                 # Ensure voice is set for tracking
                 chunk_copy['voice'] = chunk_voice
+
+                # Validate emotion against the specific voice's StyleList
+                emotion = chunk_copy.get('emotion')
+                supported_styles = voice_map.get(chunk_voice, set())
+                if emotion and supported_styles and emotion not in supported_styles:
+                    style_warnings.append(
+                        f"chunk {idx}: emotion '{emotion}' not supported by {chunk_voice}, removed"
+                    )
+                    chunk_copy['emotion'] = None
+
                 sanitized_chunks.append(chunk_copy)
 
             # If client sent single chunk with emotion, validate and use native style parameter
@@ -1100,7 +1120,7 @@ def widget_generate():
         is_single_emotion = (
             len(chunks) == 1
             and chunks[0].get('emotion')
-            and not chunks[0].get('voice')
+            and (not chunks[0].get('voice') or chunks[0].get('voice') == voice)
         )
         
         if is_single_emotion:
@@ -1155,9 +1175,29 @@ def widget_generate():
         
         # Multi-voice or no emotion - use SSML
         sanitized_chunks = []
-        for chunk in chunks:
+        style_warnings = []
+        try:
+            voices = run_async(get_voices())
+            voice_map = {
+                v.get('ShortName'): set(v.get('StyleList') or []) for v in voices
+            }
+        except Exception as e:
+            print(f"[STYLE VALIDATION ERROR] failed to load voices: {e}")
+            voice_map = {}
+
+        for idx, chunk in enumerate(chunks):
             chunk_copy = dict(chunk)
-            chunk_copy['voice'] = chunk_copy.get('voice') or voice
+            chunk_voice = chunk_copy.get('voice') or voice
+            chunk_copy['voice'] = chunk_voice
+
+            emotion = chunk_copy.get('emotion')
+            supported_styles = voice_map.get(chunk_voice, set())
+            if emotion and supported_styles and emotion not in supported_styles:
+                style_warnings.append(
+                    f"chunk {idx}: emotion '{emotion}' not supported by {chunk_voice}, removed"
+                )
+                chunk_copy['emotion'] = None
+
             sanitized_chunks.append(chunk_copy)
         
         ssml_result = build_ssml(
@@ -1192,7 +1232,7 @@ def widget_generate():
         return jsonify({
             'success': True,
             'audioUrl': f'/api/audio/{output_file.name}',
-            'warnings': ssml_result.get('warnings', [])
+            'warnings': (style_warnings + ssml_result.get('warnings', []))
         })
         
     except Exception as e:
@@ -1361,7 +1401,7 @@ def api_synthesize():
             is_client_single_voice_emotion = (
                 len(chunks) == 1
                 and chunks[0].get('emotion')
-                and not chunks[0].get('voice')  # No voice override
+                and (not chunks[0].get('voice') or chunks[0].get('voice') == voice)  # No voice override or matches global
             )
 
             # If client sent single chunk with emotion, validate and use native style parameter
@@ -1413,17 +1453,32 @@ def api_synthesize():
                         )
                     )
                     
-                    return jsonify({
-                        'success': True,
-                        'audioUrl': f'/api/audio/{output_file.name}'
-                    })
+        return jsonify({
+            'success': True,
+            'audioUrl': f'/api/audio/{output_file.name}'
+        })
 
             # Otherwise, continue with SSML building path
             sanitized_chunks = []
+            try:
+                voices = run_async(get_voices())
+                voice_map = {
+                    v.get('ShortName'): set(v.get('StyleList') or []) for v in voices
+                }
+            except Exception as e:
+                print(f"[STYLE VALIDATION ERROR] failed to load voices: {e}")
+                voice_map = {}
+
             for idx, chunk in enumerate(chunks):
                 chunk_copy = dict(chunk)
                 chunk_voice = chunk_copy.get('voice') or voice
                 chunk_copy['voice'] = chunk_voice
+
+                emotion = chunk_copy.get('emotion')
+                supported_styles = voice_map.get(chunk_voice, set())
+                if emotion and supported_styles and emotion not in supported_styles:
+                    chunk_copy['emotion'] = None
+
                 sanitized_chunks.append(chunk_copy)
 
             ssml_result = build_ssml(
