@@ -848,7 +848,7 @@ def api_generate():
                 chunk_copy['voice'] = chunk_voice
                 sanitized_chunks.append(chunk_copy)
 
-            # If client sent single chunk with emotion, use native style parameter
+            # If client sent single chunk with emotion, validate and use native style parameter
             if is_client_single_voice_emotion:
                 import inspect
                 import edge_tts as tts_module
@@ -856,10 +856,32 @@ def api_generate():
                 supports_style = 'style' in communicate_sig.parameters
                 
                 if supports_style:
-                    # Use native style parameter - bypass SSML building
-                    chunk = chunks[0]  # Use original chunk, not sanitized
-                    plain_text = chunk.get('content', '')
+                    chunk = chunks[0]
                     emotion = chunk.get('emotion')
+                    
+                    # Validate emotion against voice's StyleList
+                    try:
+                        voices = run_async(get_voices())
+                        voice_obj = next((v for v in voices if v.get('ShortName') == voice), None)
+                        supported_styles = set(voice_obj.get('StyleList', []) if voice_obj else [])
+                        
+                        print(f"[STYLE VALIDATION] Voice: {voice}")
+                        print(f"[STYLE VALIDATION] Requested emotion: {emotion}")
+                        print(f"[STYLE VALIDATION] Supported styles: {supported_styles}")
+                        
+                        if emotion and emotion not in supported_styles:
+                            # Style not supported - return clear error
+                            return jsonify({
+                                'success': False,
+                                'error': f"Style '{emotion}' is not supported by voice {voice}. Supported styles: {sorted(supported_styles) if supported_styles else 'none'}"
+                            }), 400
+                    except Exception as e:
+                        print(f"[STYLE VALIDATION ERROR] {e}")
+                        # If validation fails, proceed without validation (fallback)
+                        pass
+                    
+                    # Use native style parameter - bypass SSML building
+                    plain_text = chunk.get('content', '')
                     intensity = chunk.get('intensity', 2)
                     style_degree = {1: 0.7, 2: 1.0, 3: 1.3}.get(intensity, 1.0)
                     
@@ -1258,11 +1280,33 @@ def api_synthesize():
             print(f"[API v1 DEBUG] supports_style={supports_style}")
             
             if is_single_voice_emotion and supports_style:
+                # Validate emotion against voice's StyleList
+                chunk = sanitized_chunks[0]
+                emotion = chunk.get('emotion')
+                
+                try:
+                    voices = run_async(get_voices())
+                    voice_obj = next((v for v in voices if v.get('ShortName') == voice), None)
+                    supported_styles = set(voice_obj.get('StyleList', []) if voice_obj else [])
+                    
+                    print(f"[API v1 STYLE VALIDATION] Voice: {voice}")
+                    print(f"[API v1 STYLE VALIDATION] Requested emotion: {emotion}")
+                    print(f"[API v1 STYLE VALIDATION] Supported styles: {supported_styles}")
+                    
+                    if emotion and emotion not in supported_styles:
+                        # Style not supported - return clear error
+                        return jsonify({
+                            'success': False,
+                            'error': f"Style '{emotion}' is not supported by voice {voice}. Supported styles: {sorted(supported_styles) if supported_styles else 'none'}"
+                        }), 400
+                except Exception as e:
+                    print(f"[API v1 STYLE VALIDATION ERROR] {e}")
+                    # If validation fails, proceed without validation (fallback)
+                    pass
+                
                 # Use native style parameter
                 print("[API v1 DEBUG] ✅ Using native style parameter path")
-                chunk = sanitized_chunks[0]
                 plain_text = chunk.get('content', '')
-                emotion = chunk.get('emotion')
                 intensity = chunk.get('intensity', 2)
                 style_degree = {1: 0.7, 2: 1.0, 3: 1.3}.get(intensity, 1.0)
                 
