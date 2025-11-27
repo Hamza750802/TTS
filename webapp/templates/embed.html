@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cheap TTS Widget</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%);
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .widget {
+            background: #ffffff;
+            border-radius: 24px;
+            padding: 40px;
+            max-width: 650px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.08), 0 0 1px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(0, 0, 0, 0.04);
+        }
+        
+        h2 {
+            color: #1a1a1a;
+            margin-bottom: 8px;
+            font-size: 28px;
+            font-weight: 700;
+            text-align: center;
+            letter-spacing: -0.5px;
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: #6b7280;
+            font-size: 14px;
+            margin-bottom: 32px;
+        }
+        
+        .form-group {
+            margin-bottom: 24px;
+        }
+        
+        label {
+            display: block;
+            color: #374151;
+            font-weight: 600;
+            margin-bottom: 10px;
+            font-size: 14px;
+            letter-spacing: -0.2px;
+        }
+        
+        textarea, select {
+            width: 100%;
+            padding: 14px 16px;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            font-size: 15px;
+            font-family: inherit;
+            transition: all 0.2s ease;
+            background: #fafbfc;
+        }
+        
+        textarea {
+            resize: vertical;
+            min-height: 120px;
+            line-height: 1.6;
+        }
+        
+        textarea:focus, select:focus {
+            outline: none;
+            border-color: #3b82f6;
+            background: #ffffff;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        
+        select {
+            cursor: pointer;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%23374151' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 16px center;
+            padding-right: 40px;
+        }
+        
+        .controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        
+        .control-group {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .control-group label {
+            font-size: 13px;
+            margin-bottom: 8px;
+            color: #6b7280;
+        }
+        
+        .control-group input {
+            padding: 10px 12px;
+            border: 2px solid #e5e7eb;
+            border-radius: 10px;
+            font-size: 14px;
+            background: #fafbfc;
+            transition: all 0.2s ease;
+        }
+        
+        .control-group input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            background: #ffffff;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        
+        button {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+        }
+        
+        button:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: 0 8px 20px rgba(59, 130, 246, 0.4);
+        }
+        
+        button:active:not(:disabled) {
+            transform: translateY(0);
+        }
+        
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .audio-player {
+            margin-top: 24px;
+            width: 100%;
+            display: none;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        }
+        
+        .audio-player.show {
+            display: block;
+        }
+        
+        .error, .success {
+            padding: 14px 16px;
+            border-radius: 12px;
+            margin-top: 16px;
+            display: none;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        .error {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            color: #dc2626;
+        }
+        
+        .success {
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            color: #16a34a;
+        }
+        
+        .error.show, .success.show {
+            display: block;
+        }
+        
+        .loading {
+            text-align: center;
+            color: #3b82f6;
+            font-weight: 600;
+            display: none;
+            margin-top: 16px;
+            font-size: 14px;
+        }
+        
+        .loading.show {
+            display: block;
+        }
+        
+        .powered-by {
+            text-align: center;
+            margin-top: 32px;
+            font-size: 13px;
+            color: #9ca3af;
+        }
+        
+        .powered-by a {
+            color: #3b82f6;
+            text-decoration: none;
+            font-weight: 600;
+            transition: color 0.2s;
+        }
+        
+        .powered-by a:hover {
+            color: #2563eb;
+        }
+        
+        /* Multi-speaker chunks styling */
+        .chunks-section {
+            margin-top: 24px;
+            padding: 20px;
+            background: #f9fafb;
+            border-radius: 12px;
+            border: 1px solid #e5e7eb;
+        }
+        
+        .chunks-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        
+        .chunks-title {
+            font-weight: 600;
+            color: #374151;
+            font-size: 14px;
+        }
+        
+        .chunks-actions {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .chunk-btn {
+            padding: 6px 12px;
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: #374151;
+            font-weight: 500;
+        }
+        
+        .chunk-btn:hover {
+            border-color: #3b82f6;
+            color: #3b82f6;
+        }
+        
+        .chunk-card {
+            background: white;
+            border-radius: 10px;
+            padding: 16px;
+            margin-bottom: 12px;
+            border: 1px solid #e5e7eb;
+        }
+        
+        .chunk-header {
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 10px;
+            font-size: 13px;
+        }
+        
+        .chunk-content {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 14px;
+            margin-bottom: 12px;
+            min-height: 60px;
+            background: #fafbfc;
+        }
+        
+        .chunk-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+        
+        .chunk-grid label {
+            font-size: 12px;
+            margin-bottom: 6px;
+        }
+        
+        .chunk-grid select {
+            font-size: 13px;
+            padding: 8px 12px;
+        }
+        
+        .split-btn {
+            padding: 12px 20px;
+            background: linear-gradient(90deg, #10b981, #059669);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .split-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+        }
+        
+        .split-btn.secondary {
+            background: linear-gradient(90deg, #ef4444, #dc2626);
+        }
+        
+        .split-btn.secondary:hover {
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+        }
+    </style>
+</head>
+<body>
+    <div class="widget">
+        <h2>🎙️ Text to Speech</h2>
+        <p class="subtitle">Convert any text into natural-sounding speech</p>
+        
+        <div class="form-group">
+            <label for="text">Enter Text:</label>
+            <textarea id="text" placeholder="Type or paste your text here...">Hello! Welcome to our text to speech service.</textarea>
+        </div>
+        
+        <div class="form-group">
+            <label for="voice">Select Voice:</label>
+            <select id="voice">
+                <option value="">Loading voices...</option>
+            </select>
+        </div>
+        
+        <div class="form-group" id="styleGroup" style="display: none;">
+            <label for="style">Style (emotion):</label>
+            <select id="style">
+                <option value="">Default (no style)</option>
+            </select>
+        </div>
+        
+        <!-- Multi-Speaker Action Button (Always Visible) -->
+        <div class="form-group">
+            <label>🎙️ Multi-Speaker Dialogue:</label>
+            <div style="display: flex; gap: 10px;">
+                <button type="button" class="split-btn" onclick="splitTextIntoChunks()">✂️ Split Text into Chunks</button>
+                <button type="button" class="split-btn secondary" onclick="clearChunks()" id="clearChunksBtn" style="display: none;">🗑️ Clear Chunks</button>
+            </div>
+            <p style="color: #9ca3af; font-size: 12px; margin-top: 8px;">Split your text to assign different voices & emotions to each part</p>
+        </div>
+        
+        <!-- Multi-Speaker Chunks Section -->
+        <div class="chunks-section" id="chunksSection" style="display: none;">
+            <div class="chunks-header">
+                <span class="chunks-title">🎭 Dialogue Chunks</span>
+            </div>
+            <div id="chunksList"></div>
+        </div>
+        
+        <div class="controls">
+            <div class="control-group">
+                <label for="rate">Speed:</label>
+                <input type="text" id="rate" value="+0%" placeholder="+0%">
+            </div>
+            <div class="control-group">
+                <label for="volume">Volume:</label>
+                <input type="text" id="volume" value="+0%" placeholder="+0%">
+            </div>
+            <div class="control-group">
+                <label for="pitch">Pitch:</label>
+                <input type="text" id="pitch" value="+0Hz" placeholder="+0Hz">
+            </div>
+        </div>
+        
+        <button id="generateBtn" onclick="generateSpeech()">🎵 Generate Speech</button>
+        
+        <div class="loading" id="loading">Generating speech...</div>
+        <div class="error" id="error"></div>
+        <div class="success" id="success"></div>
+        
+        <audio id="audioPlayer" class="audio-player" controls></audio>
+        
+        <div class="powered-by">
+            Powered by <a href="https://cheaptts.com" target="_blank">CheapTTS</a>
+        </div>
+    </div>
+    
+    <script>
+        const API_KEY = "{{ api_key }}";
+        const API_BASE = window.location.origin;
+        let allVoices = [];
+        let voiceIndex = {};
+        let chunkState = [];
+        
+        // Load voices on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            loadVoices();
+            document.getElementById('voice').addEventListener('change', onVoiceChange);
+        });
+        
+        function escapeXml(unsafe) {
+            return unsafe.replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/\"/g, "&quot;")
+                .replace(/'/g, "&apos;");
+        }
+        
+        async function loadVoices() {
+            try {
+                const response = await fetch(`${API_BASE}/api/voices`);
+                const data = await response.json();
+                
+                if (data.success && data.voices) {
+                    allVoices = data.voices;
+                    voiceIndex = {};
+                    const voiceSelect = document.getElementById('voice');
+                    voiceSelect.innerHTML = '';
+                    
+                    // Group by language
+                    const grouped = {};
+                    data.voices.forEach(v => {
+                        const lang = v.locale.split('-')[0].toUpperCase();
+                        if (!grouped[lang]) grouped[lang] = [];
+                        grouped[lang].push(v);
+                        voiceIndex[v.shortName] = v;
+                    });
+                    
+                    // Add voices grouped by language
+                    Object.keys(grouped).sort().forEach(lang => {
+                        const optgroup = document.createElement('optgroup');
+                        optgroup.label = `${lang} (${grouped[lang].length} voices)`;
+                        
+                        grouped[lang].forEach(voice => {
+                            const option = document.createElement('option');
+                            option.value = voice.shortName;
+                            option.textContent = `${voice.has_styles ? '🎭 ' : ''}${voice.localName} (${voice.gender}) - ${voice.locale}`;
+                            option.dataset.hasStyles = voice.has_styles;
+                            option.dataset.styles = (voice.styles || []).join(',');
+                            optgroup.appendChild(option);
+                        });
+                        
+                        voiceSelect.appendChild(optgroup);
+                    });
+                    
+                    // Set default
+                    voiceSelect.value = 'en-US-AriaNeural';
+                    onVoiceChange();
+                }
+            } catch (error) {
+                showError('Failed to load voices: ' + error.message);
+            }
+        }
+        
+        function onVoiceChange() {
+            const voiceSelect = document.getElementById('voice');
+            const styleGroup = document.getElementById('styleGroup');
+            const styleSelect = document.getElementById('style');
+            const selectedVoice = voiceIndex[voiceSelect.value];
+            
+            // Reset styles
+            styleSelect.innerHTML = '<option value=\"\">Default (no style)</option>';
+            
+            if (selectedVoice && selectedVoice.styles && selectedVoice.styles.length) {
+                selectedVoice.styles.forEach(style => {
+                    const opt = document.createElement('option');
+                    opt.value = style;
+                    opt.textContent = style.charAt(0).toUpperCase() + style.slice(1);
+                    styleSelect.appendChild(opt);
+                });
+                styleGroup.style.display = 'block';
+            } else {
+                styleGroup.style.display = 'none';
+            }
+        }
+        
+        function splitTextIntoChunks() {
+            const text = document.getElementById('text').value.trim();
+            if (!text) {
+                showError('Please enter text first!');
+                return;
+            }
+            
+            // Split by sentences
+            const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
+            chunkState = sentences.map(s => ({
+                content: s.trim(),
+                voice: null,
+                emotion: null
+            }));
+            
+            renderChunks();
+            document.getElementById('chunksSection').style.display = 'block';
+            document.getElementById('clearChunksBtn').style.display = 'inline-block';
+        }
+        
+        function clearChunks() {
+            chunkState = [];
+            renderChunks();
+            document.getElementById('chunksSection').style.display = 'none';
+            document.getElementById('clearChunksBtn').style.display = 'none';
+        }
+        
+        function renderChunks() {
+            const container = document.getElementById('chunksList');
+            if (!chunkState.length) {
+                container.innerHTML = '<p style="color:#9ca3af;font-size:13px;">Click "Split Text" to create chunks for multi-speaker dialogue.</p>';
+                return;
+            }
+            
+            container.innerHTML = '';
+            chunkState.forEach((chunk, idx) => {
+                const card = document.createElement('div');
+                card.className = 'chunk-card';
+                
+                const header = document.createElement('div');
+                header.className = 'chunk-header';
+                header.textContent = `Chunk ${idx + 1}`;
+                card.appendChild(header);
+                
+                const textarea = document.createElement('textarea');
+                textarea.className = 'chunk-content';
+                textarea.value = chunk.content;
+                textarea.addEventListener('input', (e) => {
+                    chunkState[idx].content = e.target.value;
+                });
+                card.appendChild(textarea);
+                
+                const grid = document.createElement('div');
+                grid.className = 'chunk-grid';
+                
+                // Voice selector
+                const voiceWrap = document.createElement('div');
+                const voiceLabel = document.createElement('label');
+                voiceLabel.textContent = '🎙️ Voice';
+                const voiceSelect = document.createElement('select');
+                voiceSelect.innerHTML = '<option value="">Use Global Voice</option>';
+                
+                // Add recommended voices
+                const recGroup = document.createElement('optgroup');
+                recGroup.label = '⭐ Recommended';
+                const jennyOpt = document.createElement('option');
+                jennyOpt.value = 'en-US-JennyNeural';
+                jennyOpt.textContent = '🎭 Jenny (14 emotions)';
+                recGroup.appendChild(jennyOpt);
+                const guyOpt = document.createElement('option');
+                guyOpt.value = 'en-US-GuyNeural';
+                guyOpt.textContent = '🎭 Guy (11 emotions)';
+                recGroup.appendChild(guyOpt);
+                voiceSelect.appendChild(recGroup);
+                
+                // Add all voices
+                const allGroup = document.createElement('optgroup');
+                allGroup.label = 'All Voices';
+                Object.keys(voiceIndex).forEach(shortName => {
+                    const v = voiceIndex[shortName];
+                    const opt = document.createElement('option');
+                    opt.value = shortName;
+                    opt.textContent = `${v.has_styles ? '🎭 ' : ''}${v.localName}`;
+                    allGroup.appendChild(opt);
+                });
+                voiceSelect.appendChild(allGroup);
+                
+                voiceSelect.value = chunk.voice || '';
+                voiceSelect.addEventListener('change', (e) => {
+                    chunkState[idx].voice = e.target.value || null;
+                    renderChunks();
+                });
+                voiceWrap.appendChild(voiceLabel);
+                voiceWrap.appendChild(voiceSelect);
+                grid.appendChild(voiceWrap);
+                
+                // Emotion selector
+                const emotionWrap = document.createElement('div');
+                const emotionLabel = document.createElement('label');
+                emotionLabel.textContent = '🎭 Emotion';
+                const emotionSelect = document.createElement('select');
+                emotionSelect.innerHTML = '<option value="">Default</option>';
+                
+                // Get emotions for chunk's voice or global voice
+                let emotions = [];
+                const chunkVoice = chunk.voice || document.getElementById('voice').value;
+                if (chunkVoice && voiceIndex[chunkVoice]) {
+                    emotions = voiceIndex[chunkVoice].styles || [];
+                }
+                
+                emotions.forEach(style => {
+                    const opt = document.createElement('option');
+                    opt.value = style;
+                    opt.textContent = style.charAt(0).toUpperCase() + style.slice(1);
+                    emotionSelect.appendChild(opt);
+                });
+                
+                emotionSelect.value = chunk.emotion || '';
+                emotionSelect.addEventListener('change', (e) => {
+                    chunkState[idx].emotion = e.target.value || null;
+                });
+                emotionWrap.appendChild(emotionLabel);
+                emotionWrap.appendChild(emotionSelect);
+                grid.appendChild(emotionWrap);
+                
+                card.appendChild(grid);
+                container.appendChild(card);
+            });
+        }
+        
+        async function generateSpeech() {
+            const text = document.getElementById('text').value.trim();
+            const voice = document.getElementById('voice').value;
+            const style = document.getElementById('style').value;
+            const rate = document.getElementById('rate').value || '+0%';
+            const volume = document.getElementById('volume').value || '+0%';
+            const pitch = document.getElementById('pitch').value || '+0Hz';
+            
+            if (!text) {
+                showError('Please enter some text!');
+                return;
+            }
+            
+            if (!voice) {
+                showError('Please select a voice!');
+                return;
+            }
+            
+            // Hide previous messages
+            hideMessages();
+            
+            // Show loading
+            const loading = document.getElementById('loading');
+            const btn = document.getElementById('generateBtn');
+            loading.classList.add('show');
+            btn.disabled = true;
+            btn.textContent = 'Generating...';
+            
+            let payload;
+            
+            // If chunks exist, use multi-speaker mode
+            if (chunkState.length > 0) {
+                payload = {
+                    voice: voice,
+                    chunks: chunkState.map(ch => ({
+                        content: ch.content,
+                        voice: ch.voice || null,
+                        emotion: ch.emotion || null
+                    }))
+                };
+            }
+            // Otherwise, use single-voice mode with emotion
+            else if (style) {
+                payload = {
+                    voice: voice,
+                    rate: rate,
+                    volume: volume,
+                    pitch: pitch,
+                    chunks: [{
+                        content: text,
+                        emotion: style,
+                        intensity: 2
+                    }]
+                };
+            } else {
+                payload = {
+                    text: text,
+                    voice: voice,
+                    rate: rate,
+                    volume: volume,
+                    pitch: pitch
+                };
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/v1/synthesize`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-API-Key': API_KEY
+                    },
+                    body: JSON.stringify(payload)
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showSuccess('Speech generated successfully!');
+                    
+                    // Show and play audio
+                    const audio = document.getElementById('audioPlayer');
+                    audio.src = data.audio_url;
+                    audio.classList.add('show');
+                    audio.play();
+                } else {
+                    showError(data.error || 'Failed to generate speech');
+                }
+            } catch (error) {
+                showError('Error: ' + error.message);
+            } finally {
+                loading.classList.remove('show');
+                btn.disabled = false;
+                btn.textContent = '🎵 Generate Speech';
+            }
+        }
+        
+        function showError(message) {
+            const errorDiv = document.getElementById('error');
+            errorDiv.textContent = '❌ ' + message;
+            errorDiv.classList.add('show');
+        }
+        
+        function showSuccess(message) {
+            const successDiv = document.getElementById('success');
+            successDiv.textContent = '✅ ' + message;
+            successDiv.classList.add('show');
+        }
+        
+        function hideMessages() {
+            document.getElementById('error').classList.remove('show');
+            document.getElementById('success').classList.remove('show');
+        }
+    </script>
+</body>
+</html>

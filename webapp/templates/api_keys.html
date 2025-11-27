@@ -1,0 +1,351 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container" style="max-width: 1000px; margin: 40px auto; padding: 0 20px;">
+    <h1 style="margin-bottom: 10px;">🔑 API Keys</h1>
+    <p style="color: #666; margin-bottom: 30px;">Manage your API keys for programmatic access to Cheap TTS</p>
+
+    <div style="background: linear-gradient(135deg, #2d2d3f 0%, #3a3a4f 100%); padding: 25px; border-radius: 12px; border: 1px solid rgba(167,139,250,.3); margin-bottom: 30px; box-shadow: 0 4px 6px rgba(0,0,0,.2);">
+        <h3 style="margin-bottom: 20px; color: #ffffff; font-size: 20px;">📚 API Documentation</h3>
+        <p style="margin-bottom: 12px; color: #ffffff;"><strong style="color: #a78bfa;">Endpoint:</strong> <code style="background: rgba(167,139,250,.25); padding: 6px 10px; border-radius: 6px; color: #e0e7ff; font-weight: 600; border: 1px solid rgba(167,139,250,.4);">POST /api/v1/synthesize</code></p>
+        <p style="margin-bottom: 15px; color: #ffffff;"><strong style="color: #a78bfa;">Header:</strong> <code style="background: rgba(167,139,250,.25); padding: 6px 10px; border-radius: 6px; color: #e0e7ff; font-weight: 600; border: 1px solid rgba(167,139,250,.4);">X-API-Key: your_api_key_here</code></p>
+        <p style="margin-bottom: 12px; color: #ffffff; font-weight: 600; font-size: 15px;">Example Request (Plain Text):</p>
+        <pre style="background: #1a1a2e; padding: 18px; border-radius: 8px; overflow-x: auto; font-size: 14px; color: #ffffff; border: 1px solid rgba(167,139,250,.5); line-height: 1.6;">curl -X POST {{ request.url_root }}api/v1/synthesize \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: your_api_key_here" \
+  -d '{
+    "text": "Hello, world!",
+    "voice": "en-US-AriaNeural",
+    "rate": "+0%",
+    "volume": "+0%",
+    "pitch": "+0Hz"
+  }'</pre>
+        
+        <p style="margin: 20px 0 12px 0; color: #ffffff; font-weight: 600; font-size: 15px;">🎭 Emotion Control (SSML):</p>
+        <p style="color: #d1d5db; margin-bottom: 10px; font-size: 14px;">For voices with 🎭 emoji, use SSML to add emotions like cheerful, sad, angry, excited, etc.</p>
+        <pre style="background: #1a1a2e; padding: 18px; border-radius: 8px; overflow-x: auto; font-size: 14px; color: #ffffff; border: 1px solid rgba(167,139,250,.5); line-height: 1.6;">curl -X POST {{ request.url_root }}api/v1/synthesize \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: your_api_key_here" \
+  -d '{
+    "text": "&lt;speak version=\"1.0\" xml:lang=\"en-US\" xmlns:mstts=\"https://www.w3.org/2001/mstts\"&gt;&lt;voice name=\"en-US-JennyNeural\"&gt;&lt;mstts:express-as style=\"cheerful\"&gt;&lt;prosody rate=\"+0%\" volume=\"+0%\" pitch=\"+0Hz\"&gt;I am so happy today!&lt;/prosody&gt;&lt;/mstts:express-as&gt;&lt;/voice&gt;&lt;/speak&gt;",
+    "voice": "en-US-JennyNeural",
+    "is_ssml": true
+  }'</pre>
+        <p style="color: #fbbf24; font-size: 13px; background: rgba(251,191,36,.1); padding: 12px; border-radius: 8px; border: 1px solid rgba(251,191,36,.3); margin-top: 12px;">
+            💡 <strong>Tip:</strong> Each voice supports different emotions. Common styles: cheerful, sad, angry, excited, friendly, terrified, shouting, whispering, hopeful. Check the voice list below for supported styles.
+        </p>
+        
+        <p style="margin: 20px 0 12px 0; color: #ffffff; font-weight: 600; font-size: 15px;">🎙️ Multi-Speaker Dialogue (NEW!):</p>
+        <p style="color: #d1d5db; margin-bottom: 10px; font-size: 14px;">Create conversations with different voices and emotions. Perfect for podcasts, audiobooks, and training content.</p>
+        <pre style="background: #1a1a2e; padding: 18px; border-radius: 8px; overflow-x: auto; font-size: 14px; color: #ffffff; border: 1px solid rgba(167,139,250,.5); line-height: 1.6;">curl -X POST {{ request.url_root }}api/v1/synthesize \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: your_api_key_here" \
+  -d '{
+    "chunks": [
+      {
+        "content": "Hello! Welcome to our podcast.",
+        "voice": "en-US-JennyNeural",
+        "emotion": "cheerful"
+      },
+      {
+        "content": "Thanks for having me!",
+        "voice": "en-US-GuyNeural",
+        "emotion": "excited"
+      }
+    ]
+  }'</pre>
+        <p style="color: #10b981; font-size: 13px; background: rgba(16,185,129,.1); padding: 12px; border-radius: 8px; border: 1px solid rgba(16,185,129,.3); margin-top: 12px;">
+            ⭐ <strong>Recommended Voices:</strong> Jenny (14 emotions) and Guy (11 emotions) are the most versatile for multi-speaker dialogue!
+        </p>
+        
+        <p style="margin: 20px 0 12px 0; color: #ffffff; font-weight: 600; font-size: 15px;">List Voices:</p>
+        <p style="margin-bottom: 12px; color: #ffffff;"><code style="background: rgba(167,139,250,.25); padding: 6px 10px; border-radius: 6px; color: #e0e7ff; font-weight: 600; border: 1px solid rgba(167,139,250,.4);">GET /api/voices</code></p>
+        <pre style="background: #1a1a2e; padding: 18px; border-radius: 8px; overflow-x: auto; font-size: 14px; color: #ffffff; border: 1px solid rgba(167,139,250,.5);">curl {{ request.url_root }}api/voices</pre>
+    </div>
+
+    <div style="background: linear-gradient(135deg, #2d2d3f 0%, #3a3a4f 100%); padding: 25px; border-radius: 12px; border: 1px solid rgba(167,139,250,.3); margin-bottom: 30px; box-shadow: 0 4px 6px rgba(0,0,0,.2);">
+        <h3 style="margin-bottom: 20px; color: #ffffff; font-size: 20px;">🎨 Embeddable Widget (For Non-Technical Users)</h3>
+        <p style="color: #ffffff; margin-bottom: 15px;">Want to add TTS to your website without coding? Use our ready-made widget! Your users will get a dropdown with all 594 voices.</p>
+        
+        <p style="margin-bottom: 12px; color: #ffffff;"><strong style="color: #a78bfa;">Option 1: iFrame Embed</strong></p>
+        <p style="color: #d1d5db; margin-bottom: 10px; font-size: 14px;">Copy this code into your website:</p>
+        <pre style="background: #1a1a2e; padding: 15px; border-radius: 8px; overflow-x: auto; font-size: 13px; color: #ffffff; border: 1px solid rgba(167,139,250,.5); margin-bottom: 20px;"><code>&lt;iframe src="{{ request.url_root }}embed?key=YOUR_API_KEY" 
+        width="650" 
+        height="600" 
+        frameborder="0"
+        style="border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);"&gt;
+&lt;/iframe&gt;</code></pre>
+
+        <p style="margin-bottom: 12px; color: #ffffff;"><strong style="color: #a78bfa;">Option 2: Direct Link</strong></p>
+        <p style="color: #d1d5db; margin-bottom: 10px; font-size: 14px;">Share this link with your users:</p>
+        <pre style="background: #1a1a2e; padding: 15px; border-radius: 8px; overflow-x: auto; font-size: 13px; color: #ffffff; border: 1px solid rgba(167,139,250,.5); margin-bottom: 15px;"><code>{{ request.url_root }}embed?key=YOUR_API_KEY</code></pre>
+        
+        <p style="color: #fbbf24; font-size: 13px; background: rgba(251,191,36,.1); padding: 12px; border-radius: 8px; border: 1px solid rgba(251,191,36,.3);">
+            ⚠️ <strong>Important:</strong> Replace <code style="background: rgba(0,0,0,.3); padding: 2px 6px; border-radius: 4px;">YOUR_API_KEY</code> with your actual API key below. The widget includes a voice dropdown so users can easily switch between all 594 voices!
+        </p>
+    </div>
+
+    <div style="background: linear-gradient(135deg, #2d2d3f 0%, #3a3a4f 100%); padding: 25px; border-radius: 12px; border: 1px solid rgba(167,139,250,.3); margin-bottom: 30px; box-shadow: 0 4px 6px rgba(0,0,0,.2);">
+        <h3 style="margin-bottom: 20px; color: #ffffff; font-size: 20px;">🗣️ Available Voices</h3>
+        <p style="color: #ffffff; margin-bottom: 15px;">Browse all 594+ voices available for synthesis. Use the voice's <code style="background: rgba(167,139,250,.25); padding: 4px 8px; border-radius: 6px; color: #e0e7ff;">ShortName</code> in your API requests.</p>
+        
+        <input type="text" id="voiceSearch" placeholder="Search voices by name, language, or gender..." 
+               style="width: 100%; padding: 12px; border: 2px solid rgba(167,139,250,.4); border-radius: 8px; margin-bottom: 15px; background: rgba(0,0,0,.3); color: #ffffff; font-size: 14px;"
+               onkeyup="filterVoices()">
+        
+        <div id="voicesList" style="background: #1a1a2e; border-radius: 8px; padding: 15px; max-height: 400px; overflow-y: auto; border: 1px solid rgba(167,139,250,.5);">
+            <p style="color: #a78bfa; text-align: center;">Loading voices...</p>
+        </div>
+    </div>
+
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h2 style="margin: 0;">Your API Keys</h2>
+        <button onclick="createNewKey()" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 12px 24px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
+            + Create New Key
+        </button>
+    </div>
+
+    {% if keys %}
+    <div style="background: rgba(0,0,0,.4); border-radius: 12px; border: 1px solid rgba(255,255,255,.12);">
+        {% for key in keys %}
+        <div style="padding: 20px; border-bottom: 1px solid rgba(255,255,255,.1);" id="key-{{ key.id }}">
+            <div style="display: flex; justify-content: space-between; align-items: start;">
+                <div style="flex: 1;">
+                    <h3 style="margin: 0 0 10px 0; color: #e5e7eb;">{{ key.name }}</h3>
+                    <div style="font-family: monospace; background: rgba(255,255,255,.95); padding: 12px; border-radius: 8px; margin-bottom: 10px; font-size: 14px; word-break: break-all; color: #1a1a1a; border: 2px solid rgba(167,139,250,.4); font-weight: 600;">
+                        {{ key.key }}
+                    </div>
+                    <div style="font-size: 14px; color: #f3f4f6;">
+                        <span>Created: {{ key.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+                        {% if key.last_used_at %}
+                        <span style="margin-left: 20px;">Last used: {{ key.last_used_at.strftime('%Y-%m-%d %H:%M') }}</span>
+                        {% else %}
+                        <span style="margin-left: 20px;">Never used</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div style="display: flex; gap: 10px; margin-left: 20px;">
+                    <button onclick="toggleKey({{ key.id }})" 
+                            style="padding: 8px 16px; border: 1px solid rgba(255,255,255,.2); background: {% if key.is_active %}rgba(16,185,129,.2){% else %}rgba(0,0,0,.3){% endif %}; color: {% if key.is_active %}#10b981{% else %}#9ca3af{% endif %}; border-radius: 8px; cursor: pointer; font-weight: 600;"
+                            id="toggle-{{ key.id }}">
+                        {% if key.is_active %}
+                        ✓ Active
+                        {% else %}
+                        ✗ Disabled
+                        {% endif %}
+                    </button>
+                    <button onclick="deleteKey({{ key.id }})" style="padding: 8px 16px; border: 1px solid rgba(239,68,68,.5); color: #ef4444; background: rgba(239,68,68,.1); border-radius: 8px; cursor: pointer; font-weight: 600;">
+                        Delete
+                    </button>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div style="background: rgba(0,0,0,.4); border-radius: 12px; border: 1px solid rgba(255,255,255,.12); padding: 40px; text-align: center;">
+        <p style="color: #f3f4f6; font-size: 18px;">No API keys yet. Create one to get started!</p>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+// Load voices on page load
+let allVoices = [];
+
+window.addEventListener('DOMContentLoaded', loadVoices);
+
+async function loadVoices() {
+    try {
+        const response = await fetch('/api/voices');
+        const data = await response.json();
+        
+        if (data.success && data.voices) {
+            allVoices = data.voices;
+            displayVoices(allVoices);
+        }
+    } catch (error) {
+        document.getElementById('voicesList').innerHTML = '<p style="color: #ef4444; text-align: center;">Error loading voices: ' + error.message + '</p>';
+    }
+}
+
+function displayVoices(voices) {
+    const voicesList = document.getElementById('voicesList');
+    
+    if (voices.length === 0) {
+        voicesList.innerHTML = '<p style="color: #9ca3af; text-align: center;">No voices found</p>';
+        return;
+    }
+    
+    // Group by language
+    const grouped = {};
+    voices.forEach(v => {
+        const lang = v.locale.split('-')[0].toUpperCase();
+        if (!grouped[lang]) grouped[lang] = [];
+        grouped[lang].push(v);
+    });
+    
+    let html = '';
+    Object.keys(grouped).sort().forEach(lang => {
+        html += `<div style="margin-bottom: 20px;">
+            <h4 style="color: #a78bfa; margin-bottom: 10px; font-size: 16px; border-bottom: 1px solid rgba(167,139,250,.3); padding-bottom: 8px;">${lang} (${grouped[lang].length} voices)</h4>
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px;">`;
+        
+        grouped[lang].forEach(voice => {
+            const genderColor = voice.gender === 'Female' ? '#ec4899' : '#3b82f6';
+            const hasStyles = voice.has_styles;
+            const stylesText = hasStyles && voice.styles ? voice.styles.join(', ') : '';
+            html += `
+                <div style="background: rgba(0,0,0,.3); padding: 12px; border-radius: 8px; border: 1px solid rgba(167,139,250,.2);">
+                    <div style="font-weight: 600; color: #ffffff; margin-bottom: 4px;">${hasStyles ? '🎭 ' : ''}${voice.localName}</div>
+                    <div style="font-size: 12px; color: #c4b5fd; font-family: monospace; margin-bottom: 4px;">${voice.shortName}</div>
+                    <div style="display: flex; gap: 8px; font-size: 11px; flex-wrap: wrap;">
+                        <span style="background: rgba(167,139,250,.2); color: #c4b5fd; padding: 2px 6px; border-radius: 4px;">${voice.locale}</span>
+                        <span style="background: ${genderColor}22; color: ${genderColor}; padding: 2px 6px; border-radius: 4px;">${voice.gender}</span>
+                        ${hasStyles ? `<span style="background: rgba(251,191,36,.2); color: #fbbf24; padding: 2px 6px; border-radius: 4px;" title="${stylesText}">🎭 ${voice.styles.length} styles</span>` : ''}
+                    </div>
+                </div>`;
+        });
+        
+        html += '</div></div>';
+    });
+    
+    voicesList.innerHTML = html;
+}
+
+function filterVoices() {
+    const search = document.getElementById('voiceSearch').value.toLowerCase();
+    
+    if (!search) {
+        displayVoices(allVoices);
+        return;
+    }
+    
+    const filtered = allVoices.filter(v => 
+        v.name.toLowerCase().includes(search) ||
+        v.shortName.toLowerCase().includes(search) ||
+        v.localName.toLowerCase().includes(search) ||
+        v.locale.toLowerCase().includes(search) ||
+        v.gender.toLowerCase().includes(search)
+    );
+    
+    displayVoices(filtered);
+}
+
+async function createNewKey() {
+    const name = prompt('Enter a name for this API key (e.g., "My Project", "Production Server"):');
+    if (!name) return;
+    
+    try {
+        const response = await fetch('/api/keys/create', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showKeyModal(data.key);
+        } else {
+            alert('Error: ' + data.error);
+        }
+    } catch (error) {
+        alert('Error creating key: ' + error.message);
+    }
+}
+
+function showKeyModal(apiKey) {
+    // Create modal overlay
+    const modal = document.createElement('div');
+    modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 9999;';
+    
+    // Create modal content
+    modal.innerHTML = `
+        <div style="background: linear-gradient(135deg, #1e1e2e 0%, #2a2a3e 100%); padding: 30px; border-radius: 16px; max-width: 600px; width: 90%; border: 1px solid rgba(124,58,237,.3); box-shadow: 0 20px 60px rgba(0,0,0,.5);">
+            <h2 style="margin: 0 0 15px 0; color: #10b981; font-size: 24px;">✅ API Key Created!</h2>
+            <p style="color: #f3f4f6; margin-bottom: 20px; font-size: 14px;">Copy this key now - you won't be able to see it again!</p>
+            
+            <div style="background: rgba(0,0,0,.4); padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 2px solid rgba(124,58,237,.4);">
+                <label style="display: block; color: #c4b5fd; font-size: 12px; margin-bottom: 8px; font-weight: 600;">Your API Key:</label>
+                <input type="text" id="apiKeyInput" value="${apiKey}" readonly 
+                       style="width: 100%; background: rgba(124,58,237,.15); border: 1px solid rgba(124,58,237,.3); color: #e0e7ff; padding: 12px; border-radius: 8px; font-family: monospace; font-size: 14px; margin-bottom: 10px;">
+                <button onclick="copyApiKey()" 
+                        style="width: 100%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 14px;">
+                    📋 Copy to Clipboard
+                </button>
+            </div>
+            
+            <button onclick="closeModal()" 
+                    style="width: 100%; background: rgba(255,255,255,.1); color: #f3f4f6; padding: 12px; border: 1px solid rgba(255,255,255,.2); border-radius: 8px; cursor: pointer; font-weight: 600;">
+                Close
+            </button>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Auto-select the key
+    document.getElementById('apiKeyInput').select();
+}
+
+function copyApiKey() {
+    const input = document.getElementById('apiKeyInput');
+    input.select();
+    document.execCommand('copy');
+    
+    // Show feedback
+    event.target.textContent = '✓ Copied!';
+    event.target.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
+    
+    setTimeout(() => {
+        event.target.textContent = '📋 Copy to Clipboard';
+        event.target.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+    }, 2000);
+}
+
+function closeModal() {
+    const modal = document.querySelector('[style*="z-index: 9999"]');
+    if (modal) {
+        modal.remove();
+        location.reload();
+    }
+}
+
+async function deleteKey(keyId) {
+    if (!confirm('Are you sure you want to delete this API key? This action cannot be undone.')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/keys/${keyId}/delete`, { method: 'POST' });
+        const data = await response.json();
+        
+        if (data.success) {
+            document.getElementById(`key-${keyId}`).remove();
+        } else {
+            alert('Error: ' + data.error);
+        }
+    } catch (error) {
+        alert('Error deleting key: ' + error.message);
+    }
+}
+
+async function toggleKey(keyId) {
+    try {
+        const response = await fetch(`/api/keys/${keyId}/toggle`, { method: 'POST' });
+        const data = await response.json();
+        
+        if (data.success) {
+            const btn = document.getElementById(`toggle-${keyId}`);
+            btn.textContent = data.is_active ? '✓ Active' : '✗ Disabled';
+            btn.style.background = data.is_active ? '#fff' : '#f5f5f5';
+        } else {
+            alert('Error: ' + data.error);
+        }
+    } catch (error) {
+        alert('Error toggling key: ' + error.message);
+    }
+}
+</script>
+{% endblock %}
