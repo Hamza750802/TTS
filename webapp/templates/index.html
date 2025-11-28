@@ -445,12 +445,14 @@
   </div>
 </div>
 {% elif not current_user.is_subscribed %}
-<div class="cta">
+<div class="cta" style="max-width: 600px; margin: 40px auto; padding: 40px;">
   <h3>Subscribe to unlock Text‑to‑Speech</h3>
-  <p>Unlimited generation. Cancel anytime.</p>
-  <div class="actions">
-    <a class="btn primary" href="{{ url_for('subscribe') }}">Subscribe $7.99/month</a>
+  <p>Unlimited generation on our website. Choose your plan:</p>
+  <div style="display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; margin-top: 20px;">
+    <a class="btn primary" href="{{ url_for('subscribe') }}" style="padding: 14px 28px;">Monthly $7.99/mo</a>
+    <a class="btn" href="{{ url_for('subscribe', plan='lifetime') }}" style="padding: 14px 28px; background: linear-gradient(90deg, #10b981, #059669); color: white; border: none;">Lifetime $99 (one-time)</a>
   </div>
+  <p style="margin-top: 16px; font-size: 13px; color: #dc2626; font-weight: 600;">🔥 Only 50 lifetime spots at $99! Then $149</p>
 </div>
 {% else %}
 <div class="dashboard-hero">
