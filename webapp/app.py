@@ -315,6 +315,23 @@ def send_password_reset_email(to_email: str, reset_link: str) -> None:
 # Initialize database tables (creates tables on app startup, works with Gunicorn)
 with app.app_context():
     db.create_all()
+    
+    # Migrate: Add new API columns if they don't exist (for existing databases)
+    from sqlalchemy import inspect, text
+    inspector = inspect(db.engine)
+    existing_columns = [col['name'] for col in inspector.get_columns('user')]
+    
+    with db.engine.connect() as conn:
+        if 'api_tier' not in existing_columns:
+            conn.execute(text("ALTER TABLE \"user\" ADD COLUMN api_tier VARCHAR(32) DEFAULT 'none'"))
+            print("[MIGRATION] Added api_tier column to user table")
+        if 'api_credits' not in existing_columns:
+            conn.execute(text("ALTER TABLE \"user\" ADD COLUMN api_credits INTEGER DEFAULT 0"))
+            print("[MIGRATION] Added api_credits column to user table")
+        if 'api_stripe_subscription_id' not in existing_columns:
+            conn.execute(text("ALTER TABLE \"user\" ADD COLUMN api_stripe_subscription_id VARCHAR(255)"))
+            print("[MIGRATION] Added api_stripe_subscription_id column to user table")
+        conn.commit()
 
 # Cleanup old files on startup (works with Gunicorn)
 cleanup_old_files()
