@@ -181,7 +181,7 @@
     <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 12px; padding: 24px; margin-bottom: 30px;">
         <h3 style="margin-top: 0; margin-bottom: 16px; font-size: 18px;">📊 Your Current Usage</h3>
         {% set limit = 100000 if current_user.api_tier == 'starter' else 500000 %}
-        {% set usage = current_user.api_usage_chars or 0 %}
+        {% set usage = current_user.api_chars_used or 0 %}
         {% set percent = (usage / limit * 100) | round(1) if limit > 0 else 0 %}
         <div style="margin-bottom: 12px;">
             <span style="font-weight: 600;">{{ '{:,}'.format(usage) }}</span> / {{ '{:,}'.format(limit) }} characters used
@@ -245,6 +245,7 @@
             <div style="background: #1f2937; border-radius: 8px; padding: 16px; font-family: 'Monaco', 'Menlo', monospace; font-size: 12px; overflow-x: auto; color: #e5e7eb;">
 <pre style="margin: 0; white-space: pre-wrap;"><span style="color: #f472b6;">import</span> requests
 
+<span style="color: #6b7280;"># Step 1: Generate the audio</span>
 response = requests.post(
     <span style="color: #34d399;">"https://cheaptts.com/api/v1/synthesize"</span>,
     headers={<span style="color: #34d399;">"X-API-Key"</span>: <span style="color: #34d399;">"your_api_key"</span>},
@@ -254,9 +255,12 @@ response = requests.post(
     }
 )
 
-<span style="color: #6b7280;"># Save the audio file</span>
-<span style="color: #f472b6;">with</span> <span style="color: #60a5fa;">open</span>(<span style="color: #34d399;">"output.mp3"</span>, <span style="color: #34d399;">"wb"</span>) <span style="color: #f472b6;">as</span> f:
-    f.write(response.content)</pre>
+data = response.json()
+<span style="color: #f472b6;">if</span> data[<span style="color: #34d399;">"success"</span>]:
+    <span style="color: #6b7280;"># Step 2: Download the audio file</span>
+    audio = requests.get(data[<span style="color: #34d399;">"audio_url"</span>])
+    <span style="color: #f472b6;">with</span> <span style="color: #60a5fa;">open</span>(<span style="color: #34d399;">"output.mp3"</span>, <span style="color: #34d399;">"wb"</span>) <span style="color: #f472b6;">as</span> f:
+        f.write(audio.content)</pre>
             </div>
         </div>
         
@@ -267,7 +271,8 @@ response = requests.post(
                 <span style="font-weight: 600; color: #374151;">JavaScript</span>
             </div>
             <div style="background: #1f2937; border-radius: 8px; padding: 16px; font-family: 'Monaco', 'Menlo', monospace; font-size: 12px; overflow-x: auto; color: #e5e7eb;">
-<pre style="margin: 0; white-space: pre-wrap;"><span style="color: #f472b6;">const</span> response = <span style="color: #f472b6;">await</span> <span style="color: #60a5fa;">fetch</span>(<span style="color: #34d399;">"https://cheaptts.com/api/v1/synthesize"</span>, {
+<pre style="margin: 0; white-space: pre-wrap;"><span style="color: #6b7280;">// Step 1: Generate the audio</span>
+<span style="color: #f472b6;">const</span> response = <span style="color: #f472b6;">await</span> <span style="color: #60a5fa;">fetch</span>(<span style="color: #34d399;">"https://cheaptts.com/api/v1/synthesize"</span>, {
     method: <span style="color: #34d399;">"POST"</span>,
     headers: {
         <span style="color: #34d399;">"X-API-Key"</span>: <span style="color: #34d399;">"your_api_key"</span>,
@@ -279,8 +284,12 @@ response = requests.post(
     })
 });
 
-<span style="color: #f472b6;">const</span> audioBlob = <span style="color: #f472b6;">await</span> response.<span style="color: #60a5fa;">blob</span>();
-<span style="color: #f472b6;">const</span> audioUrl = URL.<span style="color: #60a5fa;">createObjectURL</span>(audioBlob);</pre>
+<span style="color: #f472b6;">const</span> data = <span style="color: #f472b6;">await</span> response.<span style="color: #60a5fa;">json</span>();
+<span style="color: #f472b6;">if</span> (data.success) {
+    <span style="color: #6b7280;">// Step 2: Play or download the audio</span>
+    <span style="color: #f472b6;">const</span> audio = <span style="color: #f472b6;">new</span> <span style="color: #60a5fa;">Audio</span>(data.audio_url);
+    audio.<span style="color: #60a5fa;">play</span>();
+}</pre>
             </div>
         </div>
     </div>

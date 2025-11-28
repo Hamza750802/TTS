@@ -1065,19 +1065,22 @@ def subscription_success():
                 current_user.subscription_status = 'lifetime'
                 db.session.commit()
                 flash('Lifetime access activated. Enjoy forever!', 'success')
+                return redirect(url_for('index'))
             elif plan_type.startswith('api_'):
                 # API plan purchase
                 tier = plan_type.replace('api_', '')  # 'starter' or 'pro'
                 current_user.api_tier = tier
-                current_user.api_usage_chars = 0  # Reset usage
-                current_user.api_monthly_reset = datetime.utcnow()
+                current_user.api_chars_used = 0  # Reset usage
+                current_user.api_usage_reset_at = datetime.utcnow() + timedelta(days=30)
                 db.session.commit()
-                flash(f'API {tier.title()} plan activated!', 'success')
+                flash(f'API {tier.title()} plan activated! Create your first API key below.', 'success')
+                return redirect(url_for('api_keys_page'))  # Redirect to API keys page
             else:
                 # Regular monthly subscription
                 current_user.subscription_status = 'active'
                 db.session.commit()
                 flash('Subscription activated. Enjoy!', 'success')
+                return redirect(url_for('index'))
         except Exception as e:
             app.logger.error(f"Subscription success error: {e}")
             flash('Payment received! Your access should be active shortly.', 'success')
