@@ -1399,18 +1399,34 @@ def api_preview():
         # Generate speech
         try:
             if ssml_text and is_ssml:
-                cache_key = hashlib.md5(f"preview:{voice}:{ssml_text}".encode()).hexdigest()[:16]
-                # Check if this is full SSML with <speak> wrapper (e.g., from emotion selection on landing page)
-                is_full = ssml_text.strip().lower().startswith('<speak')
-                output_file = run_async(generate_speech(ssml_text, voice, None, None, None, is_ssml=True, cache_key=cache_key, is_full_ssml=is_full))
+                cache_key = hashlib.md5(
+                    f"preview:{voice}:{ssml_text}".encode()
+                ).hexdigest()[:16]
+                # Check if full SSML with <speak> wrapper (emotion on landing)
+                is_full = ssml_text.strip().lower().startswith("<speak")
+                output_file = run_async(
+                    generate_speech(
+                        ssml_text, voice, None, None, None,
+                        is_ssml=True, cache_key=cache_key, is_full_ssml=is_full
+                    )
+                )
             elif is_ssml:
                 # Check if this is full SSML with <speak> wrapper
-                is_full = text.strip().lower().startswith('<speak')
-                output_file = run_async(generate_speech(text, voice, rate, volume, pitch, is_ssml=True, is_full_ssml=is_full))
+                is_full = text.strip().lower().startswith("<speak")
+                output_file = run_async(
+                    generate_speech(
+                        text, voice, rate, volume, pitch,
+                        is_ssml=True, is_full_ssml=is_full
+                    )
+                )
             else:
-                output_file = run_async(generate_speech(text, voice, rate, volume, pitch))
+                output_file = run_async(
+                    generate_speech(text, voice, rate, volume, pitch)
+                )
         except Exception as gen_error:
-            return jsonify({'success': False, 'error': f'Speech generation failed: {str(gen_error)}'}), 500
+            return jsonify(
+                {"success": False, "error": f"Speech generation failed: {str(gen_error)}"}
+            ), 500
         
         return jsonify({
             'success': True,
