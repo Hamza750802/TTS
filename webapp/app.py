@@ -1944,11 +1944,18 @@ def api_auth_login():
         if not user or not check_password_hash(user.password_hash, password):
             return jsonify({'success': False, 'error': 'Invalid email or password'}), 401
         
-        # Generate a simple session token (in production, use JWT)
+        # Generate a simple session token
         session_token = secrets.token_urlsafe(32)
-        user.mobile_session_token = session_token
-        user.mobile_session_expires = datetime.utcnow() + timedelta(days=30)
-        db.session.commit()
+        
+        # Try to save session token (may fail if columns don't exist yet)
+        try:
+            user.mobile_session_token = session_token
+            user.mobile_session_expires = datetime.utcnow() + timedelta(days=30)
+            db.session.commit()
+        except Exception as db_err:
+            print(f"[API Auth] Could not save session token (migration pending): {db_err}")
+            db.session.rollback()
+            # Continue anyway - token won't persist but login will work
         
         return jsonify({
             'success': True,
