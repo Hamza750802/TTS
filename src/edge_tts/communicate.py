@@ -51,13 +51,13 @@ def get_headers_and_data(
 
     Returns:
         tuple: The headers and data to be used in the request.
-    
+
     Raises:
         UnexpectedResponse: If the header is malformed (missing separator or invalid format).
     """
     if not isinstance(data, bytes):
         raise TypeError("data must be bytes")
-    
+
     if header_length < 0:
         raise UnexpectedResponse("Malformed response: header separator not found")
 
@@ -241,7 +241,7 @@ def split_text_by_byte_length(
             # No newline or space found within limit, find a safe UTF-8 split point
             # Pass byte_length to ensure we don't exceed the limit
             split_at = _find_safe_utf8_split_point(text, byte_length)
-            
+
             if split_at == 0:
                 raise ValueError(
                     f"Cannot find safe split point within {byte_length} bytes. "

@@ -99,7 +99,12 @@ def _play_media(use_mpv: bool, mp3_fname: str, srt_fname: Optional[str]) -> int:
         return process.returncode
 
 
-def _cleanup(mp3_fname: Optional[str], srt_fname: Optional[str], keep: bool, force_keep: bool = False) -> None:
+def _cleanup(
+    mp3_fname: Optional[str],
+    srt_fname: Optional[str],
+    keep: bool,
+    force_keep: bool = False,
+) -> None:
     """Clean up temporary files.
     
     Args:
@@ -135,28 +140,28 @@ def _main() -> None:
 
     try:
         mp3_fname, srt_fname = _create_temp_files(use_mpv, mp3_fname, srt_fname, debug)
-        
+
         # Run edge-tts and check for errors
         tts_return_code = _run_edge_tts(mp3_fname, srt_fname, tts_args)
         if tts_return_code != 0:
             pr_err(f"edge-tts failed with return code {tts_return_code}")
             _cleanup(mp3_fname, srt_fname, keep, force_keep=True)
             sys.exit(tts_return_code)
-        
+
         # Check if audio file was actually created and has content
         if not os.path.exists(mp3_fname) or os.path.getsize(mp3_fname) == 0:
             pr_err("edge-tts did not produce audio output")
             _cleanup(mp3_fname, srt_fname, keep, force_keep=True)
             sys.exit(1)
-        
+
         # Play the media and check for errors
         play_return_code = _play_media(use_mpv, mp3_fname, srt_fname)
         if play_return_code != 0:
             pr_err(f"Media playback failed with return code {play_return_code}")
             _cleanup(mp3_fname, srt_fname, keep, force_keep=True)
             sys.exit(play_return_code)
-            
-    except Exception as e:
+
+    except Exception as e:  # pylint: disable=broad-exception-caught
         pr_err(f"Error: {e}")
         _cleanup(mp3_fname, srt_fname, keep, force_keep=True)
         sys.exit(1)

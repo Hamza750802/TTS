@@ -2121,6 +2121,144 @@ def api_auth_logout():
     return jsonify({'success': True})
 
 
+@app.route('/api/v1/mobile/synthesize', methods=['POST'])
+@csrf.exempt
+@limiter.limit("200 per hour")  # Higher limit for mobile app users
+def api_mobile_synthesize():
+    """
+    Mobile app text-to-speech synthesis endpoint
+    Uses session token instead of API key
+    
+    Headers:
+        Authorization: Bearer <session_token>
+    
+    Body (JSON):
+        {
+            "text": "Text to convert to speech",
+            "voice": "en-US-AriaNeural",
+            "rate": 0,
+            "pitch": 0,
+            "style": "cheerful" (optional - for emotional voices),
+            "style_degree": 1.0 (optional - 0.0 to 2.0),
+            "chunk_mode": false (optional - for long text)
+        }
+    """
+    import traceback
+    
+    # Authenticate with session token
+    token = request.headers.get('Authorization', '').replace('Bearer ', '')
+    
+    if not token:
+        return jsonify({'success': False, 'error': 'No token provided'}), 401
+    
+    try:
+        user = User.query.filter_by(mobile_session_token=token).first()
+    except Exception as e:
+        # Fallback if mobile_session_token column doesn't exist yet
+        print(f"[Mobile API] Token lookup failed (migration pending?): {e}")
+        return jsonify({'success': False, 'error': 'Authentication system not ready. Please try again later.'}), 503
+    
+    if not user or (user.mobile_session_expires and user.mobile_session_expires < datetime.utcnow()):
+        return jsonify({'success': False, 'error': 'Invalid or expired token. Please login again.'}), 401
+    
+    # Check if user has web subscription (required for mobile app access)
+    if not user.is_subscribed:
+        return jsonify({
+            'success': False, 
+            'error': 'Web subscription required. Please subscribe at cheaptts.com to use the mobile app.'
+        }), 403
+    
+    try:
+        data = request.get_json(silent=True) or {}
+        text = (data.get('text') or '').strip()
+        
+        if not text:
+            return jsonify({'success': False, 'error': 'Text is required'}), 400
+        
+        if len(text) > 10000:
+            return jsonify({'success': False, 'error': 'Text too long. Maximum 10,000 characters.'}), 400
+        
+        voice = data.get('voice', 'en-US-AriaNeural')
+        
+        # Handle numeric rate/pitch from mobile (e.g., -50 to +50)
+        rate_val = data.get('rate', 0)
+        pitch_val = data.get('pitch', 0)
+        
+        if isinstance(rate_val, (int, float)):
+            rate = f"+{int(rate_val)}%" if rate_val >= 0 else f"{int(rate_val)}%"
+        else:
+            rate = str(rate_val) if rate_val else '+0%'
+            
+        if isinstance(pitch_val, (int, float)):
+            pitch = f"+{int(pitch_val)}Hz" if pitch_val >= 0 else f"{int(pitch_val)}Hz"
+        else:
+            pitch = str(pitch_val) if pitch_val else '+0Hz'
+        
+        volume = '+0%'
+        
+        # Style/emotion support
+        style = data.get('style')
+        style_degree = data.get('style_degree')
+        
+        if style_degree is not None:
+            try:
+                style_degree = float(style_degree)
+                if not 0.0 <= style_degree <= 2.0:
+                    style_degree = 1.0
+            except:
+                style_degree = 1.0
+        
+        # Chunk mode for long text
+        chunk_mode = data.get('chunk_mode', False)
+        
+        print(f"[Mobile API] Synthesize request from {user.email}: voice={voice}, style={style}, chars={len(text)}")
+        
+        # Validate style against voice's supported styles
+        if style:
+            try:
+                voices = run_async(get_voices())
+                voice_obj = next((v for v in voices if v.get('ShortName') == voice), None)
+                supported_styles = voice_obj.get('StyleList', []) if voice_obj else []
+                
+                if supported_styles and style not in supported_styles:
+                    return jsonify({
+                        'success': False,
+                        'error': f"Style '{style}' not supported by {voice}. Available styles: {', '.join(sorted(supported_styles)) if supported_styles else 'none'}"
+                    }), 400
+            except Exception as e:
+                print(f"[Mobile API] Style validation error: {e}")
+                # Continue anyway
+        
+        # Generate speech
+        output_file = run_async(
+            generate_speech(
+                text,
+                voice,
+                rate,
+                volume,
+                pitch,
+                is_ssml=False,
+                style=style,
+                style_degree=style_degree
+            )
+        )
+        
+        # Return the audio URL
+        audio_url = request.url_root.rstrip('/') + f'/api/audio/{output_file.name}'
+        
+        return jsonify({
+            'success': True,
+            'audio_url': audio_url,
+            'filename': output_file.name,
+            'chars_used': len(text)
+        })
+        
+    except Exception as e:
+        print(f"[Mobile API] Synthesize error: {e}")
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @app.route('/api/v1/synthesize', methods=['POST'])
 @csrf.exempt  # API endpoint - no CSRF needed
 @limiter.limit("100 per hour")  # Rate limit for API endpoint
