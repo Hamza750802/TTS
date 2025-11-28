@@ -1400,9 +1400,13 @@ def api_preview():
         try:
             if ssml_text and is_ssml:
                 cache_key = hashlib.md5(f"preview:{voice}:{ssml_text}".encode()).hexdigest()[:16]
-                output_file = run_async(generate_speech(ssml_text, voice, None, None, None, is_ssml=True, cache_key=cache_key))
+                # Check if this is full SSML with <speak> wrapper (e.g., from emotion selection on landing page)
+                is_full = ssml_text.strip().lower().startswith('<speak')
+                output_file = run_async(generate_speech(ssml_text, voice, None, None, None, is_ssml=True, cache_key=cache_key, is_full_ssml=is_full))
             elif is_ssml:
-                output_file = run_async(generate_speech(text, voice, rate, volume, pitch, is_ssml=True))
+                # Check if this is full SSML with <speak> wrapper
+                is_full = text.strip().lower().startswith('<speak')
+                output_file = run_async(generate_speech(text, voice, rate, volume, pitch, is_ssml=True, is_full_ssml=is_full))
             else:
                 output_file = run_async(generate_speech(text, voice, rate, volume, pitch))
         except Exception as gen_error:
@@ -2232,6 +2236,7 @@ def api_mobile_synthesize():
                 
                 if emotion:
                     import inspect
+
                     import edge_tts as tts_module
                     communicate_sig = inspect.signature(tts_module.Communicate.__init__)
                     supports_style = 'style' in communicate_sig.parameters

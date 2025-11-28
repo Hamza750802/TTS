@@ -18,6 +18,7 @@ from datetime import datetime, timedelta
 
 from webapp.app import APIKey, User, app, db
 
+
 def print_header(text):
     print(f"\n{'='*60}")
     print(f"  {text}")
