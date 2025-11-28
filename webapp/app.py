@@ -2457,6 +2457,209 @@ def api_mobile_synthesize():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@app.route('/api/v1/mobile/preview', methods=['POST'])
+@csrf.exempt
+@limiter.limit("30 per minute")
+def api_mobile_preview():
+    """
+    Mobile app chunk preview endpoint - preview a single chunk before full generation
+    Uses session token for authentication
+    
+    Headers:
+        Authorization: Bearer <session_token>
+    
+    Body (JSON):
+        {
+            "voice": "en-US-AriaNeural",  // global voice
+            "chunk": {
+                "content": "Hello there!",
+                "voice": "en-US-GuyNeural",  // optional override
+                "emotion": "cheerful",  // optional
+                "intensity": 2,  // 1-3 scale
+                "speed": 0,  // -50 to +50
+                "pitch": 0,  // -50 to +50
+                "volume": 0  // -50 to +50
+            },
+            "global_rate": 0,
+            "global_pitch": 0,
+            "global_volume": 0
+        }
+    """
+    import re
+    import traceback
+
+    # Authenticate with session token
+    token = request.headers.get('Authorization', '').replace('Bearer ', '')
+    
+    if not token:
+        return jsonify({'success': False, 'error': 'No token provided'}), 401
+    
+    try:
+        user = User.query.filter_by(mobile_session_token=token).first()
+    except Exception as e:
+        print(f"[Mobile Preview] Token lookup failed: {e}")
+        return jsonify({
+            'success': False,
+            'error': 'Authentication system not ready'
+        }), 503
+    
+    if not user or (
+        user.mobile_session_expires
+        and user.mobile_session_expires < datetime.utcnow()
+    ):
+        return jsonify({
+            'success': False,
+            'error': 'Invalid or expired token'
+        }), 401
+    
+    if not user.is_subscribed:
+        return jsonify({
+            'success': False,
+            'error': 'Subscription required for mobile app'
+        }), 403
+    
+    try:
+        data = request.get_json(silent=True) or {}
+        voice = data.get('voice', 'en-US-AriaNeural')
+        chunk = data.get('chunk')
+        
+        if not chunk or not isinstance(chunk, dict):
+            return jsonify({
+                'success': False,
+                'error': 'chunk object is required'
+            }), 400
+        
+        content = chunk.get('content', '').strip()
+        if not content:
+            return jsonify({
+                'success': False,
+                'error': 'chunk content is required'
+            }), 400
+        
+        # Limit preview to 300 characters
+        if len(content) > 300:
+            return jsonify({
+                'success': False,
+                'error': 'Preview limited to 300 characters'
+            }), 400
+        
+        chunk_voice = chunk.get('voice') or voice
+        emotion = chunk.get('emotion')
+        intensity = chunk.get('intensity', 2)
+        chunk_speed = chunk.get('speed', data.get('global_rate', 0))
+        chunk_pitch = chunk.get('pitch', data.get('global_pitch', 0))
+        chunk_volume = chunk.get('volume', data.get('global_volume', 0))
+        
+        print(f"[Mobile Preview] {user.email}: voice={chunk_voice}, emotion={emotion}")
+        
+        # If emotion is specified, use native style parameter
+        if emotion:
+            import inspect
+            import edge_tts as tts_module
+
+            communicate_sig = inspect.signature(tts_module.Communicate.__init__)
+            supports_style = 'style' in communicate_sig.parameters
+            
+            if supports_style:
+                # Validate emotion against voice
+                try:
+                    voices_list = run_async(get_voices())
+                    voice_obj = next(
+                        (v for v in voices_list if v.get('ShortName') == chunk_voice),
+                        None
+                    )
+                    supported = set(voice_obj.get('StyleList', []) if voice_obj else [])
+                    
+                    if emotion not in supported:
+                        return jsonify({
+                            'success': False,
+                            'error': f"Style '{emotion}' not supported by {chunk_voice}"
+                        }), 400
+                except Exception as e:
+                    print(f"[Mobile Preview] Style validation error: {e}")
+                
+                style_degree = {1: 0.7, 2: 1.0, 3: 1.3}.get(intensity, 1.0)
+                rate_str = f"+{int(chunk_speed)}%" if chunk_speed >= 0 else f"{int(chunk_speed)}%"
+                pitch_str = f"+{int(chunk_pitch)}Hz" if chunk_pitch >= 0 else f"{int(chunk_pitch)}Hz"
+                volume_str = f"+{int(chunk_volume)}%" if chunk_volume >= 0 else f"{int(chunk_volume)}%"
+                
+                cache_key = hashlib.md5(
+                    f"mpreview:{chunk_voice}:{content}:{emotion}:{intensity}".encode()
+                ).hexdigest()[:16]
+                
+                output_file = run_async(
+                    generate_speech(
+                        content,
+                        chunk_voice,
+                        rate=rate_str,
+                        volume=volume_str,
+                        pitch=pitch_str,
+                        is_ssml=False,
+                        cache_key=cache_key,
+                        style=emotion,
+                        style_degree=style_degree
+                    )
+                )
+            else:
+                # Fall back to SSML
+                ssml_chunk = {
+                    'content': content,
+                    'voice': chunk_voice,
+                    'emotion': emotion,
+                    'intensity': intensity,
+                    'speed': chunk_speed,
+                    'pitch': chunk_pitch,
+                    'volume': chunk_volume
+                }
+                ssml_result = build_ssml(voice=voice, chunks=[ssml_chunk])
+                ssml_text = ssml_result['ssml']
+                
+                cache_key = hashlib.md5(
+                    f"mpreview:{chunk_voice}:{ssml_text}".encode()
+                ).hexdigest()[:16]
+                
+                output_file = run_async(
+                    generate_speech(
+                        ssml_text, chunk_voice, None, None, None,
+                        is_ssml=True, cache_key=cache_key, is_full_ssml=True
+                    )
+                )
+        else:
+            # No emotion - simple generation
+            rate_str = f"+{int(chunk_speed)}%" if chunk_speed >= 0 else f"{int(chunk_speed)}%"
+            pitch_str = f"+{int(chunk_pitch)}Hz" if chunk_pitch >= 0 else f"{int(chunk_pitch)}Hz"
+            volume_str = f"+{int(chunk_volume)}%" if chunk_volume >= 0 else f"{int(chunk_volume)}%"
+            
+            cache_key = hashlib.md5(
+                f"mpreview:{chunk_voice}:{content}:{chunk_speed}:{chunk_pitch}".encode()
+            ).hexdigest()[:16]
+            
+            output_file = run_async(
+                generate_speech(
+                    content,
+                    chunk_voice,
+                    rate=rate_str,
+                    volume=volume_str,
+                    pitch=pitch_str,
+                    is_ssml=False,
+                    cache_key=cache_key
+                )
+            )
+        
+        audio_url = request.url_root.rstrip('/') + f'/api/audio/{output_file.name}'
+        
+        return jsonify({
+            'success': True,
+            'audio_url': audio_url,
+            'filename': output_file.name
+        })
+        
+    except Exception as e:
+        print(f"[Mobile Preview] Error: {e}")
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @app.route('/api/v1/synthesize', methods=['POST'])
 @csrf.exempt  # API endpoint - no CSRF needed
 @limiter.limit("100 per hour")  # Rate limit for API endpoint

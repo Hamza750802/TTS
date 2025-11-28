@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:just_audio/just_audio.dart';
 import 'package:provider/provider.dart';
 import '../models/dialogue_chunk.dart';
 import '../models/voice.dart';
@@ -33,11 +34,19 @@ class _ChunkEditorScreenState extends State<ChunkEditorScreen> {
   bool _autoEmphasis = true;
   bool _autoBreaths = false;
   String? _errorMessage;
+  int? _previewingIndex;
+  final AudioPlayer _audioPlayer = AudioPlayer();
 
   @override
   void initState() {
     super.initState();
     _chunks = widget.chunks.map((c) => c.copyWith()).toList();
+  }
+
+  @override
+  void dispose() {
+    _audioPlayer.dispose();
+    super.dispose();
   }
 
   Voice? _getVoiceByShortName(String? shortName) {
@@ -107,6 +116,46 @@ class _ChunkEditorScreenState extends State<ChunkEditorScreen> {
     setState(() {
       _chunks.removeAt(index);
     });
+  }
+
+  Future<void> _previewChunk(int index) async {
+    final chunk = _chunks[index];
+    if (chunk.content.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter text before previewing')),
+      );
+      return;
+    }
+
+    setState(() => _previewingIndex = index);
+
+    try {
+      final apiService = context.read<ApiService>();
+      final result = await apiService.previewChunk(
+        globalVoice: widget.globalVoice.shortName,
+        chunk: chunk,
+        globalRate: widget.globalRate,
+        globalPitch: widget.globalPitch,
+      );
+
+      if (!mounted) return;
+
+      final audioUrl = result['audio_url'];
+      if (audioUrl != null) {
+        await _audioPlayer.setUrl(audioUrl);
+        await _audioPlayer.play();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Preview failed: ${e.toString().replaceAll("Exception: ", "")}')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _previewingIndex = null);
+      }
+    }
   }
 
   @override
@@ -288,6 +337,18 @@ class _ChunkEditorScreenState extends State<ChunkEditorScreen> {
                   ),
                 ),
                 const Spacer(),
+                // Preview button
+                _previewingIndex == index
+                    ? const SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : IconButton(
+                        icon: const Icon(Icons.play_circle_outline, color: AppTheme.accentMint),
+                        onPressed: () => _previewChunk(index),
+                        tooltip: 'Preview chunk',
+                      ),
                 IconButton(
                   icon: const Icon(Icons.drag_handle, color: Colors.grey),
                   onPressed: null,
