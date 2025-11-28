@@ -1002,48 +1002,67 @@ def create_checkout_session():
     data = request.get_json() or {}
     plan_type = data.get('plan_type') or request.args.get('plan', 'monthly')
     
+    app.logger.info(f"Creating checkout session for plan_type: {plan_type}")
+    
     # Determine price ID and mode based on plan type
     if plan_type == 'lifetime':
-        if not stripe.api_key or not STRIPE_LIFETIME_PRICE_ID:
-            return jsonify({'error': 'Lifetime plan not configured yet.'}), 500
+        if not stripe.api_key:
+            return jsonify({'error': 'Stripe not configured'}), 500
         price_id = STRIPE_LIFETIME_PRICE_ID
         mode = 'payment'  # One-time payment
+        app.logger.info(f"Using LIFETIME price_id: {price_id}")
     elif plan_type == 'api_starter':
-        if not stripe.api_key or not STRIPE_API_STARTER_PRICE_ID:
-            return jsonify({'error': 'API Starter plan not configured.'}), 500
+        if not stripe.api_key:
+            return jsonify({'error': 'Stripe not configured'}), 500
         price_id = STRIPE_API_STARTER_PRICE_ID
         mode = 'subscription'
+        app.logger.info(f"Using API_STARTER price_id: {price_id}")
     elif plan_type == 'api_pro':
-        if not stripe.api_key or not STRIPE_API_PRO_PRICE_ID:
-            return jsonify({'error': 'API Pro plan not configured.'}), 500
+        if not stripe.api_key:
+            return jsonify({'error': 'Stripe not configured'}), 500
         price_id = STRIPE_API_PRO_PRICE_ID
         mode = 'subscription'
+        app.logger.info(f"Using API_PRO price_id: {price_id}")
     else:  # monthly web subscription
         if not stripe.api_key or not STRIPE_PRICE_ID:
             return jsonify({'error': 'Stripe not configured'}), 500
         price_id = STRIPE_PRICE_ID
         mode = 'subscription'
+        app.logger.info(f"Using MONTHLY price_id: {price_id}")
 
     try:
         success_url = url_for('subscription_success', _external=True) + f'?session_id={{CHECKOUT_SESSION_ID}}&plan_type={plan_type}'
         cancel_url = url_for('subscription_cancel', _external=True)
 
-        customer = None
-        if current_user.stripe_customer_id:
-            customer = current_user.stripe_customer_id
+        # For one-time payments (lifetime), don't attach to existing customer
+        # to avoid Stripe showing "manage subscription" instead of new purchase
+        if mode == 'payment':
+            # One-time payment - create fresh checkout without existing customer
+            session = stripe.checkout.Session.create(
+                mode=mode,
+                line_items=[{'price': price_id, 'quantity': 1}],
+                success_url=success_url,
+                cancel_url=cancel_url,
+                customer_email=current_user.email,
+                automatic_tax={'enabled': True},
+            )
+        else:
+            # Subscription - can use existing customer if they have one
+            customer = current_user.stripe_customer_id if current_user.stripe_customer_id else None
+            session = stripe.checkout.Session.create(
+                mode=mode,
+                line_items=[{'price': price_id, 'quantity': 1}],
+                success_url=success_url,
+                cancel_url=cancel_url,
+                customer=customer,
+                customer_email=(None if customer else current_user.email),
+                automatic_tax={'enabled': True},
+            )
 
-        session = stripe.checkout.Session.create(
-            mode=mode,
-            line_items=[{'price': price_id, 'quantity': 1}],
-            success_url=success_url,
-            cancel_url=cancel_url,
-            customer=customer,
-            customer_email=(None if customer else current_user.email),
-            automatic_tax={'enabled': True},
-        )
-
+        app.logger.info(f"Checkout session created: {session.id}, URL: {session.url}")
         return jsonify({'url': session.url})
     except Exception as e:
+        app.logger.error(f"Checkout session error: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 
