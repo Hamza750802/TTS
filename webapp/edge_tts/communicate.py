@@ -4,10 +4,10 @@ end-users. The other classes and functions are for internal use only."""
 import asyncio
 import concurrent.futures
 import json
+import re
 import ssl
 import time
 import uuid
-import re
 from contextlib import nullcontext
 from io import TextIOWrapper
 from queue import Queue

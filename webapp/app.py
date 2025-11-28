@@ -5,6 +5,9 @@ import asyncio
 import hashlib
 import os
 import secrets
+
+# Import local modified edge_tts first (for emotion support)
+import sys
 import time
 from datetime import datetime, timedelta
 from email.message import EmailMessage
@@ -25,6 +28,7 @@ from flask import (
     send_file,
     url_for,
 )
+from flask_cors import CORS
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_login import (
@@ -37,19 +41,15 @@ from flask_login import (
 )
 from flask_sqlalchemy import SQLAlchemy
 from flask_wtf.csrf import CSRFProtect
-from flask_cors import CORS
 from werkzeug.security import check_password_hash, generate_password_hash
 
-# Import local modified edge_tts first (for emotion support)
-import sys
-from pathlib import Path
 webapp_dir = Path(__file__).parent
 sys.path.insert(0, str(webapp_dir))  # Ensure local edge_tts is imported first
-import edge_tts
-
 # Import chunking and SSML modules from same directory
 from chunk_processor import process_text
 from ssml_builder import build_ssml
+
+import edge_tts
 
 load_dotenv()
 
@@ -307,6 +307,7 @@ class APIKey(db.Model):
     @staticmethod
     def generate_key():
         import secrets
+
         # Keep generating until unique to avoid rare collisions
         while True:
             candidate = f"ctts_{secrets.token_urlsafe(32)}"
@@ -541,11 +542,12 @@ async def generate_speech(text, voice, rate=None, volume=None, pitch=None, is_ss
         style_degree: Style intensity (0.01-2.0) for single-voice with emotion
     """
     import re
+
     import edge_tts as tts_module  # Rename to avoid shadowing
     import edge_tts.communicate as tts_comm
     from edge_tts.data_classes import TTSConfig
     from edge_tts.exceptions import NoAudioReceived, UnexpectedResponse
-    
+
     # Create filename (cache-aware)
     if cache_key:
         fname = f"speech_{cache_key}.mp3"
@@ -1477,6 +1479,7 @@ def api_generate():
 
             if is_single_emotion:
                 import inspect
+
                 import edge_tts as tts_module
                 communicate_sig = inspect.signature(tts_module.Communicate.__init__)
                 supports_style = 'style' in communicate_sig.parameters
@@ -1715,6 +1718,7 @@ def widget_generate():
 
         if is_single_emotion:
             import inspect
+
             import edge_tts as tts_module
             communicate_sig = inspect.signature(tts_module.Communicate.__init__)
             supports_style = 'style' in communicate_sig.parameters
@@ -2164,9 +2168,9 @@ def api_mobile_synthesize():
             "auto_breaths": false
         }
     """
-    import traceback
     import re
-    
+    import traceback
+
     # Authenticate with session token
     token = request.headers.get('Authorization', '').replace('Bearer ', '')
     
@@ -2458,9 +2462,9 @@ def api_synthesize():
             "filename": "speech_xxxxx.mp3"
         }
     """
-    import traceback
     import re
-    
+    import traceback
+
     # Get API key from header
     api_key_str = (request.headers.get('X-API-Key') or '').strip()
     if not api_key_str:
@@ -2530,6 +2534,7 @@ def api_synthesize():
             # If client sent single chunk with emotion, validate and use native style parameter
             if is_client_single_voice_emotion:
                 import inspect
+
                 import edge_tts as tts_module
                 communicate_sig = inspect.signature(tts_module.Communicate.__init__)
                 supports_style = 'style' in communicate_sig.parameters

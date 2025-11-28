@@ -3,8 +3,9 @@ Comprehensive API Limits Test
 Tests every single step of the API flow from A to Z
 """
 
-import sys
 import os
+import sys
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'webapp'))
 
 # Set up test environment
@@ -14,7 +15,8 @@ os.environ['STRIPE_SECRET_KEY'] = 'sk_test_fake_key'  # Fake key to enable billi
 os.environ['STRIPE_PRICE_ID'] = 'price_fake_123'  # Fake price to enable billing checks
 
 from datetime import datetime, timedelta
-from webapp.app import app, db, User, APIKey
+
+from webapp.app import APIKey, User, app, db
 
 def print_header(text):
     print(f"\n{'='*60}")
@@ -234,7 +236,7 @@ def run_tests():
         print_header("TEST 7: verify_api_key() Function")
         
         from webapp.app import verify_api_key
-        
+
         # Reset starter usage for clean test
         user_starter.api_chars_used = 0
         user_starter.api_usage_reset_at = datetime.utcnow() + timedelta(days=30)
