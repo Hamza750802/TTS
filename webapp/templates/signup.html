@@ -2,9 +2,14 @@
 {% block title %}Sign Up — Cheap TTS{% endblock %}
 {% block content %}
   <h2 style="margin-top:0">Create your account</h2>
-  <p class="muted">Get started in seconds. $7.99/month after subscribing.</p>
+  {% if plan == 'lifetime' %}
+  <p class="muted">Create your account to get lifetime access for just $99!</p>
+  {% else %}
+  <p class="muted">Get started in seconds. Choose from $7.99/month or $99 lifetime.</p>
+  {% endif %}
   <form method="post" class="grid" style="margin-top:12px;max-width:520px">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+    <input type="hidden" name="plan" value="{{ plan }}"/>
     <div>
       <label for="email">Email</label>
       <input id="email" name="email" type="email" placeholder="you@example.com" required />

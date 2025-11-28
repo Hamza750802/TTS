@@ -744,23 +744,28 @@ def dashboard():
 
 @app.route('/signup', methods=['GET', 'POST'])
 def signup():
+    plan = request.args.get('plan', '')  # 'lifetime' or empty
     if request.method == 'POST':
         email = request.form.get('email', '').strip().lower()
         password = request.form.get('password', '')
+        plan = request.form.get('plan', '')  # Get plan from hidden field
         if not email or not password:
             flash('Email and password are required.', 'error')
-            return redirect(url_for('signup'))
+            return redirect(url_for('signup', plan=plan) if plan else url_for('signup'))
         if User.query.filter_by(email=email).first():
             flash('An account with that email already exists.', 'error')
-            return redirect(url_for('signup'))
+            return redirect(url_for('signup', plan=plan) if plan else url_for('signup'))
         user = User(email=email)
         user.set_password(password)
         db.session.add(user)
         db.session.commit()
         login_user(user)
         flash('Welcome! Your account has been created.', 'success')
-        return redirect(url_for('index'))
-    return render_template('signup.html')
+        # Redirect to subscribe page, preserving plan choice
+        if plan:
+            return redirect(url_for('subscribe', plan=plan))
+        return redirect(url_for('subscribe'))
+    return render_template('signup.html', plan=plan)
 
 
 @app.route('/login', methods=['GET', 'POST'])

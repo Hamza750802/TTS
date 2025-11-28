@@ -99,7 +99,8 @@
       <div class="pricing-card featured">
         <div class="badge" style="background: #10b981; color: white;">⭐ BEST VALUE</div>
         <div class="price">$99<small> one-time</small></div>
-        <p style="color: #047857; font-weight: 600; margin-bottom: 16px;">Lifetime Access</p>
+        <p style="color: #047857; font-weight: 600; margin-bottom: 8px;">Lifetime Access</p>
+        <p style="color: #dc2626; font-size: 13px; font-weight: 600; margin-bottom: 16px;">🔥 Only 50 spots at this price! Then $149</p>
         <ul>
           <li>Everything in Monthly</li>
           <li>Pay once, use forever</li>
@@ -126,7 +127,11 @@
 <script>
   document.getElementById('subscribeBtn').addEventListener('click', async () => {
     try {
-      const res = await fetch('/create-checkout-session', {method:'POST'});
+      const res = await fetch('/create-checkout-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan_type: 'monthly' })
+      });
       const data = await res.json();
       if(data.url){
         window.location.href = data.url;
@@ -140,7 +145,11 @@
   
   document.getElementById('lifetimeBtn').addEventListener('click', async () => {
     try {
-      const res = await fetch('/create-checkout-session?plan=lifetime', {method:'POST'});
+      const res = await fetch('/create-checkout-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan_type: 'lifetime' })
+      });
       const data = await res.json();
       if(data.url){
         window.location.href = data.url;
@@ -151,6 +160,12 @@
       alert('Failed to start checkout');
     }
   });
+  
+  // Auto-scroll to lifetime if plan=lifetime in URL
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get('plan') === 'lifetime') {
+    document.getElementById('lifetimeBtn').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
 </script>
 {% endblock %}
 
