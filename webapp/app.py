@@ -948,50 +948,15 @@ def api_pricing():
 @app.route('/subscribe')
 @login_required
 def subscribe():
+    """Show the subscription options page with both Monthly and Lifetime plans"""
     # If already subscribed, redirect to dashboard
     if current_user.is_subscribed:
         flash('You already have an active subscription!', 'info')
         return redirect(url_for('index'))
     
-    # Check Stripe configuration
-    if not stripe.api_key:
-        print("ERROR: STRIPE_SECRET_KEY not configured!")
-        flash('Payment system not configured. Please contact support.', 'error')
-        return redirect(url_for('index'))
-    
-    if not STRIPE_PRICE_ID:
-        print("ERROR: STRIPE_PRICE_ID not configured!")
-        flash('Subscription pricing not configured. Please contact support.', 'error')
-        return redirect(url_for('index'))
-    
-    try:
-        print(f"Creating Stripe checkout session for user {current_user.email}")
-        success_url = url_for('subscription_success', _external=True) + '?session_id={CHECKOUT_SESSION_ID}'
-        cancel_url = url_for('subscription_cancel', _external=True)
-
-        customer = None
-        if current_user.stripe_customer_id:
-            customer = current_user.stripe_customer_id
-            print(f"Using existing Stripe customer: {customer}")
-
-        session = stripe.checkout.Session.create(
-            mode='subscription',
-            line_items=[{'price': STRIPE_PRICE_ID, 'quantity': 1}],
-            success_url=success_url,
-            cancel_url=cancel_url,
-            customer=customer,
-            customer_email=(None if customer else current_user.email),
-            automatic_tax={'enabled': True},
-        )
-
-        print(f"Stripe session created: {session.id}, redirecting to: {session.url}")
-        return redirect(session.url)
-    except Exception as e:
-        print(f"ERROR creating Stripe checkout session: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        flash(f'Error creating checkout session: {str(e)}', 'error')
-        return redirect(url_for('index'))
+    # Just render the template - let the user choose their plan
+    # The template has JS that calls /create-checkout-session with the plan_type
+    return render_template('subscribe.html')
 
 
 @app.route('/create-checkout-session', methods=['POST'])
