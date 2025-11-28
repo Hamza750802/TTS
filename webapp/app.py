@@ -37,6 +37,7 @@ from flask_login import (
 )
 from flask_sqlalchemy import SQLAlchemy
 from flask_wtf.csrf import CSRFProtect
+from flask_cors import CORS
 from werkzeug.security import check_password_hash, generate_password_hash
 
 # Import local modified edge_tts first (for emotion support)
@@ -84,6 +85,15 @@ db = SQLAlchemy(app)
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
 csrf = CSRFProtect(app)
+
+# Enable CORS for API endpoints (mobile app needs this)
+CORS(app, resources={
+    r"/api/*": {
+        "origins": "*",
+        "methods": ["GET", "POST", "OPTIONS"],
+        "allow_headers": ["Content-Type", "Authorization", "X-API-Key"]
+    }
+})
 
 # Rate limiter for API abuse protection
 limiter = Limiter(
