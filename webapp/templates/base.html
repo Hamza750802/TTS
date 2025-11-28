@@ -91,7 +91,11 @@
       <div class="nav-actions">
         {% if current_user.is_authenticated %}
           {% if current_user.is_subscribed %}
-            <span class="status-badge">Web: Active</span>
+            {% if current_user.is_lifetime %}
+              <span class="status-badge" style="background: #d1fae5; color: #047857; border-color: #6ee7b7;">⭐ Lifetime</span>
+            {% else %}
+              <span class="status-badge">Web: Active</span>
+            {% endif %}
           {% else %}
             <a class="btn primary" href="{{ url_for('subscribe') }}">Subscribe $7.99/mo</a>
           {% endif %}

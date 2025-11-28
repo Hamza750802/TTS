@@ -101,6 +101,9 @@ STRIPE_WEBHOOK_SECRET = os.environ.get('STRIPE_WEBHOOK_SECRET', '')
 # Admin API key (for your personal projects - free access)
 ADMIN_API_KEY = os.environ.get('ADMIN_API_KEY', '')  # Set this in .env
 
+# Stripe Lifetime Deal Price ID (one-time payment)
+STRIPE_LIFETIME_PRICE_ID = os.environ.get('STRIPE_LIFETIME_PRICE_ID', '')  # Set this in Railway
+
 # Password reset + email settings
 try:
     RESET_TOKEN_EXPIRATION_HOURS = int(os.environ.get('RESET_TOKEN_EXPIRATION_HOURS') or 1)
@@ -191,14 +194,18 @@ class User(db.Model, UserMixin):
     email = db.Column(db.String(255), unique=True, nullable=False, index=True)
     password_hash = db.Column(db.String(255), nullable=False)
     stripe_customer_id = db.Column(db.String(255))
-    subscription_status = db.Column(db.String(64), default='inactive')  # inactive | active | past_due | canceled
+    subscription_status = db.Column(db.String(64), default='inactive')  # inactive | active | past_due | canceled | lifetime
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     # API Access - separate from web subscription
     # api_tier: 'none' | 'starter' | 'pro' | 'enterprise'
     api_tier = db.Column(db.String(32), default='none')
-    api_credits = db.Column(db.Integer, default=0)  # Usage-based credits
+    api_credits = db.Column(db.Integer, default=0)  # Unused - kept for future
     api_stripe_subscription_id = db.Column(db.String(255))  # Separate Stripe subscription for API
+    
+    # API Usage Tracking
+    api_chars_used = db.Column(db.Integer, default=0)  # Characters used this billing period
+    api_usage_reset_at = db.Column(db.DateTime)  # When usage resets (monthly)
 
     def set_password(self, password: str) -> None:
         self.password_hash = generate_password_hash(password)
@@ -208,13 +215,66 @@ class User(db.Model, UserMixin):
 
     @property
     def is_subscribed(self) -> bool:
-        """Web UI subscription (TTS tool access)"""
-        return self.subscription_status == 'active'
+        """Web UI subscription (TTS tool access) - includes lifetime"""
+        return self.subscription_status in ('active', 'lifetime')
+    
+    @property
+    def is_lifetime(self) -> bool:
+        """Check if user has lifetime access"""
+        return self.subscription_status == 'lifetime'
     
     @property
     def has_api_access(self) -> bool:
         """API access (separate from web subscription)"""
         return self.api_tier in ('starter', 'pro', 'enterprise')
+    
+    @property
+    def api_char_limit(self) -> int:
+        """Get character limit based on API tier"""
+        limits = {
+            'starter': 100000,      # 100k chars/month
+            'pro': 500000,          # 500k chars/month
+            'enterprise': 999999999  # Effectively unlimited
+        }
+        return limits.get(self.api_tier, 0)
+    
+    @property
+    def api_chars_remaining(self) -> int:
+        """Get remaining characters for this billing period"""
+        if not self.has_api_access:
+            return 0
+        return max(0, self.api_char_limit - (self.api_chars_used or 0))
+    
+    def check_and_reset_api_usage(self):
+        """Reset API usage if billing period has passed (monthly)"""
+        if not self.api_usage_reset_at:
+            # First time - set reset date to 30 days from now
+            self.api_usage_reset_at = datetime.utcnow() + timedelta(days=30)
+            self.api_chars_used = 0
+            return
+        
+        if datetime.utcnow() >= self.api_usage_reset_at:
+            # Reset usage and set new reset date
+            self.api_chars_used = 0
+            self.api_usage_reset_at = datetime.utcnow() + timedelta(days=30)
+    
+    def use_api_chars(self, char_count: int) -> bool:
+        """
+        Track API character usage. Returns True if within limit, False if exceeded.
+        """
+        if not self.has_api_access:
+            return False
+        
+        # Check and reset if needed
+        self.check_and_reset_api_usage()
+        
+        # Check if this request would exceed limit
+        if (self.api_chars_used or 0) + char_count > self.api_char_limit:
+            return False
+        
+        # Track usage
+        self.api_chars_used = (self.api_chars_used or 0) + char_count
+        return True
 
 
 class APIKey(db.Model):
@@ -331,6 +391,12 @@ with app.app_context():
         if 'api_stripe_subscription_id' not in existing_columns:
             conn.execute(text("ALTER TABLE \"user\" ADD COLUMN api_stripe_subscription_id VARCHAR(255)"))
             print("[MIGRATION] Added api_stripe_subscription_id column to user table")
+        if 'api_chars_used' not in existing_columns:
+            conn.execute(text("ALTER TABLE \"user\" ADD COLUMN api_chars_used INTEGER DEFAULT 0"))
+            print("[MIGRATION] Added api_chars_used column to user table")
+        if 'api_usage_reset_at' not in existing_columns:
+            conn.execute(text("ALTER TABLE \"user\" ADD COLUMN api_usage_reset_at TIMESTAMP"))
+            print("[MIGRATION] Added api_usage_reset_at column to user table")
         conn.commit()
 
 # Cleanup old files on startup (works with Gunicorn)
@@ -925,11 +991,21 @@ def subscribe():
 @login_required
 @csrf.exempt  # Exempting because this is an API endpoint called from JS
 def create_checkout_session():
-    if not stripe.api_key or not STRIPE_PRICE_ID:
-        return jsonify({'error': 'Stripe not configured'}), 500
+    plan = request.args.get('plan', 'monthly')  # 'monthly' or 'lifetime'
+    
+    if plan == 'lifetime':
+        if not stripe.api_key or not STRIPE_LIFETIME_PRICE_ID:
+            return jsonify({'error': 'Lifetime plan not configured yet. Please try the monthly plan or contact support.'}), 500
+        price_id = STRIPE_LIFETIME_PRICE_ID
+        mode = 'payment'  # One-time payment for lifetime
+    else:
+        if not stripe.api_key or not STRIPE_PRICE_ID:
+            return jsonify({'error': 'Stripe not configured'}), 500
+        price_id = STRIPE_PRICE_ID
+        mode = 'subscription'
 
     try:
-        success_url = url_for('subscription_success', _external=True) + '?session_id={CHECKOUT_SESSION_ID}'
+        success_url = url_for('subscription_success', _external=True) + f'?session_id={{CHECKOUT_SESSION_ID}}&plan={plan}'
         cancel_url = url_for('subscription_cancel', _external=True)
 
         customer = None
@@ -937,8 +1013,8 @@ def create_checkout_session():
             customer = current_user.stripe_customer_id
 
         session = stripe.checkout.Session.create(
-            mode='subscription',
-            line_items=[{'price': STRIPE_PRICE_ID, 'quantity': 1}],
+            mode=mode,
+            line_items=[{'price': price_id, 'quantity': 1}],
             success_url=success_url,
             cancel_url=cancel_url,
             customer=customer,
@@ -955,18 +1031,40 @@ def create_checkout_session():
 @login_required
 def subscription_success():
     session_id = request.args.get('session_id')
+    plan_type = request.args.get('plan_type', 'monthly')
+    
     if stripe.api_key and session_id:
         try:
-            cs = stripe.checkout.Session.retrieve(session_id, expand=['subscription'])
+            cs = stripe.checkout.Session.retrieve(session_id)
             if cs.get('customer') and not current_user.stripe_customer_id:
                 current_user.stripe_customer_id = cs['customer']
                 db.session.commit()
-            # Optimistically mark active; webhook will keep it in sync
-            current_user.subscription_status = 'active'
-            db.session.commit()
-        except Exception:
-            pass
-    flash('Subscription activated. Enjoy!', 'success')
+            
+            # Handle different plan types
+            if plan_type == 'lifetime':
+                current_user.is_lifetime = True
+                current_user.subscription_status = 'lifetime'
+                db.session.commit()
+                flash('Lifetime access activated. Enjoy forever!', 'success')
+            elif plan_type.startswith('api_'):
+                # API plan purchase
+                tier = plan_type.replace('api_', '')  # 'starter' or 'pro'
+                current_user.api_tier = tier
+                current_user.api_usage_chars = 0  # Reset usage
+                current_user.api_monthly_reset = datetime.utcnow()
+                db.session.commit()
+                flash(f'API {tier.title()} plan activated!', 'success')
+            else:
+                # Regular monthly subscription
+                current_user.subscription_status = 'active'
+                db.session.commit()
+                flash('Subscription activated. Enjoy!', 'success')
+        except Exception as e:
+            app.logger.error(f"Subscription success error: {e}")
+            flash('Payment received! Your access should be active shortly.', 'success')
+    else:
+        flash('Subscription activated. Enjoy!', 'success')
+    
     return redirect(url_for('index'))
 
 
@@ -1616,8 +1714,8 @@ def toggle_api_key(key_id):
 
 # -------- API Endpoint (for external use) --------
 
-def verify_api_key(api_key_string):
-    """Verify API key and return user if valid"""
+def verify_api_key(api_key_string, char_count=0):
+    """Verify API key and return user if valid. Optionally check usage limits."""
     api_key_string = (api_key_string or '').strip()
     if not api_key_string:
         return {'valid': False, 'error': 'API key required'}
@@ -1633,13 +1731,32 @@ def verify_api_key(api_key_string):
     
     # Update last used timestamp
     api_key.last_used_at = datetime.utcnow()
-    db.session.commit()
     
     # Check if user has API access (separate from web subscription)
     if billing_enabled() and not api_key.user.has_api_access:
+        db.session.commit()
         return {'valid': False, 'error': 'API access required. Please subscribe to an API plan at cheaptts.com/api-pricing'}
     
-    return {'valid': True, 'is_admin': False, 'user': api_key.user}
+    # Check usage limits if char_count provided
+    if char_count > 0 and billing_enabled():
+        user = api_key.user
+        user.check_and_reset_api_usage()  # Reset if new billing period
+        
+        if user.api_chars_remaining < char_count:
+            db.session.commit()
+            return {
+                'valid': False, 
+                'error': f'API usage limit exceeded. You have {user.api_chars_remaining:,} characters remaining this month. Upgrade your plan at cheaptts.com/api-pricing',
+                'usage': {
+                    'used': user.api_chars_used,
+                    'limit': user.api_char_limit,
+                    'remaining': user.api_chars_remaining,
+                    'tier': user.api_tier
+                }
+            }
+    
+    db.session.commit()
+    return {'valid': True, 'is_admin': False, 'user': api_key.user, 'api_key': api_key}
 
 
 @app.route('/api/v1/synthesize', methods=['POST'])
@@ -1669,32 +1786,53 @@ def api_synthesize():
         }
     """
     import traceback
+    import re
     
     # Get API key from header
-    api_key = (request.headers.get('X-API-Key') or '').strip()
-    if not api_key:
+    api_key_str = (request.headers.get('X-API-Key') or '').strip()
+    if not api_key_str:
         return jsonify({'success': False, 'error': 'API key required. Provide X-API-Key header.'}), 401
     
-    # Verify API key
-    auth_result = verify_api_key(api_key)
-    if not auth_result.get('valid'):
-        return jsonify({'success': False, 'error': auth_result.get('error', 'Invalid API key')}), 401
-    
     try:
-        print(f"[API V1] Received request from {request.remote_addr}")
-        print(f"[API V1] Headers: {dict(request.headers)}")
-        print(f"[API V1] Content-Type: {request.content_type}")
-        
         data = request.get_json(silent=True) or {}
-        print(f"[API V1] Parsed JSON data: {data}")
         raw_text = data.get('text', '')
         text = raw_text.strip()
+        chunks = data.get('chunks')
+        
+        # Calculate total character count for usage tracking
+        total_chars = 0
+        if chunks:
+            for chunk in chunks:
+                content = chunk.get('content', '')
+                # Strip SSML tags for accurate char count
+                plain_text = re.sub(r'<[^>]+>', '', content)
+                total_chars += len(plain_text)
+        elif text:
+            # Strip SSML tags for accurate char count
+            plain_text = re.sub(r'<[^>]+>', '', text)
+            total_chars = len(plain_text)
+        
+        # Verify API key WITH usage check
+        auth_result = verify_api_key(api_key_str, char_count=total_chars)
+        if not auth_result.get('valid'):
+            error_response = {'success': False, 'error': auth_result.get('error', 'Invalid API key')}
+            if auth_result.get('usage'):
+                error_response['usage'] = auth_result['usage']
+            return jsonify(error_response), 401 if 'API access required' in auth_result.get('error', '') else 429
+        
+        # Track usage for non-admin users
+        is_admin = auth_result.get('is_admin', False)
+        user = auth_result.get('user')
+        
+        print(f"[API V1] Received request from {request.remote_addr}")
+        print(f"[API V1] Content-Type: {request.content_type}")
+        print(f"[API V1] Characters: {total_chars}, Admin: {is_admin}")
+        
         voice = data.get('voice', 'en-US-AriaNeural')
         rate = data.get('rate', '+0%')
         volume = data.get('volume', '+0%')
         pitch = data.get('pitch', '+0Hz')
         is_ssml = bool(data.get('is_ssml')) or raw_text.strip().lower().startswith('<speak')
-        chunks = data.get('chunks')  # Support chunks for multi-speaker dialogue
         
         # Ensure proper formatting
         if not rate.startswith(('+', '-')):
@@ -1827,6 +1965,12 @@ def api_synthesize():
             )
             
             audio_url = request.url_root.rstrip('/') + f'/api/audio/{output_file.name}'
+            
+            # Track API usage for non-admin users
+            if user and not is_admin and billing_enabled():
+                user.use_api_chars(total_chars)
+                db.session.commit()
+            
             return jsonify({
                 'success': True,
                 'audio_url': audio_url,
@@ -1849,6 +1993,11 @@ def api_synthesize():
                 is_ssml=is_ssml
             )
         )
+        
+        # Track API usage for non-admin users
+        if user and not is_admin and billing_enabled():
+            user.use_api_chars(total_chars)
+            db.session.commit()
         
         # Return the audio URL
         audio_url = request.url_root.rstrip('/') + f'/api/audio/{output_file.name}'
