@@ -208,6 +208,10 @@ class User(db.Model, UserMixin):
     # API Usage Tracking
     api_chars_used = db.Column(db.Integer, default=0)  # Characters used this billing period
     api_usage_reset_at = db.Column(db.DateTime)  # When usage resets (monthly)
+    
+    # Mobile App Session
+    mobile_session_token = db.Column(db.String(255))  # Token for mobile app auth
+    mobile_session_expires = db.Column(db.DateTime)  # When mobile session expires
 
     def set_password(self, password: str) -> None:
         self.password_hash = generate_password_hash(password)
@@ -1877,6 +1881,219 @@ def verify_api_key(api_key_string, char_count=0):
     
     db.session.commit()
     return {'valid': True, 'is_admin': False, 'user': api_key.user, 'api_key': api_key}
+
+
+# ============================================
+# MOBILE APP API ENDPOINTS
+# ============================================
+
+@app.route('/api/v1/auth/login', methods=['POST'])
+@csrf.exempt  # API endpoint - no CSRF needed
+@limiter.limit("10 per minute")
+def api_auth_login():
+    """
+    Mobile app login endpoint
+    
+    Body (JSON):
+        {
+            "email": "user@example.com",
+            "password": "password123"
+        }
+    
+    Returns:
+        {
+            "success": true,
+            "user": {
+                "id": 1,
+                "email": "user@example.com",
+                "is_subscriber": true,
+                "subscription_tier": "lifetime",
+                "api_tier": "enterprise",
+                "api_chars_remaining": 10000000
+            },
+            "token": "session_token_here"
+        }
+    """
+    try:
+        data = request.get_json(silent=True) or {}
+        email = (data.get('email') or '').strip().lower()
+        password = data.get('password') or ''
+        
+        if not email or not password:
+            return jsonify({'success': False, 'error': 'Email and password required'}), 400
+        
+        user = User.query.filter_by(email=email).first()
+        
+        if not user or not check_password_hash(user.password_hash, password):
+            return jsonify({'success': False, 'error': 'Invalid email or password'}), 401
+        
+        # Generate a simple session token (in production, use JWT)
+        session_token = secrets.token_urlsafe(32)
+        user.mobile_session_token = session_token
+        user.mobile_session_expires = datetime.utcnow() + timedelta(days=30)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'user': {
+                'id': user.id,
+                'email': user.email,
+                'is_subscriber': user.is_subscriber,
+                'subscription_tier': user.subscription_tier,
+                'api_tier': user.api_tier,
+                'api_chars_remaining': user.api_chars_remaining if user.api_tier else 0
+            },
+            'token': session_token
+        })
+        
+    except Exception as e:
+        print(f"[API Auth] Login error: {e}")
+        return jsonify({'success': False, 'error': 'Server error'}), 500
+
+
+@app.route('/api/v1/auth/signup', methods=['POST'])
+@csrf.exempt
+@limiter.limit("5 per hour")
+def api_auth_signup():
+    """
+    Mobile app signup endpoint
+    """
+    try:
+        data = request.get_json(silent=True) or {}
+        email = (data.get('email') or '').strip().lower()
+        password = data.get('password') or ''
+        
+        if not email or not password:
+            return jsonify({'success': False, 'error': 'Email and password required'}), 400
+        
+        if len(password) < 6:
+            return jsonify({'success': False, 'error': 'Password must be at least 6 characters'}), 400
+        
+        # Check if user exists
+        existing = User.query.filter_by(email=email).first()
+        if existing:
+            return jsonify({'success': False, 'error': 'Email already registered'}), 409
+        
+        # Create user
+        user = User(
+            email=email,
+            password_hash=generate_password_hash(password),
+            is_subscriber=False,
+            subscription_tier=None
+        )
+        db.session.add(user)
+        db.session.commit()
+        
+        # Auto-login
+        session_token = secrets.token_urlsafe(32)
+        user.mobile_session_token = session_token
+        user.mobile_session_expires = datetime.utcnow() + timedelta(days=30)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'user': {
+                'id': user.id,
+                'email': user.email,
+                'is_subscriber': False,
+                'subscription_tier': None,
+                'api_tier': None,
+                'api_chars_remaining': 0
+            },
+            'token': session_token
+        })
+        
+    except Exception as e:
+        print(f"[API Auth] Signup error: {e}")
+        return jsonify({'success': False, 'error': 'Server error'}), 500
+
+
+@app.route('/api/v1/auth/forgot-password', methods=['POST'])
+@csrf.exempt
+@limiter.limit("3 per hour")
+def api_auth_forgot_password():
+    """
+    Mobile app forgot password endpoint
+    """
+    try:
+        data = request.get_json(silent=True) or {}
+        email = (data.get('email') or '').strip().lower()
+        
+        if not email:
+            return jsonify({'success': False, 'error': 'Email required'}), 400
+        
+        user = User.query.filter_by(email=email).first()
+        
+        # Always return success to prevent email enumeration
+        if user:
+            # Generate reset token
+            token = secrets.token_urlsafe(32)
+            user.reset_token = token
+            user.reset_token_expires = datetime.utcnow() + timedelta(hours=1)
+            db.session.commit()
+            
+            # Send email (if configured)
+            try:
+                reset_url = f"https://cheaptts.com/reset-password?token={token}"
+                send_password_reset_email(user.email, reset_url)
+            except Exception as e:
+                print(f"[API Auth] Failed to send reset email: {e}")
+        
+        return jsonify({
+            'success': True,
+            'message': 'If an account exists with that email, a reset link has been sent.'
+        })
+        
+    except Exception as e:
+        print(f"[API Auth] Forgot password error: {e}")
+        return jsonify({'success': False, 'error': 'Server error'}), 500
+
+
+@app.route('/api/v1/auth/me', methods=['GET'])
+@csrf.exempt
+def api_auth_me():
+    """
+    Get current user info from mobile session token
+    """
+    token = request.headers.get('Authorization', '').replace('Bearer ', '')
+    
+    if not token:
+        return jsonify({'success': False, 'error': 'No token provided'}), 401
+    
+    user = User.query.filter_by(mobile_session_token=token).first()
+    
+    if not user or (user.mobile_session_expires and user.mobile_session_expires < datetime.utcnow()):
+        return jsonify({'success': False, 'error': 'Invalid or expired token'}), 401
+    
+    return jsonify({
+        'success': True,
+        'user': {
+            'id': user.id,
+            'email': user.email,
+            'is_subscriber': user.is_subscriber,
+            'subscription_tier': user.subscription_tier,
+            'api_tier': user.api_tier,
+            'api_chars_remaining': user.api_chars_remaining if user.api_tier else 0
+        }
+    })
+
+
+@app.route('/api/v1/auth/logout', methods=['POST'])
+@csrf.exempt
+def api_auth_logout():
+    """
+    Mobile app logout - invalidate session token
+    """
+    token = request.headers.get('Authorization', '').replace('Bearer ', '')
+    
+    if token:
+        user = User.query.filter_by(mobile_session_token=token).first()
+        if user:
+            user.mobile_session_token = None
+            user.mobile_session_expires = None
+            db.session.commit()
+    
+    return jsonify({'success': True})
 
 
 @app.route('/api/v1/synthesize', methods=['POST'])
