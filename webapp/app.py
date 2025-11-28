@@ -494,6 +494,13 @@ with app.app_context():
         if 'api_usage_reset_at' not in existing_columns:
             conn.execute(text("ALTER TABLE \"user\" ADD COLUMN api_usage_reset_at TIMESTAMP"))
             print("[MIGRATION] Added api_usage_reset_at column to user table")
+        # Mobile app session columns
+        if 'mobile_session_token' not in existing_columns:
+            conn.execute(text("ALTER TABLE \"user\" ADD COLUMN mobile_session_token VARCHAR(255)"))
+            print("[MIGRATION] Added mobile_session_token column to user table")
+        if 'mobile_session_expires' not in existing_columns:
+            conn.execute(text("ALTER TABLE \"user\" ADD COLUMN mobile_session_expires TIMESTAMP"))
+            print("[MIGRATION] Added mobile_session_expires column to user table")
         conn.commit()
 
 # Cleanup old files on startup (works with Gunicorn)
