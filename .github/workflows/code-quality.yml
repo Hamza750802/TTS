@@ -2,9 +2,9 @@ name: "Check code quality"
 
 on:
   push:
-    branches: [ "master" ]
+    branches: [ "main" ]  # Only run on main branch, not master (our deployment branch)
   pull_request:
-    branches: [ "master" ]
+    branches: [ "main" ]
 
 jobs:
   lint:
