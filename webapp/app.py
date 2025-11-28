@@ -1962,7 +1962,7 @@ def api_auth_login():
             'user': {
                 'id': user.id,
                 'email': user.email,
-                'is_subscriber': user.is_subscriber,
+                'is_subscriber': user.is_subscribed,
                 'subscription_tier': user.subscription_tier,
                 'api_tier': user.api_tier,
                 'api_chars_remaining': user.api_chars_remaining if user.api_tier else 0
@@ -2094,7 +2094,7 @@ def api_auth_me():
         'user': {
             'id': user.id,
             'email': user.email,
-            'is_subscriber': user.is_subscriber,
+            'is_subscriber': user.is_subscribed,
             'subscription_tier': user.subscription_tier,
             'api_tier': user.api_tier,
             'api_chars_remaining': user.api_chars_remaining if user.api_tier else 0
