@@ -2,21 +2,87 @@
 {% block title %}API Pricing — Cheap TTS{% endblock %}
 
 {% block content %}
-<div style="max-width: 800px; margin: 0 auto;">
+<div style="max-width: 900px; margin: 0 auto;">
     <div style="text-align: center; margin-bottom: 40px;">
-        <h1 style="font-size: 36px; margin-bottom: 12px;">🔌 API Access</h1>
+        <h1 style="font-size: 36px; margin-bottom: 12px;">🔌 Text-to-Speech API</h1>
         <p style="color: #6b7280; font-size: 18px; max-width: 600px; margin: 0 auto;">
-            Integrate text-to-speech into your applications.
-            <br>Choose a plan and start building in minutes.
+            Add natural-sounding voices to your apps, websites, and products.
+            <br>Simple REST API. Start building in minutes.
         </p>
     </div>
 
-    <!-- What You Get -->
+    <!-- API Overview Section -->
+    <div style="background: linear-gradient(135deg, #1f2937 0%, #374151 100%); border-radius: 16px; padding: 32px; margin-bottom: 40px; color: white;">
+        <h2 style="margin-top: 0; margin-bottom: 24px; font-size: 24px;">What can you build?</h2>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 24px;">
+            <div style="background: rgba(255,255,255,0.1); border-radius: 12px; padding: 16px;">
+                <div style="font-size: 24px; margin-bottom: 8px;">🎧</div>
+                <div style="font-weight: 600; margin-bottom: 4px;">Audiobooks & Podcasts</div>
+                <div style="font-size: 13px; color: #9ca3af;">Convert articles and books to audio</div>
+            </div>
+            <div style="background: rgba(255,255,255,0.1); border-radius: 12px; padding: 16px;">
+                <div style="font-size: 24px; margin-bottom: 8px;">🤖</div>
+                <div style="font-weight: 600; margin-bottom: 4px;">Voice Assistants</div>
+                <div style="font-size: 13px; color: #9ca3af;">Add voice to chatbots and AI apps</div>
+            </div>
+            <div style="background: rgba(255,255,255,0.1); border-radius: 12px; padding: 16px;">
+                <div style="font-size: 24px; margin-bottom: 8px;">🎬</div>
+                <div style="font-weight: 600; margin-bottom: 4px;">Video Voiceovers</div>
+                <div style="font-size: 13px; color: #9ca3af;">Generate narration for videos</div>
+            </div>
+            <div style="background: rgba(255,255,255,0.1); border-radius: 12px; padding: 16px;">
+                <div style="font-size: 24px; margin-bottom: 8px;">♿</div>
+                <div style="font-weight: 600; margin-bottom: 4px;">Accessibility</div>
+                <div style="font-size: 13px; color: #9ca3af;">Make content accessible to all</div>
+            </div>
+        </div>
+        
+        <!-- Code Example -->
+        <div style="background: #111827; border-radius: 12px; padding: 20px; font-family: 'Monaco', 'Menlo', monospace; font-size: 13px; overflow-x: auto;">
+            <div style="color: #6b7280; margin-bottom: 8px;"># Generate speech with one API call</div>
+            <div><span style="color: #f472b6;">curl</span> <span style="color: #fbbf24;">-X POST</span> https://cheaptts.com/api/v1/synthesize \</div>
+            <div style="padding-left: 20px;"><span style="color: #fbbf24;">-H</span> <span style="color: #34d399;">"X-API-Key: your_api_key"</span> \</div>
+            <div style="padding-left: 20px;"><span style="color: #fbbf24;">-H</span> <span style="color: #34d399;">"Content-Type: application/json"</span> \</div>
+            <div style="padding-left: 20px;"><span style="color: #fbbf24;">-d</span> <span style="color: #34d399;">'{"text": "Hello world!", "voice": "en-US-AriaNeural"}'</span></div>
+        </div>
+    </div>
+
+    <!-- Features Grid -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 40px;">
+        <div style="background: white; border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px;">
+            <div style="font-size: 20px; margin-bottom: 8px;">🎙️ 550+ Voices</div>
+            <p style="color: #6b7280; font-size: 14px; margin: 0;">Natural-sounding neural voices in 153 languages. Male, female, and child voices available.</p>
+        </div>
+        <div style="background: white; border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px;">
+            <div style="font-size: 20px; margin-bottom: 8px;">🎭 Emotion Control</div>
+            <p style="color: #6b7280; font-size: 14px; margin: 0;">47 voices support emotions like cheerful, sad, angry, excited, and more via SSML.</p>
+        </div>
+        <div style="background: white; border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px;">
+            <div style="font-size: 20px; margin-bottom: 8px;">👥 Multi-Speaker</div>
+            <p style="color: #6b7280; font-size: 14px; margin: 0;">Create dialogues with multiple voices in a single request. Perfect for podcasts.</p>
+        </div>
+        <div style="background: white; border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px;">
+            <div style="font-size: 20px; margin-bottom: 8px;">⚡ Fast & Reliable</div>
+            <p style="color: #6b7280; font-size: 14px; margin: 0;">Streaming support for real-time playback. High availability with 99.9% uptime.</p>
+        </div>
+        <div style="background: white; border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px;">
+            <div style="font-size: 20px; margin-bottom: 8px;">📄 Subtitles</div>
+            <p style="color: #6b7280; font-size: 14px; margin: 0;">Get word-level timestamps and SRT/VTT subtitle files with your audio.</p>
+        </div>
+        <div style="background: white; border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px;">
+            <div style="font-size: 20px; margin-bottom: 8px;">🔧 Easy Integration</div>
+            <p style="color: #6b7280; font-size: 14px; margin: 0;">Simple REST API. Embeddable widget with copy-paste code. Works everywhere.</p>
+        </div>
+    </div>
+
+    <!-- What You Get Banner -->
     <div style="background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%); border: 2px solid #10b981; border-radius: 12px; padding: 20px; margin-bottom: 30px; text-align: center;">
         <p style="color: #065f46; font-size: 15px; margin: 0;">
-            <strong>✅ Both plans include:</strong> API Keys, Embeddable Widget, Widget URL, All 500+ Voices, Multi-speaker Dialogue
+            <strong>✅ All plans include:</strong> API Keys, Embeddable Widget, Public Widget URL, Full API Docs, All 500+ Voices
         </p>
     </div>
+
+    <h2 style="text-align: center; margin-bottom: 24px; font-size: 28px;">Choose Your Plan</h2>
 
     <!-- Pricing Cards -->
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; margin-bottom: 40px;">
@@ -133,6 +199,90 @@
             <strong>💡 Looking to use TTS on this website instead?</strong><br>
             The <a href="{{ url_for('subscribe') if current_user.is_authenticated else url_for('signup') }}" style="color: #3b82f6;">$7.99/month web plan</a> gives you unlimited access to our online TTS tool.
         </p>
+    </div>
+
+    <!-- API Endpoints Preview -->
+    <div style="background: white; border: 1px solid #e5e7eb; border-radius: 16px; padding: 28px; margin-bottom: 30px;">
+        <h3 style="margin-top: 0; margin-bottom: 20px; font-size: 20px;">📡 API Endpoints</h3>
+        <div style="display: grid; gap: 16px;">
+            <div style="background: #f9fafb; border-radius: 8px; padding: 16px;">
+                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+                    <span style="background: #10b981; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600;">POST</span>
+                    <code style="font-size: 14px; color: #374151;">/api/v1/synthesize</code>
+                </div>
+                <p style="color: #6b7280; font-size: 13px; margin: 0;">Convert text to speech. Returns MP3 audio. Supports SSML for emotions.</p>
+            </div>
+            <div style="background: #f9fafb; border-radius: 8px; padding: 16px;">
+                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+                    <span style="background: #3b82f6; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600;">GET</span>
+                    <code style="font-size: 14px; color: #374151;">/api/voices</code>
+                </div>
+                <p style="color: #6b7280; font-size: 13px; margin: 0;">List all 550+ available voices with language, gender, and emotion support info.</p>
+            </div>
+            <div style="background: #f9fafb; border-radius: 8px; padding: 16px;">
+                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+                    <span style="background: #10b981; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600;">POST</span>
+                    <code style="font-size: 14px; color: #374151;">/api/v1/synthesize (streaming)</code>
+                </div>
+                <p style="color: #6b7280; font-size: 13px; margin: 0;">Stream audio in real-time for instant playback. Great for voice assistants.</p>
+            </div>
+        </div>
+        <p style="margin-top: 16px; margin-bottom: 0; font-size: 13px; color: #6b7280;">
+            📚 Full API documentation available after signup in your dashboard.
+        </p>
+    </div>
+
+    <!-- Code Examples -->
+    <div style="background: white; border: 1px solid #e5e7eb; border-radius: 16px; padding: 28px; margin-bottom: 30px;">
+        <h3 style="margin-top: 0; margin-bottom: 20px; font-size: 20px;">💻 Code Examples</h3>
+        
+        <!-- Python Example -->
+        <div style="margin-bottom: 20px;">
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+                <span style="font-size: 18px;">🐍</span>
+                <span style="font-weight: 600; color: #374151;">Python</span>
+            </div>
+            <div style="background: #1f2937; border-radius: 8px; padding: 16px; font-family: 'Monaco', 'Menlo', monospace; font-size: 12px; overflow-x: auto; color: #e5e7eb;">
+<pre style="margin: 0; white-space: pre-wrap;"><span style="color: #f472b6;">import</span> requests
+
+response = requests.post(
+    <span style="color: #34d399;">"https://cheaptts.com/api/v1/synthesize"</span>,
+    headers={<span style="color: #34d399;">"X-API-Key"</span>: <span style="color: #34d399;">"your_api_key"</span>},
+    json={
+        <span style="color: #34d399;">"text"</span>: <span style="color: #34d399;">"Hello, welcome to my app!"</span>,
+        <span style="color: #34d399;">"voice"</span>: <span style="color: #34d399;">"en-US-AriaNeural"</span>
+    }
+)
+
+<span style="color: #6b7280;"># Save the audio file</span>
+<span style="color: #f472b6;">with</span> <span style="color: #60a5fa;">open</span>(<span style="color: #34d399;">"output.mp3"</span>, <span style="color: #34d399;">"wb"</span>) <span style="color: #f472b6;">as</span> f:
+    f.write(response.content)</pre>
+            </div>
+        </div>
+        
+        <!-- JavaScript Example -->
+        <div>
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+                <span style="font-size: 18px;">⚡</span>
+                <span style="font-weight: 600; color: #374151;">JavaScript</span>
+            </div>
+            <div style="background: #1f2937; border-radius: 8px; padding: 16px; font-family: 'Monaco', 'Menlo', monospace; font-size: 12px; overflow-x: auto; color: #e5e7eb;">
+<pre style="margin: 0; white-space: pre-wrap;"><span style="color: #f472b6;">const</span> response = <span style="color: #f472b6;">await</span> <span style="color: #60a5fa;">fetch</span>(<span style="color: #34d399;">"https://cheaptts.com/api/v1/synthesize"</span>, {
+    method: <span style="color: #34d399;">"POST"</span>,
+    headers: {
+        <span style="color: #34d399;">"X-API-Key"</span>: <span style="color: #34d399;">"your_api_key"</span>,
+        <span style="color: #34d399;">"Content-Type"</span>: <span style="color: #34d399;">"application/json"</span>
+    },
+    body: JSON.<span style="color: #60a5fa;">stringify</span>({
+        text: <span style="color: #34d399;">"Hello, welcome to my app!"</span>,
+        voice: <span style="color: #34d399;">"en-US-AriaNeural"</span>
+    })
+});
+
+<span style="color: #f472b6;">const</span> audioBlob = <span style="color: #f472b6;">await</span> response.<span style="color: #60a5fa;">blob</span>();
+<span style="color: #f472b6;">const</span> audioUrl = URL.<span style="color: #60a5fa;">createObjectURL</span>(audioBlob);</pre>
+            </div>
+        </div>
     </div>
 
     <!-- FAQ -->
