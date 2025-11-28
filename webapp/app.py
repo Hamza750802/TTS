@@ -1963,7 +1963,7 @@ def api_auth_login():
                 'id': user.id,
                 'email': user.email,
                 'is_subscriber': user.is_subscribed,
-                'subscription_tier': user.subscription_tier,
+                'subscription_status': user.subscription_status,
                 'api_tier': user.api_tier,
                 'api_chars_remaining': user.api_chars_remaining if user.api_tier else 0
             },
@@ -2004,8 +2004,7 @@ def api_auth_signup():
         user = User(
             email=email,
             password_hash=generate_password_hash(password),
-            is_subscriber=False,
-            subscription_tier=None
+            subscription_status='inactive'
         )
         db.session.add(user)
         db.session.commit()
@@ -2022,7 +2021,7 @@ def api_auth_signup():
                 'id': user.id,
                 'email': user.email,
                 'is_subscriber': False,
-                'subscription_tier': None,
+                'subscription_status': 'inactive',
                 'api_tier': None,
                 'api_chars_remaining': 0
             },
@@ -2097,7 +2096,7 @@ def api_auth_me():
             'id': user.id,
             'email': user.email,
             'is_subscriber': user.is_subscribed,
-            'subscription_tier': user.subscription_tier,
+            'subscription_status': user.subscription_status,
             'api_tier': user.api_tier,
             'api_chars_remaining': user.api_chars_remaining if user.api_tier else 0
         }
