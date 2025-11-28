@@ -2132,7 +2132,7 @@ def api_mobile_synthesize():
     Headers:
         Authorization: Bearer <session_token>
     
-    Body (JSON):
+    Body (JSON) - Single voice mode:
         {
             "text": "Text to convert to speech",
             "voice": "en-US-AriaNeural",
@@ -2142,8 +2142,30 @@ def api_mobile_synthesize():
             "style_degree": 1.0 (optional - 0.0 to 2.0),
             "chunk_mode": false (optional - for long text)
         }
+    
+    Body (JSON) - Multi-speaker dialogue mode:
+        {
+            "voice": "en-US-AriaNeural",  // global voice fallback
+            "chunks": [
+                {
+                    "content": "Hello there!",
+                    "voice": "en-US-GuyNeural",  // optional override
+                    "emotion": "cheerful",  // optional
+                    "intensity": 2,  // 1-3 scale
+                    "speed": 0,  // -50 to +50
+                    "pitch": 0,  // -50 to +50
+                    "volume": 0  // -50 to +50
+                },
+                ...
+            ],
+            "global_controls": {"rate": 0, "pitch": 0, "volume": 0},
+            "auto_pauses": true,
+            "auto_emphasis": true,
+            "auto_breaths": false
+        }
     """
     import traceback
+    import re
     
     # Authenticate with session token
     token = request.headers.get('Authorization', '').replace('Bearer ', '')
@@ -2170,6 +2192,159 @@ def api_mobile_synthesize():
     
     try:
         data = request.get_json(silent=True) or {}
+        voice = data.get('voice', 'en-US-AriaNeural')
+        chunks = data.get('chunks')
+        
+        # --- Multi-speaker dialogue mode (chunks array) ---
+        if chunks is not None:
+            if not isinstance(chunks, list) or not chunks:
+                return jsonify({'success': False, 'error': 'chunks must be a non-empty list'}), 400
+            
+            # Calculate total character count
+            total_chars = 0
+            for chunk in chunks:
+                content = chunk.get('content', '')
+                plain_text = re.sub(r'<[^>]+>', '', content)
+                total_chars += len(plain_text)
+            
+            if total_chars > 10000:
+                return jsonify({'success': False, 'error': 'Total text too long. Maximum 10,000 characters.'}), 400
+            
+            print(f"[Mobile API] Multi-speaker request from {user.email}: {len(chunks)} chunks, {total_chars} chars")
+            
+            # Get global controls
+            global_controls = data.get('global_controls', {})
+            global_rate = global_controls.get('rate', 0)
+            global_pitch = global_controls.get('pitch', 0)
+            global_volume = global_controls.get('volume', 0)
+            auto_pauses = data.get('auto_pauses', True)
+            auto_emphasis = data.get('auto_emphasis', True)
+            
+            # Handle single chunk with emotion - use native style parameter
+            if len(chunks) == 1:
+                chunk = chunks[0]
+                emotion = chunk.get('emotion')
+                chunk_voice = chunk.get('voice') or voice
+                
+                if emotion:
+                    import inspect
+                    import edge_tts as tts_module
+                    communicate_sig = inspect.signature(tts_module.Communicate.__init__)
+                    supports_style = 'style' in communicate_sig.parameters
+                    
+                    if supports_style:
+                        # Validate emotion against voice's StyleList
+                        try:
+                            voices_list = run_async(get_voices())
+                            voice_obj = next((v for v in voices_list if v.get('ShortName') == chunk_voice), None)
+                            supported_styles = set(voice_obj.get('StyleList', []) if voice_obj else [])
+                            
+                            if emotion and emotion not in supported_styles:
+                                return jsonify({
+                                    'success': False,
+                                    'error': f"Style '{emotion}' is not supported by voice {chunk_voice}. Supported styles: {sorted(supported_styles) if supported_styles else 'none'}"
+                                }), 400
+                        except Exception as e:
+                            print(f"[Mobile API] Style validation error: {e}")
+                        
+                        # Use native style parameter
+                        plain_text = chunk.get('content', '')
+                        intensity = chunk.get('intensity', 2)
+                        style_degree = {1: 0.7, 2: 1.0, 3: 1.3}.get(intensity, 1.0)
+                        
+                        # Get prosody settings
+                        chunk_rate = chunk.get('speed', global_rate)
+                        chunk_pitch = chunk.get('pitch', global_pitch)
+                        chunk_volume = chunk.get('volume', global_volume)
+                        
+                        # Format prosody values
+                        rate_str = f"+{int(chunk_rate)}%" if chunk_rate >= 0 else f"{int(chunk_rate)}%"
+                        pitch_str = f"+{int(chunk_pitch)}Hz" if chunk_pitch >= 0 else f"{int(chunk_pitch)}Hz"
+                        volume_str = f"+{int(chunk_volume)}%" if chunk_volume >= 0 else f"{int(chunk_volume)}%"
+                        
+                        output_file = run_async(
+                            generate_speech(
+                                plain_text,
+                                chunk_voice,
+                                rate=rate_str,
+                                volume=volume_str,
+                                pitch=pitch_str,
+                                is_ssml=False,
+                                style=emotion,
+                                style_degree=style_degree
+                            )
+                        )
+                        
+                        audio_url = request.url_root.rstrip('/') + f'/api/audio/{output_file.name}'
+                        return jsonify({
+                            'success': True,
+                            'audio_url': audio_url,
+                            'filename': output_file.name,
+                            'chars_used': total_chars
+                        })
+            
+            # Multi-voice SSML path
+            sanitized_chunks = []
+            try:
+                voices_list = run_async(get_voices())
+                voice_map = {
+                    v.get('ShortName'): set(v.get('StyleList') or []) for v in voices_list
+                }
+            except Exception as e:
+                print(f"[Mobile API] Voice validation error: {e}")
+                voice_map = {}
+            
+            for chunk in chunks:
+                chunk_copy = dict(chunk)
+                chunk_voice = chunk_copy.get('voice') or voice
+                chunk_copy['voice'] = chunk_voice
+                
+                # Validate emotion against voice's supported styles
+                emotion = chunk_copy.get('emotion')
+                supported_styles = voice_map.get(chunk_voice, set())
+                if emotion and supported_styles and emotion not in supported_styles:
+                    chunk_copy['emotion'] = None  # Clear unsupported emotion
+                
+                sanitized_chunks.append(chunk_copy)
+            
+            # Build SSML for multi-speaker dialogue
+            ssml_result = build_ssml(
+                voice=voice,
+                chunks=sanitized_chunks,
+                auto_pauses=auto_pauses,
+                auto_emphasis=auto_emphasis,
+            )
+            ssml_text = ssml_result['ssml']
+            is_full_ssml = ssml_result.get('is_full_ssml', False)
+            
+            # Use primary voice for synthesis
+            primary_voice = sanitized_chunks[0].get('voice') if sanitized_chunks else voice
+            cache_key = hashlib.md5(f"{primary_voice}:{ssml_text}".encode()).hexdigest()[:16]
+            
+            output_file = run_async(
+                generate_speech(
+                    ssml_text,
+                    primary_voice,
+                    rate=None,
+                    volume=None,
+                    pitch=None,
+                    is_ssml=True,
+                    cache_key=cache_key,
+                    is_full_ssml=is_full_ssml
+                )
+            )
+            
+            audio_url = request.url_root.rstrip('/') + f'/api/audio/{output_file.name}'
+            
+            return jsonify({
+                'success': True,
+                'audio_url': audio_url,
+                'filename': output_file.name,
+                'chars_used': total_chars,
+                'chunks_processed': len(sanitized_chunks)
+            })
+        
+        # --- Single voice mode (text string) ---
         text = (data.get('text') or '').strip()
         
         if not text:
@@ -2177,8 +2352,6 @@ def api_mobile_synthesize():
         
         if len(text) > 10000:
             return jsonify({'success': False, 'error': 'Text too long. Maximum 10,000 characters.'}), 400
-        
-        voice = data.get('voice', 'en-US-AriaNeural')
         
         # Handle numeric rate/pitch from mobile (e.g., -50 to +50)
         rate_val = data.get('rate', 0)
@@ -2216,8 +2389,8 @@ def api_mobile_synthesize():
         # Validate style against voice's supported styles
         if style:
             try:
-                voices = run_async(get_voices())
-                voice_obj = next((v for v in voices if v.get('ShortName') == voice), None)
+                voices_list = run_async(get_voices())
+                voice_obj = next((v for v in voices_list if v.get('ShortName') == voice), None)
                 supported_styles = voice_obj.get('StyleList', []) if voice_obj else []
                 
                 if supported_styles and style not in supported_styles:
