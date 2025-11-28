@@ -744,28 +744,43 @@ def dashboard():
 
 @app.route('/signup', methods=['GET', 'POST'])
 def signup():
-    plan = request.args.get('plan', '')  # 'lifetime' or empty
+    plan = request.args.get('plan', '')  # 'lifetime' or empty for web plans
+    next_url = request.args.get('next', '')  # Where to redirect after signup
+    api_plan = request.args.get('api_plan', '')  # For API plan signups
+    
     if request.method == 'POST':
         email = request.form.get('email', '').strip().lower()
         password = request.form.get('password', '')
-        plan = request.form.get('plan', '')  # Get plan from hidden field
+        plan = request.form.get('plan', '')
+        next_url = request.form.get('next', '')
+        api_plan = request.form.get('api_plan', '')
+        
         if not email or not password:
             flash('Email and password are required.', 'error')
-            return redirect(url_for('signup', plan=plan) if plan else url_for('signup'))
+            return redirect(url_for('signup', plan=plan, next=next_url, api_plan=api_plan))
         if User.query.filter_by(email=email).first():
             flash('An account with that email already exists.', 'error')
-            return redirect(url_for('signup', plan=plan) if plan else url_for('signup'))
+            return redirect(url_for('signup', plan=plan, next=next_url, api_plan=api_plan))
+        
         user = User(email=email)
         user.set_password(password)
         db.session.add(user)
         db.session.commit()
         login_user(user)
         flash('Welcome! Your account has been created.', 'success')
-        # Redirect to subscribe page, preserving plan choice
-        if plan:
+        
+        # Handle redirects based on signup source
+        if next_url:
+            # Redirect back to where they came from (e.g., API pricing)
+            return redirect(next_url)
+        elif plan:
+            # Web plan signup - go to subscribe with plan
             return redirect(url_for('subscribe', plan=plan))
-        return redirect(url_for('subscribe'))
-    return render_template('signup.html', plan=plan)
+        else:
+            # Default - go to subscribe page
+            return redirect(url_for('subscribe'))
+    
+    return render_template('signup.html', plan=plan, next=next_url, api_plan=api_plan)
 
 
 @app.route('/login', methods=['GET', 'POST'])

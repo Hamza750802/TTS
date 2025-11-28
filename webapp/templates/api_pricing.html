@@ -44,12 +44,12 @@
                     </div>
                 {% else %}
                     <button onclick="subscribeAPI('api_starter')" class="btn" style="width: 100%; display: block; text-align: center;">
-                        Get Starter
+                        Get Starter - $9/mo
                     </button>
                 {% endif %}
             {% else %}
-                <a href="{{ url_for('signup') }}" class="btn" style="width: 100%; display: block; text-align: center;">
-                    Sign Up to Get Started
+                <a href="{{ url_for('signup', next='/api-pricing', api_plan='starter') }}" class="btn" style="width: 100%; display: block; text-align: center;">
+                    Sign Up for Starter - $9/mo
                 </a>
             {% endif %}
         </div>
@@ -78,12 +78,12 @@
                     </div>
                 {% else %}
                     <button onclick="subscribeAPI('api_pro')" class="btn primary" style="width: 100%; display: block; text-align: center;">
-                        Get Pro
+                        Get Pro - $29/mo
                     </button>
                 {% endif %}
             {% else %}
-                <a href="{{ url_for('signup') }}" class="btn primary" style="width: 100%; display: block; text-align: center;">
-                    Sign Up to Get Started
+                <a href="{{ url_for('signup', next='/api-pricing', api_plan='pro') }}" class="btn primary" style="width: 100%; display: block; text-align: center;">
+                    Sign Up for Pro - $29/mo
                 </a>
             {% endif %}
         </div>
@@ -171,8 +171,16 @@ function subscribeAPI(planType) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ plan_type: planType })
     })
-    .then(response => response.json())
+    .then(response => {
+        // Check if redirected to login (not authenticated)
+        if (response.redirected) {
+            window.location.href = '/signup';
+            return;
+        }
+        return response.json();
+    })
     .then(data => {
+        if (!data) return;
         if (data.url) {
             window.location.href = data.url;
         } else if (data.error) {
