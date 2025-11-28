@@ -91,17 +91,23 @@
       <div class="nav-actions">
         {% if current_user.is_authenticated %}
           {% if current_user.is_subscribed %}
-            <a class="btn" href="{{ url_for('api_keys_page') }}">🔑 API Keys</a>
-            <span class="status-badge">Active: $7.99/mo</span>
-            {% if current_user.stripe_customer_id %}
-              <a class="btn" href="{{ url_for('billing_portal') }}">Manage Billing</a>
-            {% endif %}
+            <span class="status-badge">Web: Active</span>
           {% else %}
             <a class="btn primary" href="{{ url_for('subscribe') }}">Subscribe $7.99/mo</a>
           {% endif %}
-          <a class="btn" href="mailto:support@cheaptts.com">✉️ Support</a>
+          {% if current_user.has_api_access %}
+            <a class="btn" href="{{ url_for('api_keys_page') }}">🔑 API Keys</a>
+            <span class="status-badge" style="background: #dbeafe; color: #1d4ed8; border-color: #93c5fd;">API: {{ current_user.api_tier|capitalize }}</span>
+          {% else %}
+            <a class="btn" href="{{ url_for('api_pricing') }}">🔌 API Access</a>
+          {% endif %}
+          {% if current_user.stripe_customer_id %}
+            <a class="btn" href="{{ url_for('billing_portal') }}">Billing</a>
+          {% endif %}
+          <a class="btn" href="mailto:support@cheaptts.com">✉️</a>
           <a class="btn" href="{{ url_for('logout') }}">Logout</a>
         {% else %}
+          <a class="btn" href="{{ url_for('api_pricing') }}">API Pricing</a>
           <a class="btn" href="{{ url_for('login') }}">Sign in</a>
           <a class="btn primary" href="{{ url_for('signup') }}">Sign up</a>
         {% endif %}

@@ -1,0 +1,163 @@
+{% extends 'base.html' %}
+{% block title %}API Pricing — Cheap TTS{% endblock %}
+
+{% block content %}
+<div style="max-width: 900px; margin: 0 auto;">
+    <div style="text-align: center; margin-bottom: 40px;">
+        <h1 style="font-size: 36px; margin-bottom: 12px;">🔌 API Access</h1>
+        <p style="color: #6b7280; font-size: 18px; max-width: 600px; margin: 0 auto;">
+            Integrate text-to-speech into your applications with our powerful API.
+            <br>Pay only for what you use.
+        </p>
+    </div>
+
+    <!-- Important Notice -->
+    <div style="background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border: 2px solid #f59e0b; border-radius: 12px; padding: 20px; margin-bottom: 30px; text-align: center;">
+        <p style="color: #92400e; font-size: 15px; margin: 0;">
+            <strong>⚠️ Note:</strong> API access is separate from the $7.99/month web subscription.
+            <br>The web plan gives you unlimited access to the TTS tool on this website.
+            <br>API plans are for developers who want to integrate TTS into their own apps.
+        </p>
+    </div>
+
+    <!-- Pricing Cards -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 24px; margin-bottom: 40px;">
+        
+        <!-- Starter Plan -->
+        <div style="background: white; border: 2px solid #e5e7eb; border-radius: 16px; padding: 28px; text-align: center; transition: all 0.2s ease;">
+            <div style="background: #f3f4f6; color: #374151; padding: 6px 16px; border-radius: 20px; display: inline-block; font-size: 13px; font-weight: 600; margin-bottom: 16px;">STARTER</div>
+            <div style="font-size: 42px; font-weight: 800; color: #1f2937; margin-bottom: 8px;">
+                $9<span style="font-size: 18px; font-weight: 500; color: #6b7280;">/mo</span>
+            </div>
+            <p style="color: #6b7280; font-size: 14px; margin-bottom: 24px;">Perfect for side projects</p>
+            
+            <ul style="text-align: left; list-style: none; padding: 0; margin: 0 0 24px 0; font-size: 14px; color: #374151;">
+                <li style="padding: 10px 0; border-bottom: 1px solid #f3f4f6;">✅ 100,000 characters/month</li>
+                <li style="padding: 10px 0; border-bottom: 1px solid #f3f4f6;">✅ All 500+ voices</li>
+                <li style="padding: 10px 0; border-bottom: 1px solid #f3f4f6;">✅ Emotion/style support</li>
+                <li style="padding: 10px 0; border-bottom: 1px solid #f3f4f6;">✅ Multi-speaker dialogue</li>
+                <li style="padding: 10px 0;">✅ Standard support</li>
+            </ul>
+            
+            <a href="mailto:support@cheaptts.com?subject=API%20Starter%20Plan%20Request" 
+               class="btn" style="width: 100%; display: block; text-align: center;">
+                Contact Sales
+            </a>
+        </div>
+        
+        <!-- Pro Plan -->
+        <div style="background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border: 2px solid #3b82f6; border-radius: 16px; padding: 28px; text-align: center; position: relative; transform: scale(1.02);">
+            <div style="position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: linear-gradient(90deg, #3b82f6, #8b5cf6); color: white; padding: 6px 20px; border-radius: 20px; font-size: 12px; font-weight: 700;">MOST POPULAR</div>
+            <div style="background: #3b82f6; color: white; padding: 6px 16px; border-radius: 20px; display: inline-block; font-size: 13px; font-weight: 600; margin-bottom: 16px; margin-top: 8px;">PRO</div>
+            <div style="font-size: 42px; font-weight: 800; color: #1f2937; margin-bottom: 8px;">
+                $29<span style="font-size: 18px; font-weight: 500; color: #6b7280;">/mo</span>
+            </div>
+            <p style="color: #6b7280; font-size: 14px; margin-bottom: 24px;">For growing businesses</p>
+            
+            <ul style="text-align: left; list-style: none; padding: 0; margin: 0 0 24px 0; font-size: 14px; color: #374151;">
+                <li style="padding: 10px 0; border-bottom: 1px solid rgba(59,130,246,0.2);">✅ 500,000 characters/month</li>
+                <li style="padding: 10px 0; border-bottom: 1px solid rgba(59,130,246,0.2);">✅ All 500+ voices</li>
+                <li style="padding: 10px 0; border-bottom: 1px solid rgba(59,130,246,0.2);">✅ Emotion/style support</li>
+                <li style="padding: 10px 0; border-bottom: 1px solid rgba(59,130,246,0.2);">✅ Multi-speaker dialogue</li>
+                <li style="padding: 10px 0; border-bottom: 1px solid rgba(59,130,246,0.2);">✅ Priority support</li>
+                <li style="padding: 10px 0;">✅ Embeddable widget</li>
+            </ul>
+            
+            <a href="mailto:support@cheaptts.com?subject=API%20Pro%20Plan%20Request" 
+               class="btn primary" style="width: 100%; display: block; text-align: center;">
+                Contact Sales
+            </a>
+        </div>
+        
+        <!-- Enterprise Plan -->
+        <div style="background: white; border: 2px solid #e5e7eb; border-radius: 16px; padding: 28px; text-align: center; transition: all 0.2s ease;">
+            <div style="background: #1f2937; color: white; padding: 6px 16px; border-radius: 20px; display: inline-block; font-size: 13px; font-weight: 600; margin-bottom: 16px;">ENTERPRISE</div>
+            <div style="font-size: 42px; font-weight: 800; color: #1f2937; margin-bottom: 8px;">
+                Custom
+            </div>
+            <p style="color: #6b7280; font-size: 14px; margin-bottom: 24px;">For high-volume needs</p>
+            
+            <ul style="text-align: left; list-style: none; padding: 0; margin: 0 0 24px 0; font-size: 14px; color: #374151;">
+                <li style="padding: 10px 0; border-bottom: 1px solid #f3f4f6;">✅ Unlimited characters</li>
+                <li style="padding: 10px 0; border-bottom: 1px solid #f3f4f6;">✅ All 500+ voices</li>
+                <li style="padding: 10px 0; border-bottom: 1px solid #f3f4f6;">✅ Dedicated support</li>
+                <li style="padding: 10px 0; border-bottom: 1px solid #f3f4f6;">✅ SLA guarantee</li>
+                <li style="padding: 10px 0;">✅ Custom integrations</li>
+            </ul>
+            
+            <a href="mailto:support@cheaptts.com?subject=API%20Enterprise%20Plan%20Inquiry" 
+               class="btn" style="width: 100%; display: block; text-align: center;">
+                Contact Sales
+            </a>
+        </div>
+    </div>
+
+    <!-- Comparison with Web Plan -->
+    <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 12px; padding: 24px; margin-bottom: 30px;">
+        <h3 style="margin-top: 0; margin-bottom: 16px; font-size: 18px;">📊 Web vs API: What's the difference?</h3>
+        <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+            <thead>
+                <tr style="background: #e5e7eb;">
+                    <th style="padding: 12px; text-align: left; border-radius: 8px 0 0 0;">Feature</th>
+                    <th style="padding: 12px; text-align: center;">Web Plan ($7.99/mo)</th>
+                    <th style="padding: 12px; text-align: center; border-radius: 0 8px 0 0;">API Plans</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">Use TTS on this website</td>
+                    <td style="padding: 12px; text-align: center; border-bottom: 1px solid #e5e7eb;">✅ Unlimited</td>
+                    <td style="padding: 12px; text-align: center; border-bottom: 1px solid #e5e7eb;">❌</td>
+                </tr>
+                <tr>
+                    <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">API access for your apps</td>
+                    <td style="padding: 12px; text-align: center; border-bottom: 1px solid #e5e7eb;">❌</td>
+                    <td style="padding: 12px; text-align: center; border-bottom: 1px solid #e5e7eb;">✅</td>
+                </tr>
+                <tr>
+                    <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">Embeddable widget</td>
+                    <td style="padding: 12px; text-align: center; border-bottom: 1px solid #e5e7eb;">❌</td>
+                    <td style="padding: 12px; text-align: center; border-bottom: 1px solid #e5e7eb;">✅ (Pro+)</td>
+                </tr>
+                <tr>
+                    <td style="padding: 12px;">Multi-speaker dialogue</td>
+                    <td style="padding: 12px; text-align: center;">✅</td>
+                    <td style="padding: 12px; text-align: center;">✅</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- FAQ -->
+    <div style="margin-bottom: 30px;">
+        <h3 style="margin-bottom: 16px;">❓ Frequently Asked Questions</h3>
+        
+        <details style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin-bottom: 12px;">
+            <summary style="cursor: pointer; font-weight: 600; color: #374151;">Can I use API with just the $7.99/month web plan?</summary>
+            <p style="margin-top: 12px; color: #6b7280; font-size: 14px;">No, API access requires a separate API subscription. The $7.99/month web plan gives you unlimited access to the TTS tool on our website only.</p>
+        </details>
+        
+        <details style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin-bottom: 12px;">
+            <summary style="cursor: pointer; font-weight: 600; color: #374151;">What happens if I exceed my character limit?</summary>
+            <p style="margin-top: 12px; color: #6b7280; font-size: 14px;">API calls will return an error once you hit your limit. You can upgrade your plan or wait for the next billing cycle. We'll send you an email when you're approaching your limit.</p>
+        </details>
+        
+        <details style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin-bottom: 12px;">
+            <summary style="cursor: pointer; font-weight: 600; color: #374151;">Do I need both web and API subscriptions?</summary>
+            <p style="margin-top: 12px; color: #6b7280; font-size: 14px;">It depends on your use case. If you only want to use TTS on our website, the $7.99/month plan is enough. If you want to integrate TTS into your own app, you need an API plan. You can have both if you want.</p>
+        </details>
+    </div>
+
+    <!-- CTA -->
+    <div style="text-align: center; padding: 30px; background: linear-gradient(135deg, #eff6ff 0%, #f5f3ff 100%); border-radius: 16px; border: 1px solid #e5e7eb;">
+        <h3 style="margin-top: 0;">Ready to integrate TTS into your app?</h3>
+        <p style="color: #6b7280; margin-bottom: 20px;">Contact us to get started with an API plan.</p>
+        <a href="mailto:support@cheaptts.com?subject=API%20Plan%20Inquiry" class="btn primary">Contact Sales</a>
+        {% if not current_user.is_authenticated %}
+        <p style="margin-top: 16px; font-size: 14px; color: #6b7280;">
+            Just want to use TTS on this website? <a href="{{ url_for('signup') }}" style="color: #3b82f6;">Sign up</a> and subscribe for $7.99/month.
+        </p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -193,6 +193,12 @@ class User(db.Model, UserMixin):
     stripe_customer_id = db.Column(db.String(255))
     subscription_status = db.Column(db.String(64), default='inactive')  # inactive | active | past_due | canceled
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # API Access - separate from web subscription
+    # api_tier: 'none' | 'starter' | 'pro' | 'enterprise'
+    api_tier = db.Column(db.String(32), default='none')
+    api_credits = db.Column(db.Integer, default=0)  # Usage-based credits
+    api_stripe_subscription_id = db.Column(db.String(255))  # Separate Stripe subscription for API
 
     def set_password(self, password: str) -> None:
         self.password_hash = generate_password_hash(password)
@@ -202,7 +208,13 @@ class User(db.Model, UserMixin):
 
     @property
     def is_subscribed(self) -> bool:
+        """Web UI subscription (TTS tool access)"""
         return self.subscription_status == 'active'
+    
+    @property
+    def has_api_access(self) -> bool:
+        """API access (separate from web subscription)"""
+        return self.api_tier in ('starter', 'pro', 'enterprise')
 
 
 class APIKey(db.Model):
@@ -746,7 +758,7 @@ def logout():
 
 
 def subscription_required(func):
-    """Decorator to require active subscription"""
+    """Decorator to require active web subscription (TTS tool access)"""
     @wraps(func)
     def wrapper(*args, **kwargs):
         # If billing is disabled, allow access without subscription
@@ -757,6 +769,22 @@ def subscription_required(func):
         if not current_user.is_subscribed:
             flash('Active subscription required to access this feature.', 'error')
             return redirect(url_for('subscribe'))
+        return func(*args, **kwargs)
+    return wrapper
+
+
+def api_access_required(func):
+    """Decorator to require API access (separate from web subscription)"""
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        # If billing is disabled, allow access without API subscription
+        if not billing_enabled():
+            return func(*args, **kwargs)
+        if not current_user.is_authenticated:
+            return redirect(url_for('login'))
+        if not current_user.has_api_access:
+            flash('API access required. Please subscribe to an API plan.', 'error')
+            return redirect(url_for('api_pricing'))
         return func(*args, **kwargs)
     return wrapper
 
@@ -815,6 +843,14 @@ def api_voices():
 def api_presets():
     """Return curated hero voice presets"""
     return jsonify({"success": True, "presets": HERO_PRESETS})
+
+
+# -------- API Pricing --------
+
+@app.route('/api-pricing')
+def api_pricing():
+    """Show API pricing page"""
+    return render_template('api_pricing.html')
 
 
 # -------- Stripe billing --------
@@ -1495,7 +1531,7 @@ def widget_generate():
 
 @app.route('/api-keys')
 @login_required
-@subscription_required
+@api_access_required
 def api_keys_page():
     """Show user's API keys"""
     return render_template('api_keys.html', keys=current_user.api_keys)
@@ -1503,7 +1539,7 @@ def api_keys_page():
 
 @app.route('/api/keys/create', methods=['POST'])
 @login_required
-@subscription_required
+@api_access_required
 @csrf.exempt
 def create_api_key():
     """Create a new API key"""
@@ -1531,7 +1567,7 @@ def create_api_key():
 
 @app.route('/api/keys/<int:key_id>/delete', methods=['POST'])
 @login_required
-@subscription_required
+@api_access_required
 @csrf.exempt
 def delete_api_key(key_id):
     """Delete an API key"""
@@ -1547,7 +1583,7 @@ def delete_api_key(key_id):
 
 @app.route('/api/keys/<int:key_id>/toggle', methods=['POST'])
 @login_required
-@subscription_required
+@api_access_required
 @csrf.exempt
 def toggle_api_key(key_id):
     """Enable/disable an API key"""
@@ -1582,11 +1618,9 @@ def verify_api_key(api_key_string):
     api_key.last_used_at = datetime.utcnow()
     db.session.commit()
     
-    # Check if user's subscription is active
-    if billing_enabled() and not api_key.user.is_subscribed:
-        # Try to refresh from Stripe in case webhook missed an update
-        if not refresh_subscription_from_stripe(api_key.user):
-            return {'valid': False, 'error': 'Subscription expired'}
+    # Check if user has API access (separate from web subscription)
+    if billing_enabled() and not api_key.user.has_api_access:
+        return {'valid': False, 'error': 'API access required. Please subscribe to an API plan at cheaptts.com/api-pricing'}
     
     return {'valid': True, 'is_admin': False, 'user': api_key.user}
 
@@ -1853,7 +1887,14 @@ def api_list_voices():
 
 @app.route('/admin/grant-access/<email>')
 def admin_grant_access(email):
-    """Admin route to grant unlimited access to a user"""
+    """Admin route to grant unlimited access to a user
+    
+    Query params:
+        key: Admin API key (required)
+        stripe: 'true' to simulate Stripe customer
+        password: Custom password to set
+        api_tier: 'starter' | 'pro' | 'enterprise' to grant API access
+    """
     # Security check - only accessible with admin password
     admin_pass = request.args.get('key')
     if admin_pass != ADMIN_API_KEY:
@@ -1863,6 +1904,7 @@ def admin_grant_access(email):
         # Check if we should simulate a Stripe customer (for testing billing portal)
         simulate_stripe = request.args.get('stripe', '').lower() == 'true'
         custom_password = request.args.get('password', None)
+        api_tier = request.args.get('api_tier', None)  # Grant API access
         
         user = User.query.filter_by(email=email).first()
         if not user:
@@ -1871,6 +1913,8 @@ def admin_grant_access(email):
             if simulate_stripe:
                 # Set a fake Stripe customer ID for testing
                 user.stripe_customer_id = 'cus_test_' + email.split('@')[0]
+            if api_tier in ('starter', 'pro', 'enterprise'):
+                user.api_tier = api_tier
             # Set password
             import secrets
             password = custom_password if custom_password else secrets.token_urlsafe(16)
@@ -1880,11 +1924,12 @@ def admin_grant_access(email):
             
             return jsonify({
                 'success': True, 
-                'message': f'User created and unlimited access granted to {email}' + (' (with Stripe simulation)' if simulate_stripe else ''),
+                'message': f'User created and unlimited access granted to {email}' + (' (with Stripe simulation)' if simulate_stripe else '') + (f' (API: {api_tier})' if api_tier else ''),
                 'user': {
                     'email': user.email,
                     'password': password if custom_password else 'Random password set - use forgot password to reset',
                     'subscription_status': user.subscription_status,
+                    'api_tier': user.api_tier,
                     'stripe_customer_id': user.stripe_customer_id,
                     'created_at': user.created_at.isoformat()
                 }
@@ -1894,22 +1939,164 @@ def admin_grant_access(email):
         user.subscription_status = 'active'
         if simulate_stripe and not user.stripe_customer_id:
             user.stripe_customer_id = 'cus_test_' + email.split('@')[0]
+        if api_tier in ('starter', 'pro', 'enterprise'):
+            user.api_tier = api_tier
         if custom_password:
             user.set_password(custom_password)
         db.session.commit()
         
         return jsonify({
             'success': True, 
-            'message': f'Unlimited access granted to {email}' + (' (with Stripe simulation)' if simulate_stripe else ''),
+            'message': f'Unlimited access granted to {email}' + (' (with Stripe simulation)' if simulate_stripe else '') + (f' (API: {api_tier})' if api_tier else ''),
             'user': {
                 'email': user.email,
                 'password_updated': bool(custom_password),
                 'subscription_status': user.subscription_status,
+                'api_tier': user.api_tier,
                 'stripe_customer_id': user.stripe_customer_id,
                 'created_at': user.created_at.isoformat()
             }
         })
     except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/admin/revoke-legacy-api-keys')
+def admin_revoke_legacy_api_keys():
+    """
+    Revoke all API keys for users who don't have an API plan.
+    This handles users who got free API keys with the old $7.99 web-only plan.
+    
+    Query params:
+        key: Admin API key (required)
+        dry_run: 'true' to preview without making changes (default: true)
+    """
+    admin_pass = request.args.get('key')
+    if admin_pass != ADMIN_API_KEY:
+        return jsonify({'error': 'Unauthorized'}), 403
+    
+    dry_run = request.args.get('dry_run', 'true').lower() != 'false'
+    
+    try:
+        # Find all users with API keys but no API access
+        affected_users = []
+        revoked_keys = []
+        
+        # Get all API keys
+        all_keys = APIKey.query.all()
+        
+        for api_key in all_keys:
+            user = api_key.user
+            # Check if user does NOT have API access (only has web subscription or nothing)
+            if not user.has_api_access:
+                affected_users.append({
+                    'email': user.email,
+                    'subscription_status': user.subscription_status,
+                    'api_tier': user.api_tier,
+                })
+                revoked_keys.append({
+                    'key_id': api_key.id,
+                    'key_name': api_key.name,
+                    'key_prefix': api_key.key[:15] + '...',
+                    'user_email': user.email,
+                    'was_active': api_key.is_active,
+                    'last_used': api_key.last_used_at.isoformat() if api_key.last_used_at else None,
+                })
+                
+                if not dry_run:
+                    # Deactivate the key
+                    api_key.is_active = False
+        
+        if not dry_run:
+            db.session.commit()
+        
+        # Get unique affected users
+        unique_users = {u['email']: u for u in affected_users}.values()
+        
+        return jsonify({
+            'success': True,
+            'dry_run': dry_run,
+            'message': f"{'Would revoke' if dry_run else 'Revoked'} {len(revoked_keys)} API keys from {len(list(unique_users))} users without API plans",
+            'summary': {
+                'total_keys_affected': len(revoked_keys),
+                'unique_users_affected': len(list(unique_users)),
+            },
+            'affected_users': list(unique_users),
+            'revoked_keys': revoked_keys,
+            'next_step': 'Run with ?dry_run=false to execute' if dry_run else 'Done! Keys have been deactivated.',
+        })
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/admin/delete-legacy-api-keys')
+def admin_delete_legacy_api_keys():
+    """
+    Permanently DELETE all API keys for users who don't have an API plan.
+    More aggressive than revoke - completely removes the keys.
+    
+    Query params:
+        key: Admin API key (required)
+        dry_run: 'true' to preview without making changes (default: true)
+    """
+    admin_pass = request.args.get('key')
+    if admin_pass != ADMIN_API_KEY:
+        return jsonify({'error': 'Unauthorized'}), 403
+    
+    dry_run = request.args.get('dry_run', 'true').lower() != 'false'
+    
+    try:
+        # Find all users with API keys but no API access
+        affected_users = []
+        deleted_keys = []
+        
+        # Get all API keys
+        all_keys = APIKey.query.all()
+        keys_to_delete = []
+        
+        for api_key in all_keys:
+            user = api_key.user
+            # Check if user does NOT have API access
+            if not user.has_api_access:
+                affected_users.append({
+                    'email': user.email,
+                    'subscription_status': user.subscription_status,
+                    'api_tier': user.api_tier,
+                })
+                deleted_keys.append({
+                    'key_id': api_key.id,
+                    'key_name': api_key.name,
+                    'key_prefix': api_key.key[:15] + '...',
+                    'user_email': user.email,
+                    'last_used': api_key.last_used_at.isoformat() if api_key.last_used_at else None,
+                })
+                keys_to_delete.append(api_key)
+        
+        if not dry_run:
+            for key in keys_to_delete:
+                db.session.delete(key)
+            db.session.commit()
+        
+        # Get unique affected users
+        unique_users = {u['email']: u for u in affected_users}.values()
+        
+        return jsonify({
+            'success': True,
+            'dry_run': dry_run,
+            'message': f"{'Would delete' if dry_run else 'Deleted'} {len(deleted_keys)} API keys from {len(list(unique_users))} users without API plans",
+            'summary': {
+                'total_keys_deleted': len(deleted_keys),
+                'unique_users_affected': len(list(unique_users)),
+            },
+            'affected_users': list(unique_users),
+            'deleted_keys': deleted_keys,
+            'next_step': 'Run with ?dry_run=false to execute' if dry_run else 'Done! Keys have been permanently deleted.',
+        })
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
 
