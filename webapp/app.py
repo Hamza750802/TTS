@@ -1971,8 +1971,10 @@ def api_auth_login():
         })
         
     except Exception as e:
+        import traceback
         print(f"[API Auth] Login error: {e}")
-        return jsonify({'success': False, 'error': 'Server error'}), 500
+        print(f"[API Auth] Traceback: {traceback.format_exc()}")
+        return jsonify({'success': False, 'error': f'Server error: {str(e)}'}), 500
 
 
 @app.route('/api/v1/auth/signup', methods=['POST'])
