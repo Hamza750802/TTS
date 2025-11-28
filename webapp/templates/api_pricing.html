@@ -1,317 +1,781 @@
 {% extends 'base.html' %}
 {% block title %}API Pricing — Cheap TTS{% endblock %}
 
+{% block head %}
+<style>
+  .api-hero {
+    text-align: center;
+    padding: 60px 20px 50px;
+    background: linear-gradient(135deg, rgba(126,200,227,0.1) 0%, rgba(255,123,114,0.08) 100%);
+    margin: -40px -20px 40px;
+  }
+
+  .api-hero h1 {
+    font-size: 42px;
+    font-weight: 900;
+    color: #2D3436;
+    margin: 0 0 16px;
+  }
+
+  .api-hero p {
+    font-size: 18px;
+    color: #636E72;
+    max-width: 550px;
+    margin: 0 auto;
+  }
+
+  .overview-section {
+    background: linear-gradient(145deg, #2D3436 0%, #636E72 100%);
+    border-radius: 24px;
+    padding: 36px;
+    margin-bottom: 48px;
+    color: white;
+  }
+
+  .overview-section h2 {
+    margin: 0 0 28px;
+    font-size: 26px;
+    color: white;
+  }
+
+  .use-cases-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+
+  .use-case-card {
+    background: rgba(255,255,255,0.1);
+    backdrop-filter: blur(10px);
+    border-radius: 16px;
+    padding: 18px;
+    transition: all 0.3s ease;
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+
+  .use-case-card:hover {
+    background: rgba(255,255,255,0.15);
+    transform: translateY(-2px);
+  }
+
+  .use-case-icon {
+    font-size: 28px;
+    margin-bottom: 10px;
+  }
+
+  .use-case-title {
+    font-weight: 700;
+    margin-bottom: 6px;
+    font-size: 15px;
+  }
+
+  .use-case-desc {
+    font-size: 13px;
+    color: rgba(255,255,255,0.7);
+  }
+
+  .code-block {
+    background: #111827;
+    border-radius: 14px;
+    padding: 22px;
+    font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+    font-size: 13px;
+    overflow-x: auto;
+  }
+
+  .code-comment {
+    color: #636E72;
+  }
+
+  .code-keyword {
+    color: #FF7B72;
+  }
+
+  .code-string {
+    color: #6BCB77;
+  }
+
+  .code-flag {
+    color: #fbbf24;
+  }
+
+  .features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 20px;
+    margin-bottom: 48px;
+  }
+
+  .feature-card {
+    background: linear-gradient(145deg, rgba(255,255,255,0.95), rgba(255,251,247,0.9));
+    border: 1px solid rgba(126,200,227,0.2);
+    border-radius: 18px;
+    padding: 22px;
+    transition: all 0.3s ease;
+  }
+
+  .feature-card:hover {
+    border-color: #7EC8E3;
+    box-shadow: 0 12px 32px rgba(126,200,227,0.15);
+    transform: translateY(-3px);
+  }
+
+  .feature-icon {
+    font-size: 24px;
+    margin-bottom: 10px;
+  }
+
+  .feature-card p {
+    color: #636E72;
+    font-size: 14px;
+    margin: 0;
+  }
+
+  .includes-banner {
+    background: linear-gradient(135deg, rgba(107,203,119,0.1), rgba(126,200,227,0.1));
+    border: 1px solid rgba(107,203,119,0.3);
+    border-radius: 16px;
+    padding: 20px 24px;
+    margin-bottom: 36px;
+    text-align: center;
+  }
+
+  .includes-banner p {
+    color: #2D3436;
+    font-size: 15px;
+    margin: 0;
+  }
+
+  .includes-banner strong {
+    color: #6BCB77;
+  }
+
+  .section-title {
+    text-align: center;
+    margin-bottom: 28px;
+    font-size: 30px;
+    color: #2D3436;
+  }
+
+  .pricing-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 24px;
+    margin-bottom: 48px;
+  }
+
+  .api-pricing-card {
+    background: linear-gradient(145deg, rgba(255,255,255,0.95), rgba(255,251,247,0.9));
+    border: 1px solid rgba(126,200,227,0.25);
+    border-radius: 22px;
+    padding: 30px;
+    text-align: center;
+    transition: all 0.4s ease;
+    position: relative;
+  }
+
+  .api-pricing-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 20px 50px rgba(126,200,227,0.15);
+  }
+
+  .api-pricing-card.popular {
+    border: 2px solid #FF7B72;
+    background: linear-gradient(145deg, rgba(255,123,114,0.05), rgba(255,255,255,0.95));
+  }
+
+  .popular-badge {
+    position: absolute;
+    top: -14px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: linear-gradient(135deg, #FF7B72, #FF9A8B);
+    color: white;
+    padding: 6px 20px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    box-shadow: 0 4px 12px rgba(255,123,114,0.3);
+  }
+
+  .plan-badge {
+    display: inline-block;
+    padding: 6px 18px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    margin-bottom: 18px;
+  }
+
+  .plan-price {
+    font-size: 52px;
+    font-weight: 900;
+    color: #2D3436;
+    margin-bottom: 8px;
+    line-height: 1;
+  }
+
+  .plan-price small {
+    font-size: 18px;
+    font-weight: 500;
+    color: #636E72;
+  }
+
+  .plan-desc {
+    color: #636E72;
+    font-size: 14px;
+    margin-bottom: 24px;
+  }
+
+  .plan-features {
+    text-align: left;
+    list-style: none;
+    padding: 0;
+    margin: 0 0 26px 0;
+    font-size: 14px;
+  }
+
+  .plan-features li {
+    padding: 11px 0;
+    border-bottom: 1px solid rgba(126,200,227,0.15);
+    color: #2D3436;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .plan-features li:last-child {
+    border-bottom: none;
+  }
+
+  .plan-features li::before {
+    content: "✅";
+    flex-shrink: 0;
+  }
+
+  .plan-btn {
+    width: 100%;
+    padding: 16px 24px;
+    font-size: 15px;
+    font-weight: 700;
+    border-radius: 14px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-align: center;
+    display: block;
+    text-decoration: none;
+  }
+
+  .plan-btn.starter {
+    background: white;
+    color: #2D3436;
+    border: 2px solid rgba(126,200,227,0.5);
+  }
+
+  .plan-btn.starter:hover {
+    background: linear-gradient(135deg, #7EC8E3, #6BCB77);
+    color: white;
+    border-color: transparent;
+  }
+
+  .plan-btn.pro {
+    background: linear-gradient(135deg, #FF7B72, #FF9A8B);
+    color: white;
+    box-shadow: 0 6px 20px rgba(255,123,114,0.3);
+  }
+
+  .plan-btn.pro:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 28px rgba(255,123,114,0.4);
+  }
+
+  .plan-btn.enterprise {
+    background: linear-gradient(135deg, #2D3436, #636E72);
+    color: white;
+  }
+
+  .plan-btn.enterprise:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(45,52,54,0.3);
+  }
+
+  .plan-btn.current {
+    background: #6BCB77;
+    cursor: default;
+  }
+
+  .usage-section {
+    background: linear-gradient(145deg, rgba(255,251,247,0.8), rgba(255,255,255,0.9));
+    border: 1px solid rgba(126,200,227,0.2);
+    border-radius: 18px;
+    padding: 26px;
+    margin-bottom: 36px;
+  }
+
+  .usage-section h3 {
+    margin: 0 0 18px;
+    font-size: 18px;
+    color: #2D3436;
+  }
+
+  .usage-bar-bg {
+    background: rgba(126,200,227,0.2);
+    border-radius: 10px;
+    height: 14px;
+    overflow: hidden;
+  }
+
+  .usage-bar {
+    height: 100%;
+    transition: width 0.4s ease;
+    border-radius: 10px;
+  }
+
+  .usage-bar.green { background: linear-gradient(90deg, #6BCB77, #4ade80); }
+  .usage-bar.yellow { background: linear-gradient(90deg, #fbbf24, #f59e0b); }
+  .usage-bar.red { background: linear-gradient(90deg, #FF7B72, #ef4444); }
+
+  .info-card {
+    background: linear-gradient(145deg, rgba(255,251,247,0.9), rgba(255,255,255,0.95));
+    border: 1px solid rgba(126,200,227,0.2);
+    border-radius: 16px;
+    padding: 22px;
+    margin-bottom: 28px;
+    text-align: center;
+  }
+
+  .info-card p {
+    color: #636E72;
+    font-size: 14px;
+    margin: 0;
+  }
+
+  .info-card a {
+    color: #FF7B72;
+    font-weight: 600;
+  }
+
+  .endpoints-section {
+    background: linear-gradient(145deg, rgba(255,255,255,0.95), rgba(255,251,247,0.9));
+    border: 1px solid rgba(126,200,227,0.2);
+    border-radius: 20px;
+    padding: 30px;
+    margin-bottom: 36px;
+  }
+
+  .endpoints-section h3 {
+    margin: 0 0 22px;
+    font-size: 22px;
+    color: #2D3436;
+  }
+
+  .endpoint-item {
+    background: linear-gradient(135deg, #FFFBF7, #fff);
+    border-radius: 12px;
+    padding: 18px;
+    margin-bottom: 14px;
+  }
+
+  .endpoint-item:last-child {
+    margin-bottom: 0;
+  }
+
+  .endpoint-method {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    margin-right: 12px;
+  }
+
+  .endpoint-method.post { background: #6BCB77; color: white; }
+  .endpoint-method.get { background: #7EC8E3; color: white; }
+
+  .endpoint-path {
+    font-family: monospace;
+    font-size: 14px;
+    color: #2D3436;
+  }
+
+  .endpoint-desc {
+    color: #636E72;
+    font-size: 13px;
+    margin: 10px 0 0;
+  }
+
+  .code-examples-section {
+    background: linear-gradient(145deg, rgba(255,255,255,0.95), rgba(255,251,247,0.9));
+    border: 1px solid rgba(126,200,227,0.2);
+    border-radius: 20px;
+    padding: 30px;
+    margin-bottom: 36px;
+  }
+
+  .code-examples-section h3 {
+    margin: 0 0 24px;
+    font-size: 22px;
+    color: #2D3436;
+  }
+
+  .code-example {
+    margin-bottom: 24px;
+  }
+
+  .code-example:last-child {
+    margin-bottom: 0;
+  }
+
+  .code-lang {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    font-weight: 600;
+    color: #2D3436;
+  }
+
+  .faq-section details {
+    background: linear-gradient(145deg, rgba(255,255,255,0.95), rgba(255,251,247,0.9));
+    border: 1px solid rgba(126,200,227,0.2);
+    border-radius: 14px;
+    padding: 18px;
+    margin-bottom: 12px;
+    transition: all 0.3s ease;
+  }
+
+  .faq-section details:hover {
+    border-color: #7EC8E3;
+  }
+
+  .faq-section details[open] {
+    border-color: #FF7B72;
+  }
+
+  .faq-section summary {
+    cursor: pointer;
+    font-weight: 600;
+    color: #2D3436;
+    list-style: none;
+  }
+
+  .faq-section summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .faq-section details p {
+    margin: 14px 0 0;
+    color: #636E72;
+    font-size: 14px;
+  }
+
+  .cta-section {
+    text-align: center;
+    padding: 36px;
+    background: linear-gradient(135deg, rgba(255,123,114,0.08), rgba(126,200,227,0.08));
+    border-radius: 20px;
+    border: 1px solid rgba(255,123,114,0.15);
+  }
+
+  .cta-section h3 {
+    margin: 0 0 12px;
+    color: #2D3436;
+  }
+
+  .cta-section p {
+    color: #636E72;
+    margin-bottom: 0;
+  }
+</style>
+{% endblock %}
 {% block content %}
-<div style="max-width: 900px; margin: 0 auto;">
-    <div style="text-align: center; margin-bottom: 40px;">
-        <h1 style="font-size: 36px; margin-bottom: 12px;">🔌 Text-to-Speech API</h1>
-        <p style="color: #6b7280; font-size: 18px; max-width: 600px; margin: 0 auto;">
-            Add natural-sounding voices to your apps, websites, and products.
-            <br>Simple REST API. Start building in minutes.
-        </p>
+<div style="max-width: 950px; margin: 0 auto; padding: 0 20px;">
+    <div class="api-hero">
+        <h1>🔌 Text-to-Speech API</h1>
+        <p>Add natural-sounding voices to your apps, websites, and products. Simple REST API. Start building in minutes.</p>
     </div>
 
     <!-- API Overview Section -->
-    <div style="background: linear-gradient(135deg, #1f2937 0%, #374151 100%); border-radius: 16px; padding: 32px; margin-bottom: 40px; color: white;">
-        <h2 style="margin-top: 0; margin-bottom: 24px; font-size: 24px;">What can you build?</h2>
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 24px;">
-            <div style="background: rgba(255,255,255,0.1); border-radius: 12px; padding: 16px;">
-                <div style="font-size: 24px; margin-bottom: 8px;">🎧</div>
-                <div style="font-weight: 600; margin-bottom: 4px;">Audiobooks & Podcasts</div>
-                <div style="font-size: 13px; color: #9ca3af;">Convert articles and books to audio</div>
+    <div class="overview-section">
+        <h2>What can you build?</h2>
+        <div class="use-cases-grid">
+            <div class="use-case-card">
+                <div class="use-case-icon">🎧</div>
+                <div class="use-case-title">Audiobooks & Podcasts</div>
+                <div class="use-case-desc">Convert articles and books to audio</div>
             </div>
-            <div style="background: rgba(255,255,255,0.1); border-radius: 12px; padding: 16px;">
-                <div style="font-size: 24px; margin-bottom: 8px;">🤖</div>
-                <div style="font-weight: 600; margin-bottom: 4px;">Voice Assistants</div>
-                <div style="font-size: 13px; color: #9ca3af;">Add voice to chatbots and AI apps</div>
+            <div class="use-case-card">
+                <div class="use-case-icon">🤖</div>
+                <div class="use-case-title">Voice Assistants</div>
+                <div class="use-case-desc">Add voice to chatbots and AI apps</div>
             </div>
-            <div style="background: rgba(255,255,255,0.1); border-radius: 12px; padding: 16px;">
-                <div style="font-size: 24px; margin-bottom: 8px;">🎬</div>
-                <div style="font-weight: 600; margin-bottom: 4px;">Video Voiceovers</div>
-                <div style="font-size: 13px; color: #9ca3af;">Generate narration for videos</div>
+            <div class="use-case-card">
+                <div class="use-case-icon">🎬</div>
+                <div class="use-case-title">Video Voiceovers</div>
+                <div class="use-case-desc">Generate narration for videos</div>
             </div>
-            <div style="background: rgba(255,255,255,0.1); border-radius: 12px; padding: 16px;">
-                <div style="font-size: 24px; margin-bottom: 8px;">♿</div>
-                <div style="font-weight: 600; margin-bottom: 4px;">Accessibility</div>
-                <div style="font-size: 13px; color: #9ca3af;">Make content accessible to all</div>
+            <div class="use-case-card">
+                <div class="use-case-icon">♿</div>
+                <div class="use-case-title">Accessibility</div>
+                <div class="use-case-desc">Make content accessible to all</div>
             </div>
         </div>
         
         <!-- Code Example -->
-        <div style="background: #111827; border-radius: 12px; padding: 20px; font-family: 'Monaco', 'Menlo', monospace; font-size: 13px; overflow-x: auto;">
-            <div style="color: #6b7280; margin-bottom: 8px;"># Generate speech with one API call</div>
-            <div><span style="color: #f472b6;">curl</span> <span style="color: #fbbf24;">-X POST</span> https://cheaptts.com/api/v1/synthesize \</div>
-            <div style="padding-left: 20px;"><span style="color: #fbbf24;">-H</span> <span style="color: #34d399;">"X-API-Key: your_api_key"</span> \</div>
-            <div style="padding-left: 20px;"><span style="color: #fbbf24;">-H</span> <span style="color: #34d399;">"Content-Type: application/json"</span> \</div>
-            <div style="padding-left: 20px;"><span style="color: #fbbf24;">-d</span> <span style="color: #34d399;">'{"text": "Hello world!", "voice": "en-US-AriaNeural"}'</span></div>
+        <div class="code-block">
+            <div class="code-comment"># Generate speech with one API call</div>
+            <div><span class="code-keyword">curl</span> <span class="code-flag">-X POST</span> https://cheaptts.com/api/v1/synthesize \</div>
+            <div style="padding-left: 20px;"><span class="code-flag">-H</span> <span class="code-string">"X-API-Key: your_api_key"</span> \</div>
+            <div style="padding-left: 20px;"><span class="code-flag">-H</span> <span class="code-string">"Content-Type: application/json"</span> \</div>
+            <div style="padding-left: 20px;"><span class="code-flag">-d</span> <span class="code-string">'{"text": "Hello world!", "voice": "en-US-AriaNeural"}'</span></div>
         </div>
     </div>
 
     <!-- Features Grid -->
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 40px;">
-        <div style="background: white; border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px;">
-            <div style="font-size: 20px; margin-bottom: 8px;">🎙️ 500+ Voices</div>
-            <p style="color: #6b7280; font-size: 14px; margin: 0;">Natural-sounding neural voices in 153 languages. Male, female, and child voices available.</p>
+    <div class="features-grid">
+        <div class="feature-card">
+            <div class="feature-icon">🎙️</div>
+            <div style="font-size: 17px; font-weight: 700; margin-bottom: 8px; color: #2D3436;">500+ Voices</div>
+            <p>Natural-sounding neural voices in 153 languages. Male, female, and child voices available.</p>
         </div>
-        <div style="background: white; border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px;">
-            <div style="font-size: 20px; margin-bottom: 8px;">🎭 Emotion Control</div>
-            <p style="color: #6b7280; font-size: 14px; margin: 0;">47 voices support emotions like cheerful, sad, angry, excited, and more via SSML.</p>
+        <div class="feature-card">
+            <div class="feature-icon">🎭</div>
+            <div style="font-size: 17px; font-weight: 700; margin-bottom: 8px; color: #2D3436;">Emotion Control</div>
+            <p>47 voices support emotions like cheerful, sad, angry, excited, and more via SSML.</p>
         </div>
-        <div style="background: white; border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px;">
-            <div style="font-size: 20px; margin-bottom: 8px;">👥 Multi-Speaker</div>
-            <p style="color: #6b7280; font-size: 14px; margin: 0;">Create dialogues with multiple voices in a single request. Perfect for podcasts.</p>
+        <div class="feature-card">
+            <div class="feature-icon">👥</div>
+            <div style="font-size: 17px; font-weight: 700; margin-bottom: 8px; color: #2D3436;">Multi-Speaker</div>
+            <p>Create dialogues with multiple voices in a single request. Perfect for podcasts.</p>
         </div>
-        <div style="background: white; border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px;">
-            <div style="font-size: 20px; margin-bottom: 8px;">⚡ Fast & Reliable</div>
-            <p style="color: #6b7280; font-size: 14px; margin: 0;">Streaming support for real-time playback. High availability with 99.9% uptime.</p>
+        <div class="feature-card">
+            <div class="feature-icon">⚡</div>
+            <div style="font-size: 17px; font-weight: 700; margin-bottom: 8px; color: #2D3436;">Fast & Reliable</div>
+            <p>Streaming support for real-time playback. High availability with 99.9% uptime.</p>
         </div>
-        <div style="background: white; border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px;">
-            <div style="font-size: 20px; margin-bottom: 8px;">📄 Subtitles</div>
-            <p style="color: #6b7280; font-size: 14px; margin: 0;">Get word-level timestamps and SRT/VTT subtitle files with your audio.</p>
+        <div class="feature-card">
+            <div class="feature-icon">📄</div>
+            <div style="font-size: 17px; font-weight: 700; margin-bottom: 8px; color: #2D3436;">Subtitles</div>
+            <p>Get word-level timestamps and SRT/VTT subtitle files with your audio.</p>
         </div>
-        <div style="background: white; border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px;">
-            <div style="font-size: 20px; margin-bottom: 8px;">🔧 Easy Integration</div>
-            <p style="color: #6b7280; font-size: 14px; margin: 0;">Simple REST API. Embeddable widget with copy-paste code. Works everywhere.</p>
+        <div class="feature-card">
+            <div class="feature-icon">🔧</div>
+            <div style="font-size: 17px; font-weight: 700; margin-bottom: 8px; color: #2D3436;">Easy Integration</div>
+            <p>Simple REST API. Embeddable widget with copy-paste code. Works everywhere.</p>
         </div>
     </div>
 
     <!-- What You Get Banner -->
-    <div style="background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%); border: 2px solid #10b981; border-radius: 12px; padding: 20px; margin-bottom: 30px; text-align: center;">
-        <p style="color: #065f46; font-size: 15px; margin: 0;">
-            <strong>✅ All plans include:</strong> API Keys, Embeddable Widget, Public Widget URL, Full API Docs, All 500+ Voices
-        </p>
+    <div class="includes-banner">
+        <p><strong>✅ All plans include:</strong> API Keys, Embeddable Widget, Public Widget URL, Full API Docs, All 500+ Voices</p>
     </div>
 
-    <h2 style="text-align: center; margin-bottom: 24px; font-size: 28px;">Choose Your Plan</h2>
+    <h2 class="section-title">Choose Your Plan</h2>
 
     <!-- Pricing Cards -->
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; margin-bottom: 40px;">
+    <div class="pricing-grid">
         
         <!-- Starter Plan -->
-        <div style="background: white; border: 2px solid #e5e7eb; border-radius: 16px; padding: 28px; text-align: center; transition: all 0.2s ease;">
-            <div style="background: #f3f4f6; color: #374151; padding: 6px 16px; border-radius: 20px; display: inline-block; font-size: 13px; font-weight: 600; margin-bottom: 16px;">STARTER</div>
-            <div style="font-size: 48px; font-weight: 800; color: #1f2937; margin-bottom: 8px;">
-                $9<span style="font-size: 18px; font-weight: 500; color: #6b7280;">/mo</span>
-            </div>
-            <p style="color: #6b7280; font-size: 14px; margin-bottom: 24px;">Perfect for side projects & MVPs</p>
+        <div class="api-pricing-card">
+            <div class="plan-badge" style="background: linear-gradient(135deg, rgba(126,200,227,0.2), rgba(126,200,227,0.3)); color: #2D3436;">STARTER</div>
+            <div class="plan-price">$5<small>/mo</small></div>
+            <p class="plan-desc">Perfect for side projects & MVPs</p>
             
-            <ul style="text-align: left; list-style: none; padding: 0; margin: 0 0 24px 0; font-size: 14px; color: #374151;">
-                <li style="padding: 10px 0; border-bottom: 1px solid #f3f4f6;">✅ <strong>100,000</strong> characters/month</li>
-                <li style="padding: 10px 0; border-bottom: 1px solid #f3f4f6;">✅ API Key access</li>
-                <li style="padding: 10px 0; border-bottom: 1px solid #f3f4f6;">✅ Embeddable widget</li>
-                <li style="padding: 10px 0; border-bottom: 1px solid #f3f4f6;">✅ All 500+ voices</li>
-                <li style="padding: 10px 0;">✅ Email support</li>
+            <ul class="plan-features">
+                <li><strong>100,000</strong> characters/month</li>
+                <li>API Key access</li>
+                <li>Embeddable widget</li>
+                <li>All 500+ voices</li>
+                <li>Email support</li>
             </ul>
             
             {% if current_user.is_authenticated %}
                 {% if current_user.api_tier == 'starter' %}
-                    <div class="btn" style="width: 100%; display: block; text-align: center; background: #10b981; cursor: default;">
-                        ✓ Current Plan
-                    </div>
+                    <div class="plan-btn current">✓ Current Plan</div>
                 {% else %}
-                    <button onclick="subscribeAPI('api_starter')" class="btn" style="width: 100%; display: block; text-align: center;">
-                        Get Starter - $9/mo
-                    </button>
+                    <button onclick="subscribeAPI('api_starter')" class="plan-btn starter">Get Starter - $5/mo</button>
                 {% endif %}
             {% else %}
-                <a href="{{ url_for('signup', next='/api-pricing', api_plan='starter') }}" class="btn" style="width: 100%; display: block; text-align: center;">
-                    Sign Up for Starter - $9/mo
-                </a>
+                <a href="{{ url_for('signup', next='/api-pricing', api_plan='starter') }}" class="plan-btn starter">Sign Up for Starter - $5/mo</a>
             {% endif %}
         </div>
         
         <!-- Pro Plan -->
-        <div style="background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border: 2px solid #3b82f6; border-radius: 16px; padding: 28px; text-align: center; position: relative;">
-            <div style="position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: linear-gradient(90deg, #3b82f6, #8b5cf6); color: white; padding: 6px 20px; border-radius: 20px; font-size: 12px; font-weight: 700;">MOST POPULAR</div>
-            <div style="background: #3b82f6; color: white; padding: 6px 16px; border-radius: 20px; display: inline-block; font-size: 13px; font-weight: 600; margin-bottom: 16px; margin-top: 8px;">PRO</div>
-            <div style="font-size: 48px; font-weight: 800; color: #1f2937; margin-bottom: 8px;">
-                $29<span style="font-size: 18px; font-weight: 500; color: #6b7280;">/mo</span>
-            </div>
-            <p style="color: #6b7280; font-size: 14px; margin-bottom: 24px;">For apps with real users</p>
+        <div class="api-pricing-card popular">
+            <div class="popular-badge">MOST POPULAR</div>
+            <div class="plan-badge" style="background: linear-gradient(135deg, #FF7B72, #FF9A8B); color: white; margin-top: 8px;">PRO</div>
+            <div class="plan-price">$19<small>/mo</small></div>
+            <p class="plan-desc">For apps with real users</p>
             
-            <ul style="text-align: left; list-style: none; padding: 0; margin: 0 0 24px 0; font-size: 14px; color: #374151;">
-                <li style="padding: 10px 0; border-bottom: 1px solid rgba(59,130,246,0.2);">✅ <strong>500,000</strong> characters/month</li>
-                <li style="padding: 10px 0; border-bottom: 1px solid rgba(59,130,246,0.2);">✅ API Key access</li>
-                <li style="padding: 10px 0; border-bottom: 1px solid rgba(59,130,246,0.2);">✅ Embeddable widget</li>
-                <li style="padding: 10px 0; border-bottom: 1px solid rgba(59,130,246,0.2);">✅ All 500+ voices</li>
-                <li style="padding: 10px 0;">✅ Priority support</li>
+            <ul class="plan-features">
+                <li><strong>500,000</strong> characters/month</li>
+                <li>API Key access</li>
+                <li>Embeddable widget</li>
+                <li>All 500+ voices</li>
+                <li>Priority support</li>
             </ul>
             
             {% if current_user.is_authenticated %}
                 {% if current_user.api_tier == 'pro' %}
-                    <div class="btn primary" style="width: 100%; display: block; text-align: center; background: #10b981; cursor: default;">
-                        ✓ Current Plan
-                    </div>
+                    <div class="plan-btn current">✓ Current Plan</div>
                 {% else %}
-                    <button onclick="subscribeAPI('api_pro')" class="btn primary" style="width: 100%; display: block; text-align: center;">
-                        Get Pro - $29/mo
-                    </button>
+                    <button onclick="subscribeAPI('api_pro')" class="plan-btn pro">Get Pro - $19/mo</button>
                 {% endif %}
             {% else %}
-                <a href="{{ url_for('signup', next='/api-pricing', api_plan='pro') }}" class="btn primary" style="width: 100%; display: block; text-align: center;">
-                    Sign Up for Pro - $29/mo
-                </a>
+                <a href="{{ url_for('signup', next='/api-pricing', api_plan='pro') }}" class="plan-btn pro">Sign Up for Pro - $19/mo</a>
             {% endif %}
         </div>
         
         <!-- Enterprise/Custom Plan -->
-        <div style="background: white; border: 2px solid #e5e7eb; border-radius: 16px; padding: 28px; text-align: center; transition: all 0.2s ease;">
-            <div style="background: #1f2937; color: white; padding: 6px 16px; border-radius: 20px; display: inline-block; font-size: 13px; font-weight: 600; margin-bottom: 16px;">ENTERPRISE</div>
-            <div style="font-size: 48px; font-weight: 800; color: #1f2937; margin-bottom: 8px;">
-                Custom
-            </div>
-            <p style="color: #6b7280; font-size: 14px; margin-bottom: 24px;">Need more than 500K chars/month?</p>
+        <div class="api-pricing-card">
+            <div class="plan-badge" style="background: linear-gradient(135deg, #2D3436, #636E72); color: white;">ENTERPRISE</div>
+            <div class="plan-price">Custom</div>
+            <p class="plan-desc">Need more than 500K chars/month?</p>
             
-            <ul style="text-align: left; list-style: none; padding: 0; margin: 0 0 24px 0; font-size: 14px; color: #374151;">
-                <li style="padding: 10px 0; border-bottom: 1px solid #f3f4f6;">✅ <strong>Unlimited</strong> characters</li>
-                <li style="padding: 10px 0; border-bottom: 1px solid #f3f4f6;">✅ Volume discounts</li>
-                <li style="padding: 10px 0; border-bottom: 1px solid #f3f4f6;">✅ Dedicated support</li>
-                <li style="padding: 10px 0; border-bottom: 1px solid #f3f4f6;">✅ Custom SLA</li>
-                <li style="padding: 10px 0;">✅ Invoice billing</li>
+            <ul class="plan-features">
+                <li><strong>Unlimited</strong> characters</li>
+                <li>Volume discounts</li>
+                <li>Dedicated support</li>
+                <li>Custom SLA</li>
+                <li>Invoice billing</li>
             </ul>
             
-            <a href="mailto:sales@cheaptts.com?subject=Enterprise%20API%20Plan%20Inquiry" class="btn" style="width: 100%; display: block; text-align: center;">
-                Contact Sales
-            </a>
+            <a href="mailto:sales@cheaptts.com?subject=Enterprise%20API%20Plan%20Inquiry" class="plan-btn enterprise">Contact Sales</a>
         </div>
     </div>
 
     <!-- Current Usage (for logged in users with API access) -->
     {% if current_user.is_authenticated and current_user.api_tier and current_user.api_tier != 'none' %}
-    <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 12px; padding: 24px; margin-bottom: 30px;">
-        <h3 style="margin-top: 0; margin-bottom: 16px; font-size: 18px;">📊 Your Current Usage</h3>
+    <div class="usage-section">
+        <h3>📊 Your Current Usage</h3>
         {% set limit = 100000 if current_user.api_tier == 'starter' else 500000 %}
         {% set usage = current_user.api_chars_used or 0 %}
         {% set percent = (usage / limit * 100) | round(1) if limit > 0 else 0 %}
-        <div style="margin-bottom: 12px;">
-            <span style="font-weight: 600;">{{ '{:,}'.format(usage) }}</span> / {{ '{:,}'.format(limit) }} characters used
-            <span style="float: right; color: {% if percent > 80 %}#ef4444{% elif percent > 50 %}#f59e0b{% else %}#10b981{% endif %};">{{ percent }}%</span>
+        <div style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+            <span><span style="font-weight: 700;">{{ '{:,}'.format(usage) }}</span> / {{ '{:,}'.format(limit) }} characters used</span>
+            <span style="font-weight: 700; color: {% if percent > 80 %}#FF7B72{% elif percent > 50 %}#fbbf24{% else %}#6BCB77{% endif %};">{{ percent }}%</span>
         </div>
-        <div style="background: #e5e7eb; border-radius: 8px; height: 12px; overflow: hidden;">
-            <div style="background: {% if percent > 80 %}#ef4444{% elif percent > 50 %}#f59e0b{% else %}#10b981{% endif %}; height: 100%; width: {{ percent }}%; transition: width 0.3s;"></div>
+        <div class="usage-bar-bg">
+            <div class="usage-bar {% if percent > 80 %}red{% elif percent > 50 %}yellow{% else %}green{% endif %}" style="width: {{ percent }}%;"></div>
         </div>
     </div>
     {% endif %}
 
     <!-- Simple comparison note -->
-    <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px; margin-bottom: 30px; text-align: center;">
-        <p style="color: #6b7280; font-size: 14px; margin: 0;">
-            <strong>💡 Looking to use TTS on this website instead?</strong><br>
-            The <a href="{{ url_for('subscribe') if current_user.is_authenticated else url_for('signup') }}" style="color: #3b82f6;">$7.99/month web plan</a> gives you unlimited access to our online TTS tool.
-        </p>
+    <div class="info-card">
+        <p><strong>💡 Looking to use TTS on this website instead?</strong><br>
+        The <a href="{{ url_for('subscribe') if current_user.is_authenticated else url_for('signup') }}">$7.99/month web plan</a> gives you unlimited access to our online TTS tool.</p>
     </div>
 
     <!-- API Endpoints Preview -->
-    <div style="background: white; border: 1px solid #e5e7eb; border-radius: 16px; padding: 28px; margin-bottom: 30px;">
-        <h3 style="margin-top: 0; margin-bottom: 20px; font-size: 20px;">📡 API Endpoints</h3>
-        <div style="display: grid; gap: 16px;">
-            <div style="background: #f9fafb; border-radius: 8px; padding: 16px;">
-                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
-                    <span style="background: #10b981; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600;">POST</span>
-                    <code style="font-size: 14px; color: #374151;">/api/v1/synthesize</code>
-                </div>
-                <p style="color: #6b7280; font-size: 13px; margin: 0;">Convert text to speech. Returns JSON with audio URL. Supports SSML for emotions and multi-speaker dialogues.</p>
-            </div>
-            <div style="background: #f9fafb; border-radius: 8px; padding: 16px;">
-                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
-                    <span style="background: #3b82f6; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600;">GET</span>
-                    <code style="font-size: 14px; color: #374151;">/api/voices</code>
-                </div>
-                <p style="color: #6b7280; font-size: 13px; margin: 0;">List all 500+ available voices with language, gender, and emotion support info.</p>
-            </div>
+    <div class="endpoints-section">
+        <h3>📡 API Endpoints</h3>
+        <div class="endpoint-item">
+            <span class="endpoint-method post">POST</span>
+            <code class="endpoint-path">/api/v1/synthesize</code>
+            <p class="endpoint-desc">Convert text to speech. Returns JSON with audio URL. Supports SSML for emotions and multi-speaker dialogues.</p>
         </div>
-        <p style="margin-top: 16px; margin-bottom: 0; font-size: 13px; color: #6b7280;">
+        <div class="endpoint-item">
+            <span class="endpoint-method get">GET</span>
+            <code class="endpoint-path">/api/voices</code>
+            <p class="endpoint-desc">List all 500+ available voices with language, gender, and emotion support info.</p>
+        </div>
+        <p style="margin-top: 18px; margin-bottom: 0; font-size: 13px; color: #636E72;">
             📚 Full API documentation available after signup in your dashboard.
         </p>
     </div>
 
     <!-- Code Examples -->
-    <div style="background: white; border: 1px solid #e5e7eb; border-radius: 16px; padding: 28px; margin-bottom: 30px;">
-        <h3 style="margin-top: 0; margin-bottom: 20px; font-size: 20px;">💻 Code Examples</h3>
+    <div class="code-examples-section">
+        <h3>💻 Code Examples</h3>
         
         <!-- Python Example -->
-        <div style="margin-bottom: 20px;">
-            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
-                <span style="font-size: 18px;">🐍</span>
-                <span style="font-weight: 600; color: #374151;">Python</span>
+        <div class="code-example">
+            <div class="code-lang">
+                <span style="font-size: 20px;">🐍</span>
+                <span>Python</span>
             </div>
-            <div style="background: #1f2937; border-radius: 8px; padding: 16px; font-family: 'Monaco', 'Menlo', monospace; font-size: 12px; overflow-x: auto; color: #e5e7eb;">
-<pre style="margin: 0; white-space: pre-wrap;"><span style="color: #f472b6;">import</span> requests
+            <div class="code-block">
+<pre style="margin: 0; white-space: pre-wrap; color: #e5e7eb;"><span class="code-keyword">import</span> requests
 
-<span style="color: #6b7280;"># Step 1: Generate the audio</span>
+<span class="code-comment"># Step 1: Generate the audio</span>
 response = requests.post(
-    <span style="color: #34d399;">"https://cheaptts.com/api/v1/synthesize"</span>,
-    headers={<span style="color: #34d399;">"X-API-Key"</span>: <span style="color: #34d399;">"your_api_key"</span>},
+    <span class="code-string">"https://cheaptts.com/api/v1/synthesize"</span>,
+    headers={<span class="code-string">"X-API-Key"</span>: <span class="code-string">"your_api_key"</span>},
     json={
-        <span style="color: #34d399;">"text"</span>: <span style="color: #34d399;">"Hello, welcome to my app!"</span>,
-        <span style="color: #34d399;">"voice"</span>: <span style="color: #34d399;">"en-US-AriaNeural"</span>
+        <span class="code-string">"text"</span>: <span class="code-string">"Hello, welcome to my app!"</span>,
+        <span class="code-string">"voice"</span>: <span class="code-string">"en-US-AriaNeural"</span>
     }
 )
 
 data = response.json()
-<span style="color: #f472b6;">if</span> data[<span style="color: #34d399;">"success"</span>]:
-    <span style="color: #6b7280;"># Step 2: Download the audio file</span>
-    audio = requests.get(data[<span style="color: #34d399;">"audio_url"</span>])
-    <span style="color: #f472b6;">with</span> <span style="color: #60a5fa;">open</span>(<span style="color: #34d399;">"output.mp3"</span>, <span style="color: #34d399;">"wb"</span>) <span style="color: #f472b6;">as</span> f:
+<span class="code-keyword">if</span> data[<span class="code-string">"success"</span>]:
+    <span class="code-comment"># Step 2: Download the audio file</span>
+    audio = requests.get(data[<span class="code-string">"audio_url"</span>])
+    <span class="code-keyword">with</span> <span style="color: #7EC8E3;">open</span>(<span class="code-string">"output.mp3"</span>, <span class="code-string">"wb"</span>) <span class="code-keyword">as</span> f:
         f.write(audio.content)</pre>
             </div>
         </div>
         
         <!-- JavaScript Example -->
-        <div>
-            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
-                <span style="font-size: 18px;">⚡</span>
-                <span style="font-weight: 600; color: #374151;">JavaScript</span>
+        <div class="code-example">
+            <div class="code-lang">
+                <span style="font-size: 20px;">⚡</span>
+                <span>JavaScript</span>
             </div>
-            <div style="background: #1f2937; border-radius: 8px; padding: 16px; font-family: 'Monaco', 'Menlo', monospace; font-size: 12px; overflow-x: auto; color: #e5e7eb;">
-<pre style="margin: 0; white-space: pre-wrap;"><span style="color: #6b7280;">// Step 1: Generate the audio</span>
-<span style="color: #f472b6;">const</span> response = <span style="color: #f472b6;">await</span> <span style="color: #60a5fa;">fetch</span>(<span style="color: #34d399;">"https://cheaptts.com/api/v1/synthesize"</span>, {
-    method: <span style="color: #34d399;">"POST"</span>,
+            <div class="code-block">
+<pre style="margin: 0; white-space: pre-wrap; color: #e5e7eb;"><span class="code-comment">// Step 1: Generate the audio</span>
+<span class="code-keyword">const</span> response = <span class="code-keyword">await</span> <span style="color: #7EC8E3;">fetch</span>(<span class="code-string">"https://cheaptts.com/api/v1/synthesize"</span>, {
+    method: <span class="code-string">"POST"</span>,
     headers: {
-        <span style="color: #34d399;">"X-API-Key"</span>: <span style="color: #34d399;">"your_api_key"</span>,
-        <span style="color: #34d399;">"Content-Type"</span>: <span style="color: #34d399;">"application/json"</span>
+        <span class="code-string">"X-API-Key"</span>: <span class="code-string">"your_api_key"</span>,
+        <span class="code-string">"Content-Type"</span>: <span class="code-string">"application/json"</span>
     },
-    body: JSON.<span style="color: #60a5fa;">stringify</span>({
-        text: <span style="color: #34d399;">"Hello, welcome to my app!"</span>,
-        voice: <span style="color: #34d399;">"en-US-AriaNeural"</span>
+    body: JSON.<span style="color: #7EC8E3;">stringify</span>({
+        text: <span class="code-string">"Hello, welcome to my app!"</span>,
+        voice: <span class="code-string">"en-US-AriaNeural"</span>
     })
 });
 
-<span style="color: #f472b6;">const</span> data = <span style="color: #f472b6;">await</span> response.<span style="color: #60a5fa;">json</span>();
-<span style="color: #f472b6;">if</span> (data.success) {
-    <span style="color: #6b7280;">// Step 2: Play or download the audio</span>
-    <span style="color: #f472b6;">const</span> audio = <span style="color: #f472b6;">new</span> <span style="color: #60a5fa;">Audio</span>(data.audio_url);
-    audio.<span style="color: #60a5fa;">play</span>();
+<span class="code-keyword">const</span> data = <span class="code-keyword">await</span> response.<span style="color: #7EC8E3;">json</span>();
+<span class="code-keyword">if</span> (data.success) {
+    <span class="code-comment">// Step 2: Play or download the audio</span>
+    <span class="code-keyword">const</span> audio = <span class="code-keyword">new</span> <span style="color: #7EC8E3;">Audio</span>(data.audio_url);
+    audio.<span style="color: #7EC8E3;">play</span>();
 }</pre>
             </div>
         </div>
     </div>
 
     <!-- FAQ -->
-    <div style="margin-bottom: 30px;">
-        <h3 style="margin-bottom: 16px;">❓ Quick Questions</h3>
+    <div class="faq-section" style="margin-bottom: 36px;">
+        <h3 style="margin-bottom: 18px; font-size: 20px; color: #2D3436;">❓ Quick Questions</h3>
         
-        <details style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin-bottom: 12px;">
-            <summary style="cursor: pointer; font-weight: 600; color: #374151;">What do I get when I subscribe?</summary>
-            <p style="margin-top: 12px; color: #6b7280; font-size: 14px;">Instantly! You'll get access to your API keys, embeddable widget code, and a public widget URL you can share. Start integrating TTS into your app right away.</p>
+        <details>
+            <summary>What do I get when I subscribe?</summary>
+            <p>Instantly! You'll get access to your API keys, embeddable widget code, and a public widget URL you can share. Start integrating TTS into your app right away.</p>
         </details>
         
-        <details style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin-bottom: 12px;">
-            <summary style="cursor: pointer; font-weight: 600; color: #374151;">What happens if I hit my character limit?</summary>
-            <p style="margin-top: 12px; color: #6b7280; font-size: 14px;">API calls will return an error. You can upgrade to Pro for 5x more characters, or wait for your limit to reset next month.</p>
+        <details>
+            <summary>What happens if I hit my character limit?</summary>
+            <p>API calls will return an error. You can upgrade to Pro for 5x more characters, or wait for your limit to reset next month.</p>
         </details>
         
-        <details style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin-bottom: 12px;">
-            <summary style="cursor: pointer; font-weight: 600; color: #374151;">Can I cancel anytime?</summary>
-            <p style="margin-top: 12px; color: #6b7280; font-size: 14px;">Yes! Cancel anytime from your account settings. No questions asked.</p>
+        <details>
+            <summary>Can I cancel anytime?</summary>
+            <p>Yes! Cancel anytime from your account settings. No questions asked.</p>
         </details>
     </div>
 
     <!-- CTA for logged-in users without API -->
     {% if current_user.is_authenticated and (not current_user.api_tier or current_user.api_tier == 'none') %}
-    <div style="text-align: center; padding: 30px; background: linear-gradient(135deg, #eff6ff 0%, #f5f3ff 100%); border-radius: 16px; border: 1px solid #e5e7eb;">
-        <h3 style="margin-top: 0;">🚀 Ready to build?</h3>
-        <p style="color: #6b7280; margin-bottom: 20px;">Choose a plan above and get your API keys in seconds.</p>
+    <div class="cta-section">
+        <h3>🚀 Ready to build?</h3>
+        <p>Choose a plan above and get your API keys in seconds.</p>
     </div>
     {% endif %}
 </div>

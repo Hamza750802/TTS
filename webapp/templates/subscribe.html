@@ -3,124 +3,289 @@
 {% block head %}
 <script src="https://js.stripe.com/v3/"></script>
 <style>
+  .subscribe-hero {
+    text-align: center;
+    padding: 60px 20px 40px;
+    background: linear-gradient(135deg, rgba(255,123,114,0.08) 0%, rgba(126,200,227,0.08) 100%);
+    margin: -40px -20px 0;
+  }
+
+  .subscribe-hero h1 {
+    font-size: 42px;
+    font-weight: 900;
+    color: #2D3436;
+    margin: 0 0 16px;
+    background: linear-gradient(135deg, #2D3436 0%, #636E72 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .subscribe-hero p {
+    font-size: 18px;
+    color: #636E72;
+    max-width: 500px;
+    margin: 0 auto;
+  }
+
   .pricing-cards {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 24px;
-    max-width: 700px;
-    margin: 32px auto;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 28px;
+    max-width: 750px;
+    margin: 48px auto;
+    padding: 0 20px;
   }
+
   .pricing-card {
-    background: white;
-    border: 2px solid #e5e7eb;
-    border-radius: 16px;
-    padding: 28px;
+    background: linear-gradient(145deg, rgba(255,255,255,0.95), rgba(255,251,247,0.9));
+    border: 1px solid rgba(126,200,227,0.25);
+    border-radius: 24px;
+    padding: 32px;
     text-align: center;
-    transition: all 0.2s ease;
+    transition: all 0.4s ease;
+    position: relative;
+    overflow: hidden;
   }
+
+  .pricing-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #7EC8E3, #6BCB77);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
   .pricing-card:hover {
-    border-color: #8b5cf6;
-    transform: translateY(-4px);
-    box-shadow: 0 12px 24px rgba(0,0,0,0.1);
+    border-color: #7EC8E3;
+    transform: translateY(-6px);
+    box-shadow: 0 20px 50px rgba(126,200,227,0.2);
   }
+
+  .pricing-card:hover::before {
+    opacity: 1;
+  }
+
   .pricing-card.featured {
-    border-color: #10b981;
-    background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+    border: 2px solid #6BCB77;
+    background: linear-gradient(145deg, rgba(107,203,119,0.08), rgba(255,255,255,0.95));
+    box-shadow: 0 12px 40px rgba(107,203,119,0.15);
   }
+
+  .pricing-card.featured::before {
+    opacity: 1;
+    background: linear-gradient(90deg, #6BCB77, #4ade80);
+  }
+
   .pricing-card .badge {
     display: inline-block;
-    padding: 4px 12px;
-    border-radius: 20px;
+    padding: 6px 16px;
+    border-radius: 24px;
     font-size: 12px;
     font-weight: 700;
-    margin-bottom: 12px;
+    letter-spacing: 0.5px;
+    margin-bottom: 16px;
+    text-transform: uppercase;
   }
+
   .pricing-card .price {
-    font-size: 48px;
-    font-weight: 800;
-    color: #1f2937;
-    margin: 16px 0;
+    font-size: 52px;
+    font-weight: 900;
+    color: #2D3436;
+    margin: 20px 0;
+    line-height: 1;
   }
+
   .pricing-card .price small {
     font-size: 18px;
-    color: #6b7280;
+    color: #636E72;
     font-weight: 500;
   }
+
+  .pricing-card .subtitle {
+    color: #636E72;
+    margin-bottom: 20px;
+    font-size: 15px;
+  }
+
   .pricing-card ul {
     list-style: none;
     padding: 0;
-    margin: 20px 0;
+    margin: 24px 0;
     text-align: left;
   }
+
   .pricing-card ul li {
-    padding: 8px 0;
-    color: #374151;
+    padding: 10px 0;
+    color: #2D3436;
     font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-bottom: 1px solid rgba(126,200,227,0.15);
   }
-  .pricing-card ul li:before {
-    content: "✓ ";
-    color: #10b981;
+
+  .pricing-card ul li:last-child {
+    border-bottom: none;
+  }
+
+  .pricing-card ul li::before {
+    content: "✓";
+    color: #6BCB77;
     font-weight: bold;
+    font-size: 16px;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(107,203,119,0.15);
+    border-radius: 50%;
+    flex-shrink: 0;
   }
-  .api-note {
-    background: #fef3c7;
-    border: 1px solid #f59e0b;
-    border-radius: 8px;
-    padding: 12px 16px;
-    margin-top: 24px;
+
+  .pricing-card .subscribe-btn {
+    width: 100%;
+    padding: 16px 24px;
+    font-size: 16px;
+    font-weight: 700;
+    border-radius: 14px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+  }
+
+  .pricing-card .subscribe-btn.monthly {
+    background: white;
+    color: #2D3436;
+    border-color: rgba(126,200,227,0.5);
+  }
+
+  .pricing-card .subscribe-btn.monthly:hover {
+    background: linear-gradient(135deg, #7EC8E3, #6BCB77);
+    color: white;
+    border-color: transparent;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(126,200,227,0.3);
+  }
+
+  .pricing-card .subscribe-btn.lifetime {
+    background: linear-gradient(135deg, #6BCB77, #4ade80);
+    color: white;
+    box-shadow: 0 6px 20px rgba(107,203,119,0.3);
+  }
+
+  .pricing-card .subscribe-btn.lifetime:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 32px rgba(107,203,119,0.4);
+  }
+
+  .urgency-text {
+    color: #FF7B72 !important;
     font-size: 13px;
-    color: #92400e;
+    font-weight: 600;
+    margin-bottom: 20px;
+    padding: 8px 12px;
+    background: rgba(255,123,114,0.1);
+    border-radius: 8px;
+    display: inline-block;
+  }
+
+  .api-note {
+    background: linear-gradient(135deg, rgba(255,123,114,0.08), rgba(126,200,227,0.08));
+    border: 1px solid rgba(255,123,114,0.2);
+    border-radius: 16px;
+    padding: 20px 24px;
+    margin: 40px auto 32px;
+    max-width: 600px;
+    font-size: 14px;
+    color: #2D3436;
+    text-align: center;
+  }
+
+  .api-note strong {
+    color: #FF7B72;
+  }
+
+  .api-note a {
+    color: #FF7B72;
+    font-weight: 600;
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+
+  .api-note a:hover {
+    text-decoration: underline;
+  }
+
+  .back-link {
+    text-align: center;
+    margin: 32px 0;
+  }
+
+  .back-link .btn {
+    color: #636E72;
+    border-color: rgba(126,200,227,0.4);
+  }
+
+  .back-link .btn:hover {
+    border-color: #7EC8E3;
+    color: #2D3436;
   }
 </style>
 {% endblock %}
 {% block content %}
-  <div style="text-align:center; max-width: 800px; margin: 0 auto;">
-    <h2 style="margin-top:0; font-size: 32px;">Unlock Unlimited Text‑to‑Speech</h2>
-    <p class="muted" style="font-size: 16px;">Choose the plan that works best for you. Use the TTS tool on our website with no character limits.</p>
+  <div class="subscribe-hero">
+    <h1>Unlock Unlimited Text‑to‑Speech</h1>
+    <p>Choose the plan that works best for you. Use the TTS tool on our website with no character limits.</p>
+  </div>
     
-    <div class="pricing-cards">
-      <!-- Monthly Plan -->
-      <div class="pricing-card">
-        <div class="badge" style="background: #dbeafe; color: #1d4ed8;">MONTHLY</div>
-        <div class="price">$7.99<small>/mo</small></div>
-        <p style="color: #6b7280; margin-bottom: 16px;">Cancel anytime</p>
-        <ul>
-          <li>Unlimited TTS generation</li>
-          <li>550+ natural voices</li>
-          <li>153 languages</li>
-          <li>Multi-speaker dialogue</li>
-          <li>Emotion control</li>
-          <li>Commercial use</li>
-        </ul>
-        <button id="subscribeBtn" class="btn primary" style="width: 100%;">Subscribe Monthly</button>
-      </div>
-      
-      <!-- Lifetime Plan -->
-      <div class="pricing-card featured">
-        <div class="badge" style="background: #10b981; color: white;">⭐ BEST VALUE</div>
-        <div class="price">$99<small> one-time</small></div>
-        <p style="color: #047857; font-weight: 600; margin-bottom: 8px;">Lifetime Access</p>
-        <p style="color: #dc2626; font-size: 13px; font-weight: 600; margin-bottom: 16px;">🔥 Only 50 spots at this price! Then $149</p>
-        <ul>
-          <li>Everything in Monthly</li>
-          <li>Pay once, use forever</li>
-          <li>No recurring charges</li>
-          <li>All future updates included</li>
-          <li>Priority support</li>
-          <li>Early access to new features</li>
-        </ul>
-        <button id="lifetimeBtn" class="btn" style="width: 100%; background: linear-gradient(90deg, #10b981, #059669); color: white; border: none;">Get Lifetime Access</button>
-      </div>
+  <div class="pricing-cards">
+    <!-- Monthly Plan -->
+    <div class="pricing-card">
+      <div class="badge" style="background: linear-gradient(135deg, rgba(126,200,227,0.2), rgba(126,200,227,0.3)); color: #2D3436;">MONTHLY</div>
+      <div class="price">$7.99<small>/mo</small></div>
+      <p class="subtitle">Cancel anytime</p>
+      <ul>
+        <li>Unlimited TTS generation</li>
+        <li>550+ natural voices</li>
+        <li>153 languages</li>
+        <li>Multi-speaker dialogue</li>
+        <li>Emotion control</li>
+        <li>Commercial use</li>
+      </ul>
+      <button id="subscribeBtn" class="subscribe-btn monthly">Subscribe Monthly</button>
     </div>
     
-    <div class="api-note">
-      <strong>📌 Note:</strong> These plans are for using TTS on this website only. 
-      Need API access for your own app? <a href="{{ url_for('api_pricing') }}" style="color: #1d4ed8; font-weight: 600;">View API Plans →</a>
+    <!-- Lifetime Plan -->
+    <div class="pricing-card featured">
+      <div class="badge" style="background: #6BCB77; color: white;">⭐ BEST VALUE</div>
+      <div class="price">$99<small> one-time</small></div>
+      <p class="subtitle" style="color: #6BCB77; font-weight: 600;">Lifetime Access</p>
+      <p class="urgency-text">🔥 Only 50 spots at this price! Then $149</p>
+      <ul>
+        <li>Everything in Monthly</li>
+        <li>Pay once, use forever</li>
+        <li>No recurring charges</li>
+        <li>All future updates included</li>
+        <li>Priority support</li>
+        <li>Early access to new features</li>
+      </ul>
+      <button id="lifetimeBtn" class="subscribe-btn lifetime">Get Lifetime Access</button>
     </div>
-    
-    <p style="margin-top: 24px;">
-      <a class="btn" href="{{ url_for('index') }}">← Back to Dashboard</a>
-    </p>
+  </div>
+  
+  <div class="api-note">
+    <strong>📌 Note:</strong> These plans are for using TTS on this website only. 
+    Need API access for your own app? <a href="{{ url_for('api_pricing') }}">View API Plans →</a>
+  </div>
+  
+  <div class="back-link">
+    <a class="btn" href="{{ url_for('index') }}">← Back to Dashboard</a>
   </div>
 {% endblock %}
 {% block scripts %}

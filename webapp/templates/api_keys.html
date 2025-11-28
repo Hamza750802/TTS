@@ -1,16 +1,257 @@
 {% extends "base.html" %}
 
-{% block content %}
-<div class="container" style="max-width: 1000px; margin: 40px auto; padding: 0 20px;">
-    <h1 style="margin-bottom: 10px;">🔑 API Keys</h1>
-    <p style="color: #666; margin-bottom: 30px;">Manage your API keys for programmatic access to Cheap TTS</p>
+{% block head %}
+<style>
+  .api-keys-hero {
+    text-align: center;
+    padding: 40px 20px 30px;
+  }
 
-    <div style="background: linear-gradient(135deg, #2d2d3f 0%, #3a3a4f 100%); padding: 25px; border-radius: 12px; border: 1px solid rgba(167,139,250,.3); margin-bottom: 30px; box-shadow: 0 4px 6px rgba(0,0,0,.2);">
-        <h3 style="margin-bottom: 20px; color: #ffffff; font-size: 20px;">📚 API Documentation</h3>
-        <p style="margin-bottom: 12px; color: #ffffff;"><strong style="color: #a78bfa;">Endpoint:</strong> <code style="background: rgba(167,139,250,.25); padding: 6px 10px; border-radius: 6px; color: #e0e7ff; font-weight: 600; border: 1px solid rgba(167,139,250,.4);">POST /api/v1/synthesize</code></p>
-        <p style="margin-bottom: 15px; color: #ffffff;"><strong style="color: #a78bfa;">Header:</strong> <code style="background: rgba(167,139,250,.25); padding: 6px 10px; border-radius: 6px; color: #e0e7ff; font-weight: 600; border: 1px solid rgba(167,139,250,.4);">X-API-Key: your_api_key_here</code></p>
+  .api-keys-hero h1 {
+    font-size: 36px;
+    font-weight: 900;
+    color: #2D3436;
+    margin: 0 0 10px;
+  }
+
+  .api-keys-hero p {
+    color: #636E72;
+    font-size: 16px;
+    margin: 0;
+  }
+
+  .doc-card {
+    background: linear-gradient(145deg, rgba(45,52,54,0.97), rgba(99,110,114,0.95));
+    padding: 28px;
+    border-radius: 20px;
+    border: 1px solid rgba(126,200,227,0.3);
+    margin-bottom: 28px;
+    box-shadow: 0 10px 40px rgba(45,52,54,0.15);
+  }
+
+  .doc-card h3 {
+    color: white;
+    font-size: 20px;
+    margin: 0 0 20px;
+  }
+
+  .doc-label {
+    color: #7EC8E3;
+    font-weight: 600;
+  }
+
+  .doc-code {
+    background: rgba(126,200,227,0.2);
+    padding: 6px 12px;
+    border-radius: 8px;
+    color: #e0e7ff;
+    font-weight: 600;
+    border: 1px solid rgba(126,200,227,0.3);
+    font-family: monospace;
+    font-size: 14px;
+  }
+
+  .code-block {
+    background: #111827;
+    padding: 18px;
+    border-radius: 12px;
+    overflow-x: auto;
+    font-size: 13px;
+    color: #e5e7eb;
+    border: 1px solid rgba(126,200,227,0.4);
+    line-height: 1.6;
+    font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+  }
+
+  .tip-box {
+    font-size: 13px;
+    padding: 14px;
+    border-radius: 10px;
+    margin-top: 14px;
+  }
+
+  .tip-box.yellow {
+    background: rgba(251,191,36,0.1);
+    border: 1px solid rgba(251,191,36,0.3);
+    color: #fbbf24;
+  }
+
+  .tip-box.green {
+    background: rgba(107,203,119,0.1);
+    border: 1px solid rgba(107,203,119,0.3);
+    color: #6BCB77;
+  }
+
+  .voices-search {
+    width: 100%;
+    padding: 14px;
+    border: 2px solid rgba(126,200,227,0.3);
+    border-radius: 12px;
+    margin-bottom: 16px;
+    background: rgba(0,0,0,0.3);
+    color: #ffffff;
+    font-size: 14px;
+    transition: border-color 0.3s ease;
+  }
+
+  .voices-search:focus {
+    border-color: #FF7B72;
+    outline: none;
+  }
+
+  .voices-list {
+    background: #111827;
+    border-radius: 12px;
+    padding: 16px;
+    max-height: 400px;
+    overflow-y: auto;
+    border: 1px solid rgba(126,200,227,0.4);
+  }
+
+  .keys-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+  }
+
+  .keys-header h2 {
+    margin: 0;
+    color: #2D3436;
+    font-size: 24px;
+  }
+
+  .create-key-btn {
+    background: linear-gradient(135deg, #FF7B72, #FF9A8B);
+    color: white;
+    padding: 14px 28px;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    font-weight: 700;
+    font-size: 15px;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 16px rgba(255,123,114,0.25);
+  }
+
+  .create-key-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(255,123,114,0.35);
+  }
+
+  .keys-container {
+    background: linear-gradient(145deg, rgba(255,251,247,0.9), rgba(255,255,255,0.95));
+    border-radius: 16px;
+    border: 1px solid rgba(126,200,227,0.2);
+    overflow: hidden;
+  }
+
+  .key-item {
+    padding: 22px;
+    border-bottom: 1px solid rgba(126,200,227,0.15);
+    transition: background 0.3s ease;
+  }
+
+  .key-item:last-child {
+    border-bottom: none;
+  }
+
+  .key-item:hover {
+    background: rgba(126,200,227,0.05);
+  }
+
+  .key-name {
+    margin: 0 0 12px;
+    color: #2D3436;
+    font-size: 17px;
+  }
+
+  .key-value {
+    font-family: monospace;
+    background: white;
+    padding: 14px;
+    border-radius: 10px;
+    margin-bottom: 12px;
+    font-size: 14px;
+    word-break: break-all;
+    color: #2D3436;
+    border: 2px solid rgba(126,200,227,0.3);
+    font-weight: 600;
+  }
+
+  .key-meta {
+    font-size: 13px;
+    color: #636E72;
+  }
+
+  .key-actions {
+    display: flex;
+    gap: 10px;
+    margin-left: 20px;
+  }
+
+  .toggle-btn {
+    padding: 10px 18px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    border: 1px solid;
+  }
+
+  .toggle-btn.active {
+    background: rgba(107,203,119,0.15);
+    border-color: rgba(107,203,119,0.4);
+    color: #6BCB77;
+  }
+
+  .toggle-btn.inactive {
+    background: rgba(99,110,114,0.1);
+    border-color: rgba(99,110,114,0.3);
+    color: #636E72;
+  }
+
+  .delete-btn {
+    padding: 10px 18px;
+    border: 1px solid rgba(255,123,114,0.4);
+    color: #FF7B72;
+    background: rgba(255,123,114,0.1);
+    border-radius: 10px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.3s ease;
+  }
+
+  .delete-btn:hover {
+    background: rgba(255,123,114,0.2);
+  }
+
+  .empty-state {
+    padding: 50px;
+    text-align: center;
+  }
+
+  .empty-state p {
+    color: #636E72;
+    font-size: 18px;
+    margin: 0;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container" style="max-width: 1000px; margin: 0 auto; padding: 0 20px 40px;">
+    <div class="api-keys-hero">
+        <h1>🔑 API Keys</h1>
+        <p>Manage your API keys for programmatic access to Cheap TTS</p>
+    </div>
+
+    <div class="doc-card">
+        <h3>📚 API Documentation</h3>
+        <p style="margin-bottom: 12px; color: #ffffff;"><span class="doc-label">Endpoint:</span> <code class="doc-code">POST /api/v1/synthesize</code></p>
+        <p style="margin-bottom: 15px; color: #ffffff;"><span class="doc-label">Header:</span> <code class="doc-code">X-API-Key: your_api_key_here</code></p>
         <p style="margin-bottom: 12px; color: #ffffff; font-weight: 600; font-size: 15px;">Example Request (Plain Text):</p>
-        <pre style="background: #1a1a2e; padding: 18px; border-radius: 8px; overflow-x: auto; font-size: 14px; color: #ffffff; border: 1px solid rgba(167,139,250,.5); line-height: 1.6;">curl -X POST {{ request.url_root }}api/v1/synthesize \
+        <pre class="code-block">curl -X POST {{ request.url_root }}api/v1/synthesize \
   -H "Content-Type: application/json" \
   -H "X-API-Key: your_api_key_here" \
   -d '{
@@ -23,7 +264,7 @@
         
         <p style="margin: 20px 0 12px 0; color: #ffffff; font-weight: 600; font-size: 15px;">🎭 Emotion Control (SSML):</p>
         <p style="color: #d1d5db; margin-bottom: 10px; font-size: 14px;">For voices with 🎭 emoji, use SSML to add emotions like cheerful, sad, angry, excited, etc.</p>
-        <pre style="background: #1a1a2e; padding: 18px; border-radius: 8px; overflow-x: auto; font-size: 14px; color: #ffffff; border: 1px solid rgba(167,139,250,.5); line-height: 1.6;">curl -X POST {{ request.url_root }}api/v1/synthesize \
+        <pre class="code-block">curl -X POST {{ request.url_root }}api/v1/synthesize \
   -H "Content-Type: application/json" \
   -H "X-API-Key: your_api_key_here" \
   -d '{
@@ -31,13 +272,13 @@
     "voice": "en-US-JennyNeural",
     "is_ssml": true
   }'</pre>
-        <p style="color: #fbbf24; font-size: 13px; background: rgba(251,191,36,.1); padding: 12px; border-radius: 8px; border: 1px solid rgba(251,191,36,.3); margin-top: 12px;">
+        <div class="tip-box yellow">
             💡 <strong>Tip:</strong> Each voice supports different emotions. Common styles: cheerful, sad, angry, excited, friendly, terrified, shouting, whispering, hopeful. Check the voice list below for supported styles.
-        </p>
+        </div>
         
         <p style="margin: 20px 0 12px 0; color: #ffffff; font-weight: 600; font-size: 15px;">🎙️ Multi-Speaker Dialogue (NEW!):</p>
         <p style="color: #d1d5db; margin-bottom: 10px; font-size: 14px;">Create conversations with different voices and emotions. Perfect for podcasts, audiobooks, and training content.</p>
-        <pre style="background: #1a1a2e; padding: 18px; border-radius: 8px; overflow-x: auto; font-size: 14px; color: #ffffff; border: 1px solid rgba(167,139,250,.5); line-height: 1.6;">curl -X POST {{ request.url_root }}api/v1/synthesize \
+        <pre class="code-block">curl -X POST {{ request.url_root }}api/v1/synthesize \
   -H "Content-Type: application/json" \
   -H "X-API-Key: your_api_key_here" \
   -d '{
@@ -54,68 +295,64 @@
       }
     ]
   }'</pre>
-        <p style="color: #10b981; font-size: 13px; background: rgba(16,185,129,.1); padding: 12px; border-radius: 8px; border: 1px solid rgba(16,185,129,.3); margin-top: 12px;">
+        <div class="tip-box green">
             ⭐ <strong>Recommended Voices:</strong> Jenny (14 emotions) and Guy (11 emotions) are the most versatile for multi-speaker dialogue!
-        </p>
+        </div>
         
         <p style="margin: 20px 0 12px 0; color: #ffffff; font-weight: 600; font-size: 15px;">List Voices:</p>
-        <p style="margin-bottom: 12px; color: #ffffff;"><code style="background: rgba(167,139,250,.25); padding: 6px 10px; border-radius: 6px; color: #e0e7ff; font-weight: 600; border: 1px solid rgba(167,139,250,.4);">GET /api/voices</code></p>
-        <pre style="background: #1a1a2e; padding: 18px; border-radius: 8px; overflow-x: auto; font-size: 14px; color: #ffffff; border: 1px solid rgba(167,139,250,.5);">curl {{ request.url_root }}api/voices</pre>
+        <p style="margin-bottom: 12px; color: #ffffff;"><code class="doc-code">GET /api/voices</code></p>
+        <pre class="code-block">curl {{ request.url_root }}api/voices</pre>
     </div>
 
-    <div style="background: linear-gradient(135deg, #2d2d3f 0%, #3a3a4f 100%); padding: 25px; border-radius: 12px; border: 1px solid rgba(167,139,250,.3); margin-bottom: 30px; box-shadow: 0 4px 6px rgba(0,0,0,.2);">
-        <h3 style="margin-bottom: 20px; color: #ffffff; font-size: 20px;">🎨 Embeddable Widget (For Non-Technical Users)</h3>
+    <div class="doc-card">
+        <h3>🎨 Embeddable Widget (For Non-Technical Users)</h3>
         <p style="color: #ffffff; margin-bottom: 15px;">Want to add TTS to your website without coding? Use our ready-made widget! Your users will get a dropdown with all 594 voices.</p>
         
-        <p style="margin-bottom: 12px; color: #ffffff;"><strong style="color: #a78bfa;">Option 1: iFrame Embed</strong></p>
+        <p style="margin-bottom: 12px; color: #ffffff;"><span class="doc-label">Option 1: iFrame Embed</span></p>
         <p style="color: #d1d5db; margin-bottom: 10px; font-size: 14px;">Copy this code into your website:</p>
-        <pre style="background: #1a1a2e; padding: 15px; border-radius: 8px; overflow-x: auto; font-size: 13px; color: #ffffff; border: 1px solid rgba(167,139,250,.5); margin-bottom: 20px;"><code>&lt;iframe src="{{ request.url_root }}embed?key=YOUR_API_KEY" 
+        <pre class="code-block" style="margin-bottom: 20px;"><code>&lt;iframe src="{{ request.url_root }}embed?key=YOUR_API_KEY" 
         width="650" 
         height="600" 
         frameborder="0"
         style="border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);"&gt;
 &lt;/iframe&gt;</code></pre>
 
-        <p style="margin-bottom: 12px; color: #ffffff;"><strong style="color: #a78bfa;">Option 2: Direct Link</strong></p>
+        <p style="margin-bottom: 12px; color: #ffffff;"><span class="doc-label">Option 2: Direct Link</span></p>
         <p style="color: #d1d5db; margin-bottom: 10px; font-size: 14px;">Share this link with your users:</p>
-        <pre style="background: #1a1a2e; padding: 15px; border-radius: 8px; overflow-x: auto; font-size: 13px; color: #ffffff; border: 1px solid rgba(167,139,250,.5); margin-bottom: 15px;"><code>{{ request.url_root }}embed?key=YOUR_API_KEY</code></pre>
+        <pre class="code-block" style="margin-bottom: 15px;"><code>{{ request.url_root }}embed?key=YOUR_API_KEY</code></pre>
         
-        <p style="color: #fbbf24; font-size: 13px; background: rgba(251,191,36,.1); padding: 12px; border-radius: 8px; border: 1px solid rgba(251,191,36,.3);">
+        <div class="tip-box yellow">
             ⚠️ <strong>Important:</strong> Replace <code style="background: rgba(0,0,0,.3); padding: 2px 6px; border-radius: 4px;">YOUR_API_KEY</code> with your actual API key below. The widget includes a voice dropdown so users can easily switch between all 594 voices!
-        </p>
-    </div>
-
-    <div style="background: linear-gradient(135deg, #2d2d3f 0%, #3a3a4f 100%); padding: 25px; border-radius: 12px; border: 1px solid rgba(167,139,250,.3); margin-bottom: 30px; box-shadow: 0 4px 6px rgba(0,0,0,.2);">
-        <h3 style="margin-bottom: 20px; color: #ffffff; font-size: 20px;">🗣️ Available Voices</h3>
-        <p style="color: #ffffff; margin-bottom: 15px;">Browse all 594+ voices available for synthesis. Use the voice's <code style="background: rgba(167,139,250,.25); padding: 4px 8px; border-radius: 6px; color: #e0e7ff;">ShortName</code> in your API requests.</p>
-        
-        <input type="text" id="voiceSearch" placeholder="Search voices by name, language, or gender..." 
-               style="width: 100%; padding: 12px; border: 2px solid rgba(167,139,250,.4); border-radius: 8px; margin-bottom: 15px; background: rgba(0,0,0,.3); color: #ffffff; font-size: 14px;"
-               onkeyup="filterVoices()">
-        
-        <div id="voicesList" style="background: #1a1a2e; border-radius: 8px; padding: 15px; max-height: 400px; overflow-y: auto; border: 1px solid rgba(167,139,250,.5);">
-            <p style="color: #a78bfa; text-align: center;">Loading voices...</p>
         </div>
     </div>
 
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-        <h2 style="margin: 0;">Your API Keys</h2>
-        <button onclick="createNewKey()" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 12px 24px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
-            + Create New Key
-        </button>
+    <div class="doc-card">
+        <h3>🗣️ Available Voices</h3>
+        <p style="color: #ffffff; margin-bottom: 15px;">Browse all 594+ voices available for synthesis. Use the voice's <code class="doc-code">ShortName</code> in your API requests.</p>
+        
+        <input type="text" id="voiceSearch" placeholder="Search voices by name, language, or gender..." 
+               class="voices-search"
+               onkeyup="filterVoices()">
+        
+        <div id="voicesList" class="voices-list">
+            <p style="color: #7EC8E3; text-align: center;">Loading voices...</p>
+        </div>
+    </div>
+
+    <div class="keys-header">
+        <h2>Your API Keys</h2>
+        <button onclick="createNewKey()" class="create-key-btn">+ Create New Key</button>
     </div>
 
     {% if keys %}
-    <div style="background: rgba(0,0,0,.4); border-radius: 12px; border: 1px solid rgba(255,255,255,.12);">
+    <div class="keys-container">
         {% for key in keys %}
-        <div style="padding: 20px; border-bottom: 1px solid rgba(255,255,255,.1);" id="key-{{ key.id }}">
+        <div class="key-item" id="key-{{ key.id }}">
             <div style="display: flex; justify-content: space-between; align-items: start;">
                 <div style="flex: 1;">
-                    <h3 style="margin: 0 0 10px 0; color: #e5e7eb;">{{ key.name }}</h3>
-                    <div style="font-family: monospace; background: rgba(255,255,255,.95); padding: 12px; border-radius: 8px; margin-bottom: 10px; font-size: 14px; word-break: break-all; color: #1a1a1a; border: 2px solid rgba(167,139,250,.4); font-weight: 600;">
-                        {{ key.key }}
-                    </div>
-                    <div style="font-size: 14px; color: #f3f4f6;">
+                    <h3 class="key-name">{{ key.name }}</h3>
+                    <div class="key-value">{{ key.key }}</div>
+                    <div class="key-meta">
                         <span>Created: {{ key.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
                         {% if key.last_used_at %}
                         <span style="margin-left: 20px;">Last used: {{ key.last_used_at.strftime('%Y-%m-%d %H:%M') }}</span>
@@ -124,27 +361,23 @@
                         {% endif %}
                     </div>
                 </div>
-                <div style="display: flex; gap: 10px; margin-left: 20px;">
+                <div class="key-actions">
                     <button onclick="toggleKey({{ key.id }})" 
-                            style="padding: 8px 16px; border: 1px solid rgba(255,255,255,.2); background: {% if key.is_active %}rgba(16,185,129,.2){% else %}rgba(0,0,0,.3){% endif %}; color: {% if key.is_active %}#10b981{% else %}#9ca3af{% endif %}; border-radius: 8px; cursor: pointer; font-weight: 600;"
+                            class="toggle-btn {% if key.is_active %}active{% else %}inactive{% endif %}"
                             id="toggle-{{ key.id }}">
-                        {% if key.is_active %}
-                        ✓ Active
-                        {% else %}
-                        ✗ Disabled
-                        {% endif %}
+                        {% if key.is_active %}✓ Active{% else %}✗ Disabled{% endif %}
                     </button>
-                    <button onclick="deleteKey({{ key.id }})" style="padding: 8px 16px; border: 1px solid rgba(239,68,68,.5); color: #ef4444; background: rgba(239,68,68,.1); border-radius: 8px; cursor: pointer; font-weight: 600;">
-                        Delete
-                    </button>
+                    <button onclick="deleteKey({{ key.id }})" class="delete-btn">Delete</button>
                 </div>
             </div>
         </div>
         {% endfor %}
     </div>
     {% else %}
-    <div style="background: rgba(0,0,0,.4); border-radius: 12px; border: 1px solid rgba(255,255,255,.12); padding: 40px; text-align: center;">
-        <p style="color: #f3f4f6; font-size: 18px;">No API keys yet. Create one to get started!</p>
+    <div class="keys-container">
+        <div class="empty-state">
+            <p>No API keys yet. Create one to get started!</p>
+        </div>
     </div>
     {% endif %}
 </div>
@@ -173,7 +406,7 @@ function displayVoices(voices) {
     const voicesList = document.getElementById('voicesList');
     
     if (voices.length === 0) {
-        voicesList.innerHTML = '<p style="color: #9ca3af; text-align: center;">No voices found</p>';
+        voicesList.innerHTML = '<p style="color: #636E72; text-align: center;">No voices found</p>';
         return;
     }
     
@@ -188,21 +421,21 @@ function displayVoices(voices) {
     let html = '';
     Object.keys(grouped).sort().forEach(lang => {
         html += `<div style="margin-bottom: 20px;">
-            <h4 style="color: #a78bfa; margin-bottom: 10px; font-size: 16px; border-bottom: 1px solid rgba(167,139,250,.3); padding-bottom: 8px;">${lang} (${grouped[lang].length} voices)</h4>
+            <h4 style="color: #7EC8E3; margin-bottom: 10px; font-size: 16px; border-bottom: 1px solid rgba(126,200,227,.3); padding-bottom: 8px;">${lang} (${grouped[lang].length} voices)</h4>
             <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px;">`;
         
         grouped[lang].forEach(voice => {
-            const genderColor = voice.gender === 'Female' ? '#ec4899' : '#3b82f6';
+            const genderColor = voice.gender === 'Female' ? '#FF7B72' : '#7EC8E3';
             const hasStyles = voice.has_styles;
             const stylesText = hasStyles && voice.styles ? voice.styles.join(', ') : '';
             html += `
-                <div style="background: rgba(0,0,0,.3); padding: 12px; border-radius: 8px; border: 1px solid rgba(167,139,250,.2);">
+                <div style="background: rgba(0,0,0,.3); padding: 12px; border-radius: 10px; border: 1px solid rgba(126,200,227,.2);">
                     <div style="font-weight: 600; color: #ffffff; margin-bottom: 4px;">${hasStyles ? '🎭 ' : ''}${voice.localName}</div>
-                    <div style="font-size: 12px; color: #c4b5fd; font-family: monospace; margin-bottom: 4px;">${voice.shortName}</div>
+                    <div style="font-size: 12px; color: #7EC8E3; font-family: monospace; margin-bottom: 4px;">${voice.shortName}</div>
                     <div style="display: flex; gap: 8px; font-size: 11px; flex-wrap: wrap;">
-                        <span style="background: rgba(167,139,250,.2); color: #c4b5fd; padding: 2px 6px; border-radius: 4px;">${voice.locale}</span>
+                        <span style="background: rgba(126,200,227,.2); color: #7EC8E3; padding: 2px 6px; border-radius: 4px;">${voice.locale}</span>
                         <span style="background: ${genderColor}22; color: ${genderColor}; padding: 2px 6px; border-radius: 4px;">${voice.gender}</span>
-                        ${hasStyles ? `<span style="background: rgba(251,191,36,.2); color: #fbbf24; padding: 2px 6px; border-radius: 4px;" title="${stylesText}">🎭 ${voice.styles.length} styles</span>` : ''}
+                        ${hasStyles ? `<span style="background: rgba(107,203,119,.2); color: #6BCB77; padding: 2px 6px; border-radius: 4px;" title="${stylesText}">🎭 ${voice.styles.length} styles</span>` : ''}
                     </div>
                 </div>`;
         });
@@ -258,26 +491,26 @@ async function createNewKey() {
 function showKeyModal(apiKey) {
     // Create modal overlay
     const modal = document.createElement('div');
-    modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 9999;';
+    modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(45,52,54,0.9); display: flex; align-items: center; justify-content: center; z-index: 9999; backdrop-filter: blur(8px);';
     
     // Create modal content
     modal.innerHTML = `
-        <div style="background: linear-gradient(135deg, #1e1e2e 0%, #2a2a3e 100%); padding: 30px; border-radius: 16px; max-width: 600px; width: 90%; border: 1px solid rgba(124,58,237,.3); box-shadow: 0 20px 60px rgba(0,0,0,.5);">
-            <h2 style="margin: 0 0 15px 0; color: #10b981; font-size: 24px;">✅ API Key Created!</h2>
-            <p style="color: #f3f4f6; margin-bottom: 20px; font-size: 14px;">Copy this key now - you won't be able to see it again!</p>
+        <div style="background: linear-gradient(145deg, rgba(255,251,247,0.98), rgba(255,255,255,0.98)); padding: 36px; border-radius: 24px; max-width: 600px; width: 90%; border: 1px solid rgba(126,200,227,0.3); box-shadow: 0 30px 80px rgba(45,52,54,0.3);">
+            <h2 style="margin: 0 0 15px 0; color: #6BCB77; font-size: 26px;">✅ API Key Created!</h2>
+            <p style="color: #636E72; margin-bottom: 24px; font-size: 15px;">Copy this key now - you won't be able to see it again!</p>
             
-            <div style="background: rgba(0,0,0,.4); padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 2px solid rgba(124,58,237,.4);">
-                <label style="display: block; color: #c4b5fd; font-size: 12px; margin-bottom: 8px; font-weight: 600;">Your API Key:</label>
+            <div style="background: linear-gradient(135deg, #FFFBF7, #fff); padding: 20px; border-radius: 14px; margin-bottom: 24px; border: 2px solid rgba(126,200,227,0.3);">
+                <label style="display: block; color: #7EC8E3; font-size: 13px; margin-bottom: 10px; font-weight: 600;">Your API Key:</label>
                 <input type="text" id="apiKeyInput" value="${apiKey}" readonly 
-                       style="width: 100%; background: rgba(124,58,237,.15); border: 1px solid rgba(124,58,237,.3); color: #e0e7ff; padding: 12px; border-radius: 8px; font-family: monospace; font-size: 14px; margin-bottom: 10px;">
+                       style="width: 100%; background: white; border: 1px solid rgba(126,200,227,0.3); color: #2D3436; padding: 14px; border-radius: 10px; font-family: monospace; font-size: 14px; margin-bottom: 14px;">
                 <button onclick="copyApiKey()" 
-                        style="width: 100%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 14px;">
+                        style="width: 100%; background: linear-gradient(135deg, #FF7B72, #FF9A8B); color: white; padding: 14px; border: none; border-radius: 10px; cursor: pointer; font-weight: 700; font-size: 15px; transition: all 0.3s ease;">
                     📋 Copy to Clipboard
                 </button>
             </div>
             
             <button onclick="closeModal()" 
-                    style="width: 100%; background: rgba(255,255,255,.1); color: #f3f4f6; padding: 12px; border: 1px solid rgba(255,255,255,.2); border-radius: 8px; cursor: pointer; font-weight: 600;">
+                    style="width: 100%; background: transparent; color: #636E72; padding: 14px; border: 1px solid rgba(126,200,227,0.3); border-radius: 10px; cursor: pointer; font-weight: 600; transition: all 0.3s ease;">
                 Close
             </button>
         </div>
@@ -296,11 +529,11 @@ function copyApiKey() {
     
     // Show feedback
     event.target.textContent = '✓ Copied!';
-    event.target.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
+    event.target.style.background = 'linear-gradient(135deg, #6BCB77, #4ade80)';
     
     setTimeout(() => {
         event.target.textContent = '📋 Copy to Clipboard';
-        event.target.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+        event.target.style.background = 'linear-gradient(135deg, #FF7B72, #FF9A8B)';
     }, 2000);
 }
 

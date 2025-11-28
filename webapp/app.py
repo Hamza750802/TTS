@@ -103,8 +103,8 @@ ADMIN_API_KEY = os.environ.get('ADMIN_API_KEY', '')  # Set this in .env
 
 # Stripe Price IDs
 STRIPE_LIFETIME_PRICE_ID = 'price_1SYORtLz6FHVmZlME0DueU5x'  # $99 lifetime web access
-STRIPE_API_STARTER_PRICE_ID = 'price_1SYOzjLz6FHVmZlMyFmi6ihW'  # $9/mo API Starter
-STRIPE_API_PRO_PRICE_ID = 'price_1SYP06Lz6FHVmZlM2FPE35Rm'  # $29/mo API Pro
+STRIPE_API_STARTER_PRICE_ID = 'price_1SYOzjLz6FHVmZlMyFmi6ihW'  # $5/mo API Starter (100k chars)
+STRIPE_API_PRO_PRICE_ID = 'price_1SYP06Lz6FHVmZlM2FPE35Rm'  # $19/mo API Pro (500k chars)
 
 # Password reset + email settings
 try:
