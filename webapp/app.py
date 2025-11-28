@@ -374,6 +374,97 @@ def send_password_reset_email(to_email: str, reset_link: str) -> None:
     print(f"[PASSWORD RESET] Reset link for {to_email}: {reset_link}")
 
 
+def send_welcome_email(to_email: str) -> None:
+    """Send a welcome email when a user signs up."""
+    message = EmailMessage()
+    message['Subject'] = "Welcome to Cheap TTS! 🎉"
+    message['From'] = PASSWORD_RESET_SENDER
+    message['To'] = to_email
+    message.set_content(
+        "Welcome to Cheap TTS!\n\n"
+        "Thanks for creating an account. You're now ready to convert text to natural-sounding speech.\n\n"
+        "Here's what you can do:\n"
+        "• Generate unlimited voice-overs with 500+ premium voices\n"
+        "• Use emotion control for more expressive audio\n"
+        "• Create multi-speaker dialogues for podcasts\n"
+        "• Access 153 languages and accents\n\n"
+        "Get started: https://cheaptts.com\n\n"
+        "Questions? Just reply to this email.\n\n"
+        "Happy creating!\n"
+        "The Cheap TTS Team"
+    )
+
+    if SMTP_HOST:
+        try:
+            import smtplib
+            with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=10) as server:
+                if SMTP_USE_TLS:
+                    server.starttls()
+                if SMTP_USERNAME and SMTP_PASSWORD:
+                    server.login(SMTP_USERNAME, SMTP_PASSWORD)
+                server.send_message(message)
+            print(f"[WELCOME EMAIL] Sent welcome email to {to_email}")
+            return
+        except Exception as exc:
+            print(f"[WELCOME EMAIL] Failed to send email via SMTP: {exc}")
+
+    # Local/dev fallback
+    print(f"[WELCOME EMAIL] Would send welcome email to {to_email}")
+
+
+def send_subscription_email(to_email: str, plan_type: str) -> None:
+    """Send a confirmation email when a user subscribes."""
+    if plan_type == 'lifetime':
+        subject = "🎉 Lifetime Access Activated - Cheap TTS"
+        plan_name = "Lifetime"
+        plan_details = "You now have unlimited access to Cheap TTS forever. No monthly payments, no limits."
+    elif plan_type.startswith('api_'):
+        tier = plan_type.replace('api_', '').title()
+        subject = f"🚀 API {tier} Plan Activated - Cheap TTS"
+        plan_name = f"API {tier}"
+        char_limit = "100,000" if "starter" in plan_type else "500,000"
+        plan_details = f"Your API {tier} plan is now active with {char_limit} characters per month.\n\nGet your API keys: https://cheaptts.com/api-keys"
+    else:
+        subject = "✨ Subscription Activated - Cheap TTS"
+        plan_name = "Monthly"
+        plan_details = "You now have unlimited access to Cheap TTS. Generate as much audio as you need!"
+    
+    message = EmailMessage()
+    message['Subject'] = subject
+    message['From'] = PASSWORD_RESET_SENDER
+    message['To'] = to_email
+    message.set_content(
+        f"Your {plan_name} plan is now active!\n\n"
+        f"{plan_details}\n\n"
+        "What's included:\n"
+        "• 500+ natural-sounding voices\n"
+        "• Emotion control for expressive audio\n"
+        "• Multi-speaker dialogue support\n"
+        "• 153 languages and accents\n\n"
+        "Start creating: https://cheaptts.com\n\n"
+        "Need help? Just reply to this email.\n\n"
+        "Thanks for subscribing!\n"
+        "The Cheap TTS Team"
+    )
+
+    if SMTP_HOST:
+        try:
+            import smtplib
+            with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=10) as server:
+                if SMTP_USE_TLS:
+                    server.starttls()
+                if SMTP_USERNAME and SMTP_PASSWORD:
+                    server.login(SMTP_USERNAME, SMTP_PASSWORD)
+                server.send_message(message)
+            print(f"[SUBSCRIPTION EMAIL] Sent {plan_type} confirmation to {to_email}")
+            return
+        except Exception as exc:
+            print(f"[SUBSCRIPTION EMAIL] Failed to send email via SMTP: {exc}")
+
+    # Local/dev fallback
+    print(f"[SUBSCRIPTION EMAIL] Would send {plan_type} confirmation to {to_email}")
+
+
 # Initialize database tables (creates tables on app startup, works with Gunicorn)
 with app.app_context():
     db.create_all()
@@ -767,6 +858,10 @@ def signup():
         db.session.add(user)
         db.session.commit()
         login_user(user)
+        
+        # Send welcome email
+        send_welcome_email(email)
+        
         flash('Welcome! Your account has been created.', 'success')
         
         # Handle redirects based on signup source
@@ -1064,6 +1159,7 @@ def subscription_success():
                 current_user.is_lifetime = True
                 current_user.subscription_status = 'lifetime'
                 db.session.commit()
+                send_subscription_email(current_user.email, plan_type)
                 flash('Lifetime access activated. Enjoy forever!', 'success')
                 return redirect(url_for('index'))
             elif plan_type.startswith('api_'):
@@ -1073,12 +1169,14 @@ def subscription_success():
                 current_user.api_chars_used = 0  # Reset usage
                 current_user.api_usage_reset_at = datetime.utcnow() + timedelta(days=30)
                 db.session.commit()
+                send_subscription_email(current_user.email, plan_type)
                 flash(f'API {tier.title()} plan activated! Create your first API key below.', 'success')
                 return redirect(url_for('api_keys_page'))  # Redirect to API keys page
             else:
                 # Regular monthly subscription
                 current_user.subscription_status = 'active'
                 db.session.commit()
+                send_subscription_email(current_user.email, plan_type)
                 flash('Subscription activated. Enjoy!', 'success')
                 return redirect(url_for('index'))
         except Exception as e:

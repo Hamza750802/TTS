@@ -1,22 +1,147 @@
 {% extends 'base.html' %}
-{% block title %}Sign In �?" Cheap TTS{% endblock %}
+{% block title %}Sign In - Cheap TTS{% endblock %}
 {% block content %}
-  <h2 style="margin-top:0">Welcome back</h2>
-  <p class="muted">Sign in to access your subscription and generate audio.</p>
-  <form method="post" class="grid" style="margin-top:12px;max-width:520px">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-    <div>
-      <label for="email">Email</label>
-      <input id="email" name="email" type="email" placeholder="you@example.com" required />
+<style>
+.auth-container {
+  min-height: 80vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+}
+.auth-card {
+  background: white;
+  border-radius: 20px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.08);
+  padding: 48px;
+  max-width: 480px;
+  width: 100%;
+  border: 1px solid #f0f0f0;
+}
+.auth-header {
+  text-align: center;
+  margin-bottom: 32px;
+}
+.auth-header h1 {
+  font-size: 32px;
+  font-weight: 700;
+  color: #1f2937;
+  margin: 0 0 12px 0;
+}
+.auth-header .subtitle {
+  font-size: 15px;
+  color: #6b7280;
+  line-height: 1.6;
+}
+.auth-form {
+  margin-top: 32px;
+}
+.form-group {
+  margin-bottom: 24px;
+}
+.form-group label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 600;
+  font-size: 14px;
+  color: #374151;
+  margin-bottom: 8px;
+}
+.forgot-link {
+  font-size: 13px;
+  color: #667eea;
+  font-weight: 600;
+  text-decoration: none;
+}
+.forgot-link:hover {
+  text-decoration: underline;
+}
+.form-group input {
+  width: 100%;
+  padding: 14px 16px;
+  border: 2px solid #e5e7eb;
+  border-radius: 12px;
+  font-size: 15px;
+  transition: all 0.2s;
+  box-sizing: border-box;
+}
+.form-group input:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+.auth-btn {
+  width: 100%;
+  padding: 16px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-top: 8px;
+}
+.auth-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+}
+.auth-footer {
+  text-align: center;
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid #f0f0f0;
+  color: #6b7280;
+  font-size: 14px;
+}
+.auth-footer a {
+  color: #667eea;
+  font-weight: 600;
+  text-decoration: none;
+}
+.auth-footer a:hover {
+  text-decoration: underline;
+}
+.welcome-emoji {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+</style>
+
+<div class="auth-container">
+  <div class="auth-card">
+    <div class="auth-header">
+      <div class="welcome-emoji">&#128075;</div>
+      <h1>Welcome back</h1>
+      <p class="subtitle">
+        Sign in to access your subscription and start creating amazing voice content
+      </p>
     </div>
-    <div>
-      <label for="password" style="display:flex;align-items:center;justify-content:space-between">
-        <span>Password</span>
-        <a href="{{ url_for('forgot_password') }}" class="muted" style="font-size:13px">Forgot?</a>
-      </label>
-      <input id="password" name="password" type="password" placeholder="�?��?��?��?��?��?��?��?�" required />
+
+    <form method="post" class="auth-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+      
+      <div class="form-group">
+        <label for="email">Email address</label>
+        <input id="email" name="email" type="email" placeholder="you@example.com" required autofocus />
+      </div>
+      
+      <div class="form-group">
+        <label for="password">
+          <span>Password</span>
+          <a href="{{ url_for('forgot_password') }}" class="forgot-link">Forgot password?</a>
+        </label>
+        <input id="password" name="password" type="password" placeholder="Enter your password" required />
+      </div>
+      
+      <button class="auth-btn" type="submit">Sign in &#8594;</button>
+    </form>
+
+    <div class="auth-footer">
+      Don't have an account? <a href="{{ url_for('signup') }}">Create one now</a>
     </div>
-    <button class="btn primary" type="submit">Sign in</button>
-  </form>
-  <p class="muted" style="margin-top:12px">New here? <a href="{{ url_for('signup') }}">Create an account</a></p>
+  </div>
+</div>
 {% endblock %}

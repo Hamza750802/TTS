@@ -1,29 +1,193 @@
 {% extends 'base.html' %}
 {% block title %}Sign Up — Cheap TTS{% endblock %}
 {% block content %}
-  <h2 style="margin-top:0">Create your account</h2>
-  {% if api_plan %}
-  <p class="muted">Create your account to get API {{ api_plan|capitalize }} access!</p>
-  {% elif plan == 'lifetime' %}
-  <p class="muted">Create your account to get lifetime access for just $99!</p>
-  {% else %}
-  <p class="muted">Get started in seconds. Choose from $7.99/month or $99 lifetime.</p>
-  {% endif %}
-  <form method="post" class="grid" style="margin-top:12px;max-width:520px">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-    <input type="hidden" name="plan" value="{{ plan }}"/>
-    <input type="hidden" name="next" value="{{ next }}"/>
-    <input type="hidden" name="api_plan" value="{{ api_plan }}"/>
-    <div>
-      <label for="email">Email</label>
-      <input id="email" name="email" type="email" placeholder="you@example.com" required />
+<style>
+.auth-container {
+  min-height: 80vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+}
+.auth-card {
+  background: white;
+  border-radius: 20px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.08);
+  padding: 48px;
+  max-width: 480px;
+  width: 100%;
+  border: 1px solid #f0f0f0;
+}
+.auth-header {
+  text-align: center;
+  margin-bottom: 32px;
+}
+.auth-header h1 {
+  font-size: 32px;
+  font-weight: 700;
+  color: #1f2937;
+  margin: 0 0 12px 0;
+}
+.auth-header .subtitle {
+  font-size: 15px;
+  color: #6b7280;
+  line-height: 1.6;
+}
+.auth-badge {
+  display: inline-block;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+.auth-form {
+  margin-top: 32px;
+}
+.form-group {
+  margin-bottom: 24px;
+}
+.form-group label {
+  display: block;
+  font-weight: 600;
+  font-size: 14px;
+  color: #374151;
+  margin-bottom: 8px;
+}
+.form-group input {
+  width: 100%;
+  padding: 14px 16px;
+  border: 2px solid #e5e7eb;
+  border-radius: 12px;
+  font-size: 15px;
+  transition: all 0.2s;
+  box-sizing: border-box;
+}
+.form-group input:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+.auth-btn {
+  width: 100%;
+  padding: 16px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-top: 8px;
+}
+.auth-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+}
+.auth-footer {
+  text-align: center;
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid #f0f0f0;
+  color: #6b7280;
+  font-size: 14px;
+}
+.auth-footer a {
+  color: #667eea;
+  font-weight: 600;
+  text-decoration: none;
+}
+.auth-footer a:hover {
+  text-decoration: underline;
+}
+.feature-list {
+  background: #f9fafb;
+  border-radius: 12px;
+  padding: 20px;
+  margin-top: 24px;
+}
+.feature-list h4 {
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+  margin: 0 0 12px 0;
+}
+.feature-list ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.feature-list li {
+  padding: 8px 0;
+  color: #6b7280;
+  font-size: 13px;
+}
+.feature-list li::before {
+  content: "✓";
+  color: #10b981;
+  font-weight: bold;
+  margin-right: 8px;
+}
+</style>
+
+<div class="auth-container">
+  <div class="auth-card">
+    <div class="auth-header">
+      {% if api_plan %}
+      <div class="auth-badge">🚀 API {{ api_plan|capitalize }} Plan</div>
+      {% elif plan == 'lifetime' %}
+      <div class="auth-badge">⚡ Lifetime Access</div>
+      {% endif %}
+      <h1>Create your account</h1>
+      <p class="subtitle">
+        {% if api_plan %}
+        Get instant API access to integrate TTS into your applications
+        {% elif plan == 'lifetime' %}
+        Join the lifetime members and unlock unlimited TTS forever
+        {% else %}
+        Start generating professional voice-overs in seconds
+        {% endif %}
+      </p>
     </div>
-    <div>
-      <label for="password">Password</label>
-      <input id="password" name="password" type="password" placeholder="••••••••" required />
+
+    <form method="post" class="auth-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+      <input type="hidden" name="plan" value="{{ plan }}"/>
+      <input type="hidden" name="next" value="{{ next }}"/>
+      <input type="hidden" name="api_plan" value="{{ api_plan }}"/>
+      
+      <div class="form-group">
+        <label for="email">Email address</label>
+        <input id="email" name="email" type="email" placeholder="you@example.com" required autofocus />
+      </div>
+      
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input id="password" name="password" type="password" placeholder="Minimum 8 characters" required minlength="8" />
+      </div>
+      
+      <button class="auth-btn" type="submit">Create account →</button>
+    </form>
+
+    {% if api_plan %}
+    <div class="feature-list">
+      <h4>What's included:</h4>
+      <ul>
+        <li>{{ '100,000' if api_plan == 'starter' else '500,000' }} characters per month</li>
+        <li>Access to 500+ premium voices</li>
+        <li>Full API documentation</li>
+        <li>Embeddable widget code</li>
+      </ul>
     </div>
-    <button class="btn primary" type="submit">Create account</button>
-  </form>
-  <p class="muted" style="margin-top:12px">Already have an account? <a href="{{ url_for('login') }}">Sign in</a></p>
+    {% endif %}
+
+    <div class="auth-footer">
+      Already have an account? <a href="{{ url_for('login') }}">Sign in</a>
+    </div>
+  </div>
+</div>
 {% endblock %}
 
