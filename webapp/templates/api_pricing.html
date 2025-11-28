@@ -2,162 +2,166 @@
 {% block title %}API Pricing — Cheap TTS{% endblock %}
 
 {% block content %}
-<div style="max-width: 900px; margin: 0 auto;">
+<div style="max-width: 800px; margin: 0 auto;">
     <div style="text-align: center; margin-bottom: 40px;">
         <h1 style="font-size: 36px; margin-bottom: 12px;">🔌 API Access</h1>
         <p style="color: #6b7280; font-size: 18px; max-width: 600px; margin: 0 auto;">
-            Integrate text-to-speech into your applications with our powerful API.
-            <br>Pay only for what you use.
+            Integrate text-to-speech into your applications.
+            <br>Choose a plan and start building in minutes.
         </p>
     </div>
 
-    <!-- Important Notice -->
-    <div style="background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border: 2px solid #f59e0b; border-radius: 12px; padding: 20px; margin-bottom: 30px; text-align: center;">
-        <p style="color: #92400e; font-size: 15px; margin: 0;">
-            <strong>⚠️ Note:</strong> API access is separate from the $7.99/month web subscription.
-            <br>The web plan gives you unlimited access to the TTS tool on this website.
-            <br>API plans are for developers who want to integrate TTS into their own apps.
+    <!-- What You Get -->
+    <div style="background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%); border: 2px solid #10b981; border-radius: 12px; padding: 20px; margin-bottom: 30px; text-align: center;">
+        <p style="color: #065f46; font-size: 15px; margin: 0;">
+            <strong>✅ Both plans include:</strong> API Keys, Embeddable Widget, Widget URL, All 500+ Voices, Multi-speaker Dialogue
         </p>
     </div>
 
     <!-- Pricing Cards -->
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 24px; margin-bottom: 40px;">
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px; margin-bottom: 40px;">
         
         <!-- Starter Plan -->
         <div style="background: white; border: 2px solid #e5e7eb; border-radius: 16px; padding: 28px; text-align: center; transition: all 0.2s ease;">
             <div style="background: #f3f4f6; color: #374151; padding: 6px 16px; border-radius: 20px; display: inline-block; font-size: 13px; font-weight: 600; margin-bottom: 16px;">STARTER</div>
-            <div style="font-size: 42px; font-weight: 800; color: #1f2937; margin-bottom: 8px;">
+            <div style="font-size: 48px; font-weight: 800; color: #1f2937; margin-bottom: 8px;">
                 $9<span style="font-size: 18px; font-weight: 500; color: #6b7280;">/mo</span>
             </div>
-            <p style="color: #6b7280; font-size: 14px; margin-bottom: 24px;">Perfect for side projects</p>
+            <p style="color: #6b7280; font-size: 14px; margin-bottom: 24px;">Perfect for side projects & MVPs</p>
             
             <ul style="text-align: left; list-style: none; padding: 0; margin: 0 0 24px 0; font-size: 14px; color: #374151;">
-                <li style="padding: 10px 0; border-bottom: 1px solid #f3f4f6;">✅ 100,000 characters/month</li>
+                <li style="padding: 10px 0; border-bottom: 1px solid #f3f4f6;">✅ <strong>100,000</strong> characters/month</li>
+                <li style="padding: 10px 0; border-bottom: 1px solid #f3f4f6;">✅ API Key access</li>
+                <li style="padding: 10px 0; border-bottom: 1px solid #f3f4f6;">✅ Embeddable widget</li>
                 <li style="padding: 10px 0; border-bottom: 1px solid #f3f4f6;">✅ All 500+ voices</li>
-                <li style="padding: 10px 0; border-bottom: 1px solid #f3f4f6;">✅ Emotion/style support</li>
-                <li style="padding: 10px 0; border-bottom: 1px solid #f3f4f6;">✅ Multi-speaker dialogue</li>
-                <li style="padding: 10px 0;">✅ Standard support</li>
+                <li style="padding: 10px 0;">✅ Email support</li>
             </ul>
             
-            <a href="mailto:support@cheaptts.com?subject=API%20Starter%20Plan%20Request" 
-               class="btn" style="width: 100%; display: block; text-align: center;">
-                Contact Sales
-            </a>
+            {% if current_user.is_authenticated %}
+                {% if current_user.api_tier == 'starter' %}
+                    <div class="btn" style="width: 100%; display: block; text-align: center; background: #10b981; cursor: default;">
+                        ✓ Current Plan
+                    </div>
+                {% else %}
+                    <button onclick="subscribeAPI('api_starter')" class="btn" style="width: 100%; display: block; text-align: center;">
+                        Get Starter
+                    </button>
+                {% endif %}
+            {% else %}
+                <a href="{{ url_for('signup') }}" class="btn" style="width: 100%; display: block; text-align: center;">
+                    Sign Up to Get Started
+                </a>
+            {% endif %}
         </div>
         
         <!-- Pro Plan -->
         <div style="background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border: 2px solid #3b82f6; border-radius: 16px; padding: 28px; text-align: center; position: relative; transform: scale(1.02);">
-            <div style="position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: linear-gradient(90deg, #3b82f6, #8b5cf6); color: white; padding: 6px 20px; border-radius: 20px; font-size: 12px; font-weight: 700;">MOST POPULAR</div>
+            <div style="position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: linear-gradient(90deg, #3b82f6, #8b5cf6); color: white; padding: 6px 20px; border-radius: 20px; font-size: 12px; font-weight: 700;">BEST VALUE</div>
             <div style="background: #3b82f6; color: white; padding: 6px 16px; border-radius: 20px; display: inline-block; font-size: 13px; font-weight: 600; margin-bottom: 16px; margin-top: 8px;">PRO</div>
-            <div style="font-size: 42px; font-weight: 800; color: #1f2937; margin-bottom: 8px;">
+            <div style="font-size: 48px; font-weight: 800; color: #1f2937; margin-bottom: 8px;">
                 $29<span style="font-size: 18px; font-weight: 500; color: #6b7280;">/mo</span>
             </div>
-            <p style="color: #6b7280; font-size: 14px; margin-bottom: 24px;">For growing businesses</p>
+            <p style="color: #6b7280; font-size: 14px; margin-bottom: 24px;">For apps with real users</p>
             
             <ul style="text-align: left; list-style: none; padding: 0; margin: 0 0 24px 0; font-size: 14px; color: #374151;">
-                <li style="padding: 10px 0; border-bottom: 1px solid rgba(59,130,246,0.2);">✅ 500,000 characters/month</li>
+                <li style="padding: 10px 0; border-bottom: 1px solid rgba(59,130,246,0.2);">✅ <strong>500,000</strong> characters/month</li>
+                <li style="padding: 10px 0; border-bottom: 1px solid rgba(59,130,246,0.2);">✅ API Key access</li>
+                <li style="padding: 10px 0; border-bottom: 1px solid rgba(59,130,246,0.2);">✅ Embeddable widget</li>
                 <li style="padding: 10px 0; border-bottom: 1px solid rgba(59,130,246,0.2);">✅ All 500+ voices</li>
-                <li style="padding: 10px 0; border-bottom: 1px solid rgba(59,130,246,0.2);">✅ Emotion/style support</li>
-                <li style="padding: 10px 0; border-bottom: 1px solid rgba(59,130,246,0.2);">✅ Multi-speaker dialogue</li>
-                <li style="padding: 10px 0; border-bottom: 1px solid rgba(59,130,246,0.2);">✅ Priority support</li>
-                <li style="padding: 10px 0;">✅ Embeddable widget</li>
+                <li style="padding: 10px 0;">✅ Priority support</li>
             </ul>
             
-            <a href="mailto:support@cheaptts.com?subject=API%20Pro%20Plan%20Request" 
-               class="btn primary" style="width: 100%; display: block; text-align: center;">
-                Contact Sales
-            </a>
-        </div>
-        
-        <!-- Enterprise Plan -->
-        <div style="background: white; border: 2px solid #e5e7eb; border-radius: 16px; padding: 28px; text-align: center; transition: all 0.2s ease;">
-            <div style="background: #1f2937; color: white; padding: 6px 16px; border-radius: 20px; display: inline-block; font-size: 13px; font-weight: 600; margin-bottom: 16px;">ENTERPRISE</div>
-            <div style="font-size: 42px; font-weight: 800; color: #1f2937; margin-bottom: 8px;">
-                Custom
-            </div>
-            <p style="color: #6b7280; font-size: 14px; margin-bottom: 24px;">For high-volume needs</p>
-            
-            <ul style="text-align: left; list-style: none; padding: 0; margin: 0 0 24px 0; font-size: 14px; color: #374151;">
-                <li style="padding: 10px 0; border-bottom: 1px solid #f3f4f6;">✅ Unlimited characters</li>
-                <li style="padding: 10px 0; border-bottom: 1px solid #f3f4f6;">✅ All 500+ voices</li>
-                <li style="padding: 10px 0; border-bottom: 1px solid #f3f4f6;">✅ Dedicated support</li>
-                <li style="padding: 10px 0; border-bottom: 1px solid #f3f4f6;">✅ SLA guarantee</li>
-                <li style="padding: 10px 0;">✅ Custom integrations</li>
-            </ul>
-            
-            <a href="mailto:support@cheaptts.com?subject=API%20Enterprise%20Plan%20Inquiry" 
-               class="btn" style="width: 100%; display: block; text-align: center;">
-                Contact Sales
-            </a>
+            {% if current_user.is_authenticated %}
+                {% if current_user.api_tier == 'pro' %}
+                    <div class="btn primary" style="width: 100%; display: block; text-align: center; background: #10b981; cursor: default;">
+                        ✓ Current Plan
+                    </div>
+                {% else %}
+                    <button onclick="subscribeAPI('api_pro')" class="btn primary" style="width: 100%; display: block; text-align: center;">
+                        Get Pro
+                    </button>
+                {% endif %}
+            {% else %}
+                <a href="{{ url_for('signup') }}" class="btn primary" style="width: 100%; display: block; text-align: center;">
+                    Sign Up to Get Started
+                </a>
+            {% endif %}
         </div>
     </div>
 
-    <!-- Comparison with Web Plan -->
+    <!-- Current Usage (for logged in users with API access) -->
+    {% if current_user.is_authenticated and current_user.api_tier and current_user.api_tier != 'none' %}
     <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 12px; padding: 24px; margin-bottom: 30px;">
-        <h3 style="margin-top: 0; margin-bottom: 16px; font-size: 18px;">📊 Web vs API: What's the difference?</h3>
-        <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
-            <thead>
-                <tr style="background: #e5e7eb;">
-                    <th style="padding: 12px; text-align: left; border-radius: 8px 0 0 0;">Feature</th>
-                    <th style="padding: 12px; text-align: center;">Web Plan ($7.99/mo)</th>
-                    <th style="padding: 12px; text-align: center; border-radius: 0 8px 0 0;">API Plans</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">Use TTS on this website</td>
-                    <td style="padding: 12px; text-align: center; border-bottom: 1px solid #e5e7eb;">✅ Unlimited</td>
-                    <td style="padding: 12px; text-align: center; border-bottom: 1px solid #e5e7eb;">❌</td>
-                </tr>
-                <tr>
-                    <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">API access for your apps</td>
-                    <td style="padding: 12px; text-align: center; border-bottom: 1px solid #e5e7eb;">❌</td>
-                    <td style="padding: 12px; text-align: center; border-bottom: 1px solid #e5e7eb;">✅</td>
-                </tr>
-                <tr>
-                    <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">Embeddable widget</td>
-                    <td style="padding: 12px; text-align: center; border-bottom: 1px solid #e5e7eb;">❌</td>
-                    <td style="padding: 12px; text-align: center; border-bottom: 1px solid #e5e7eb;">✅ (Pro+)</td>
-                </tr>
-                <tr>
-                    <td style="padding: 12px;">Multi-speaker dialogue</td>
-                    <td style="padding: 12px; text-align: center;">✅</td>
-                    <td style="padding: 12px; text-align: center;">✅</td>
-                </tr>
-            </tbody>
-        </table>
+        <h3 style="margin-top: 0; margin-bottom: 16px; font-size: 18px;">📊 Your Current Usage</h3>
+        {% set limit = 100000 if current_user.api_tier == 'starter' else 500000 %}
+        {% set usage = current_user.api_usage_chars or 0 %}
+        {% set percent = (usage / limit * 100) | round(1) if limit > 0 else 0 %}
+        <div style="margin-bottom: 12px;">
+            <span style="font-weight: 600;">{{ '{:,}'.format(usage) }}</span> / {{ '{:,}'.format(limit) }} characters used
+            <span style="float: right; color: {% if percent > 80 %}#ef4444{% elif percent > 50 %}#f59e0b{% else %}#10b981{% endif %};">{{ percent }}%</span>
+        </div>
+        <div style="background: #e5e7eb; border-radius: 8px; height: 12px; overflow: hidden;">
+            <div style="background: {% if percent > 80 %}#ef4444{% elif percent > 50 %}#f59e0b{% else %}#10b981{% endif %}; height: 100%; width: {{ percent }}%; transition: width 0.3s;"></div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Simple comparison note -->
+    <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px; margin-bottom: 30px; text-align: center;">
+        <p style="color: #6b7280; font-size: 14px; margin: 0;">
+            <strong>💡 Looking to use TTS on this website instead?</strong><br>
+            The <a href="{{ url_for('subscribe') if current_user.is_authenticated else url_for('signup') }}" style="color: #3b82f6;">$7.99/month web plan</a> gives you unlimited access to our online TTS tool.
+        </p>
     </div>
 
     <!-- FAQ -->
     <div style="margin-bottom: 30px;">
-        <h3 style="margin-bottom: 16px;">❓ Frequently Asked Questions</h3>
+        <h3 style="margin-bottom: 16px;">❓ Quick Questions</h3>
         
         <details style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin-bottom: 12px;">
-            <summary style="cursor: pointer; font-weight: 600; color: #374151;">Can I use API with just the $7.99/month web plan?</summary>
-            <p style="margin-top: 12px; color: #6b7280; font-size: 14px;">No, API access requires a separate API subscription. The $7.99/month web plan gives you unlimited access to the TTS tool on our website only.</p>
+            <summary style="cursor: pointer; font-weight: 600; color: #374151;">What do I get when I subscribe?</summary>
+            <p style="margin-top: 12px; color: #6b7280; font-size: 14px;">Instantly! You'll get access to your API keys, embeddable widget code, and a public widget URL you can share. Start integrating TTS into your app right away.</p>
         </details>
         
         <details style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin-bottom: 12px;">
-            <summary style="cursor: pointer; font-weight: 600; color: #374151;">What happens if I exceed my character limit?</summary>
-            <p style="margin-top: 12px; color: #6b7280; font-size: 14px;">API calls will return an error once you hit your limit. You can upgrade your plan or wait for the next billing cycle. We'll send you an email when you're approaching your limit.</p>
+            <summary style="cursor: pointer; font-weight: 600; color: #374151;">What happens if I hit my character limit?</summary>
+            <p style="margin-top: 12px; color: #6b7280; font-size: 14px;">API calls will return an error. You can upgrade to Pro for 5x more characters, or wait for your limit to reset next month.</p>
         </details>
         
         <details style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin-bottom: 12px;">
-            <summary style="cursor: pointer; font-weight: 600; color: #374151;">Do I need both web and API subscriptions?</summary>
-            <p style="margin-top: 12px; color: #6b7280; font-size: 14px;">It depends on your use case. If you only want to use TTS on our website, the $7.99/month plan is enough. If you want to integrate TTS into your own app, you need an API plan. You can have both if you want.</p>
+            <summary style="cursor: pointer; font-weight: 600; color: #374151;">Can I cancel anytime?</summary>
+            <p style="margin-top: 12px; color: #6b7280; font-size: 14px;">Yes! Cancel anytime from your account settings. No questions asked.</p>
         </details>
     </div>
 
-    <!-- CTA -->
+    <!-- CTA for logged-in users without API -->
+    {% if current_user.is_authenticated and (not current_user.api_tier or current_user.api_tier == 'none') %}
     <div style="text-align: center; padding: 30px; background: linear-gradient(135deg, #eff6ff 0%, #f5f3ff 100%); border-radius: 16px; border: 1px solid #e5e7eb;">
-        <h3 style="margin-top: 0;">Ready to integrate TTS into your app?</h3>
-        <p style="color: #6b7280; margin-bottom: 20px;">Contact us to get started with an API plan.</p>
-        <a href="mailto:support@cheaptts.com?subject=API%20Plan%20Inquiry" class="btn primary">Contact Sales</a>
-        {% if not current_user.is_authenticated %}
-        <p style="margin-top: 16px; font-size: 14px; color: #6b7280;">
-            Just want to use TTS on this website? <a href="{{ url_for('signup') }}" style="color: #3b82f6;">Sign up</a> and subscribe for $7.99/month.
-        </p>
-        {% endif %}
+        <h3 style="margin-top: 0;">🚀 Ready to build?</h3>
+        <p style="color: #6b7280; margin-bottom: 20px;">Choose a plan above and get your API keys in seconds.</p>
     </div>
+    {% endif %}
 </div>
+
+<script>
+function subscribeAPI(planType) {
+    fetch('/create-checkout-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan_type: planType })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.url) {
+            window.location.href = data.url;
+        } else if (data.error) {
+            alert('Error: ' + data.error);
+        }
+    })
+    .catch(error => {
+        alert('Something went wrong. Please try again.');
+        console.error('Error:', error);
+    });
+}
+</script>
 {% endblock %}

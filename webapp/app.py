@@ -101,8 +101,10 @@ STRIPE_WEBHOOK_SECRET = os.environ.get('STRIPE_WEBHOOK_SECRET', '')
 # Admin API key (for your personal projects - free access)
 ADMIN_API_KEY = os.environ.get('ADMIN_API_KEY', '')  # Set this in .env
 
-# Stripe Lifetime Deal Price ID (one-time payment)
-STRIPE_LIFETIME_PRICE_ID = os.environ.get('STRIPE_LIFETIME_PRICE_ID', '')  # Set this in Railway
+# Stripe Price IDs
+STRIPE_LIFETIME_PRICE_ID = 'price_1SYORtLz6FHVmZlME0DueU5x'  # $99 lifetime web access
+STRIPE_API_STARTER_PRICE_ID = 'price_1SYOzjLz6FHVmZlMyFmi6ihW'  # $9/mo API Starter
+STRIPE_API_PRO_PRICE_ID = 'price_1SYP06Lz6FHVmZlM2FPE35Rm'  # $29/mo API Pro
 
 # Password reset + email settings
 try:
@@ -991,21 +993,34 @@ def subscribe():
 @login_required
 @csrf.exempt  # Exempting because this is an API endpoint called from JS
 def create_checkout_session():
-    plan = request.args.get('plan', 'monthly')  # 'monthly' or 'lifetime'
+    # Support both query args and JSON body
+    data = request.get_json() or {}
+    plan_type = data.get('plan_type') or request.args.get('plan', 'monthly')
     
-    if plan == 'lifetime':
+    # Determine price ID and mode based on plan type
+    if plan_type == 'lifetime':
         if not stripe.api_key or not STRIPE_LIFETIME_PRICE_ID:
-            return jsonify({'error': 'Lifetime plan not configured yet. Please try the monthly plan or contact support.'}), 500
+            return jsonify({'error': 'Lifetime plan not configured yet.'}), 500
         price_id = STRIPE_LIFETIME_PRICE_ID
-        mode = 'payment'  # One-time payment for lifetime
-    else:
+        mode = 'payment'  # One-time payment
+    elif plan_type == 'api_starter':
+        if not stripe.api_key or not STRIPE_API_STARTER_PRICE_ID:
+            return jsonify({'error': 'API Starter plan not configured.'}), 500
+        price_id = STRIPE_API_STARTER_PRICE_ID
+        mode = 'subscription'
+    elif plan_type == 'api_pro':
+        if not stripe.api_key or not STRIPE_API_PRO_PRICE_ID:
+            return jsonify({'error': 'API Pro plan not configured.'}), 500
+        price_id = STRIPE_API_PRO_PRICE_ID
+        mode = 'subscription'
+    else:  # monthly web subscription
         if not stripe.api_key or not STRIPE_PRICE_ID:
             return jsonify({'error': 'Stripe not configured'}), 500
         price_id = STRIPE_PRICE_ID
         mode = 'subscription'
 
     try:
-        success_url = url_for('subscription_success', _external=True) + f'?session_id={{CHECKOUT_SESSION_ID}}&plan={plan}'
+        success_url = url_for('subscription_success', _external=True) + f'?session_id={{CHECKOUT_SESSION_ID}}&plan_type={plan_type}'
         cancel_url = url_for('subscription_cancel', _external=True)
 
         customer = None
