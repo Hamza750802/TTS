@@ -149,10 +149,16 @@ def build_ssml(
         emotion = raw_chunk.get("emotion")
         intensity = raw_chunk.get("intensity")
 
-        # Resolve prosody with global fallbacks
-        rate_val = raw_chunk.get("speed", raw_chunk.get("rate", global_rate if global_rate is not None else 0))
-        pitch_val = raw_chunk.get("pitch", global_pitch if global_pitch is not None else 0)
-        volume_val = raw_chunk.get("volume", global_volume if global_volume is not None else 0.0)
+        # Resolve prosody with global fallbacks (handle None values explicitly)
+        rate_val = raw_chunk.get("speed") or raw_chunk.get("rate")
+        if rate_val is None:
+            rate_val = global_rate if global_rate is not None else 0
+        pitch_val = raw_chunk.get("pitch")
+        if pitch_val is None:
+            pitch_val = global_pitch if global_pitch is not None else 0
+        volume_val = raw_chunk.get("volume")
+        if volume_val is None:
+            volume_val = global_volume if global_volume is not None else 0.0
 
         # Clamp values
         rate_val, warn = _clamp(float(rate_val), MIN_RATE, MAX_RATE)

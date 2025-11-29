@@ -526,6 +526,7 @@
             background: linear-gradient(180deg, #FFFBF7 0%, #FFF0EB 100%);
             transform: scale(1.03);
             box-shadow: var(--shadow-glow);
+            position: relative;
         }
         .price-card h3 {
             font-size: 22px;
@@ -668,9 +669,18 @@
             <h1>The World's Most <span>Affordable</span> AI Voice Generator</h1>
             <p class="tagline">Access 550+ ultra-realistic voices with emotion control in 153 languages. Unlimited usage for one simple price. Stop paying per character.</p>
             
+            <!-- Free Plan Highlight -->
+            <div style="display: inline-block; background: rgba(255,255,255,0.9); border: 2px solid var(--accent-mint); border-radius: 16px; padding: 16px 28px; margin-bottom: 24px; box-shadow: var(--shadow-soft);">
+                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: center;">
+                    <span style="background: var(--accent-mint); color: white; padding: 4px 12px; border-radius: 20px; font-size: 13px; font-weight: 600;">FREE PLAN</span>
+                    <span style="font-size: 15px; color: var(--text-dark);"><strong>10,000 characters/month</strong> • All 550+ voices • No credit card</span>
+                </div>
+            </div>
+            
             <div class="hero-buttons">
-                <a href="/signup" class="cta-button primary">🚀 Start for $7.99/mo</a>
-                <a href="/signup?plan=lifetime" class="cta-button secondary">✨ Lifetime Deal $99</a>
+                <a href="/signup" class="cta-button secondary" style="background: var(--accent-mint); box-shadow: var(--shadow-mint);">🆓 Start Free</a>
+                <a href="/signup" class="cta-button primary">🚀 Unlimited $7.99/mo</a>
+                <a href="/signup?plan=lifetime" class="cta-button secondary">✨ Lifetime $99</a>
             </div>
             <p class="urgency-text">🔥 Only 50 lifetime spots at $99! Then $149</p>
             <p class="api-link">💡 Building an app? <a href="/api-pricing">View API Plans →</a></p>
@@ -807,49 +817,113 @@
         </div>
     </div>
 
-    <div class="section pricing-section">
+    <div class="section pricing-section" id="pricing">
         <div class="container">
-            <h2 class="section-title">Stop <span>Overpaying</span> for AI Voices</h2>
-            <p class="section-subtitle">Other services charge a fortune for limited use. We offer unlimited generation for one low price.</p>
+            <h2 class="section-title">Simple, <span>Honest</span> Pricing</h2>
+            <p class="section-subtitle">Start free, upgrade when you need more. No hidden fees, no per-character charges.</p>
             
             <div class="price-grid">
                 <div class="price-card">
-                    <h3>ElevenLabs</h3>
-                    <div class="price">$99<small>/mo</small></div>
-                    <div class="usage">100,000 characters/mo</div>
+                    <h3>🆓 Free Plan</h3>
+                    <div class="price">$0<small>/mo</small></div>
+                    <div class="usage">10,000 characters/month</div>
                     <ul>
-                        <li>Limited characters</li>
-                        <li>Voice cloning costs extra</li>
-                        <li>Pay for overages</li>
+                        <li>550+ natural voices</li>
+                        <li>153 languages</li>
+                        <li>Multi-speaker dialogue</li>
+                        <li>Emotion & style control</li>
+                        <li>MP3 downloads</li>
+                        <li>Speed, pitch, volume control</li>
                     </ul>
+                    <a href="/signup" class="cta-button secondary" style="width: 100%; justify-content: center; margin-top: 20px;">Start Free</a>
+                    <p style="margin-top: 14px; font-size: 12px; color: var(--text-medium);">No credit card required</p>
                 </div>
 
                 <div class="price-card featured">
-                    <h3>✨ Cheap TTS</h3>
+                    <div style="position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: var(--gradient-primary); color: white; padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: 600;">MOST POPULAR</div>
+                    <h3>✨ Unlimited</h3>
                     <div class="price">$7.99<small>/mo</small></div>
                     <p style="font-size: 14px; color: var(--accent-mint); font-weight: 600; margin-bottom: 8px;">or $99 one-time (Lifetime)</p>
-                    <div class="usage">UNLIMITED WEB USAGE</div>
+                    <div class="usage">UNLIMITED CHARACTERS</div>
                     <ul>
-                        <li>Truly unlimited characters</li>
-                        <li>550+ natural voices</li>
-                        <li>153 languages</li>
-                        <li>Commercial use included</li>
-                        <li>Multi-speaker dialogue</li>
+                        <li>Everything in Free, plus:</li>
+                        <li>No monthly character limit</li>
+                        <li>Priority audio generation</li>
+                        <li>Longer text per request</li>
+                        <li>Commercial use rights</li>
+                        <li>Email support</li>
                     </ul>
                     <a href="/signup" class="cta-button primary" style="width: 100%; justify-content: center; margin-top: 20px;">Get Unlimited Access</a>
-                    <p style="margin-top: 14px; font-size: 12px; color: var(--text-medium);">API access sold separately — <a href="/api-pricing" style="color: var(--accent-coral);">see plans</a></p>
                 </div>
 
-                <div class="price-card">
-                    <h3>Play.ht</h3>
-                    <div class="price">$79<small>/mo</small></div>
-                    <div class="usage">500,000 words/mo</div>
-                    <ul>
-                        <li>Limited words</li>
-                        <li>Extra cost for high-quality</li>
-                        <li>Complex pricing tiers</li>
+                <div class="price-card competitor">
+                    <h3 style="color: var(--text-medium);">🏢 ElevenLabs</h3>
+                    <div class="price" style="color: var(--text-medium); text-decoration: line-through;">$99<small>/mo</small></div>
+                    <div class="usage" style="color: #ef4444;">Only 100,000 chars/mo</div>
+                    <ul style="color: var(--text-light);">
+                        <li style="opacity: 0.7;">Limited characters</li>
+                        <li style="opacity: 0.7;">Voice cloning costs extra</li>
+                        <li style="opacity: 0.7;">Pay for overages</li>
+                        <li style="opacity: 0.7;">Complex pricing tiers</li>
                     </ul>
+                    <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 12px; padding: 12px; margin-top: 20px; text-align: center;">
+                        <span style="color: #ef4444; font-weight: 600; font-size: 13px;">12x more expensive</span>
+                    </div>
                 </div>
+            </div>
+            
+            <div style="max-width: 700px; margin: 60px auto 0; text-align: center;">
+                <h3 style="font-size: 20px; margin-bottom: 16px; color: var(--text-dark);">🎯 Free Plan Perfect For:</h3>
+                <div style="display: flex; justify-content: center; gap: 24px; flex-wrap: wrap; color: var(--text-medium); font-size: 15px;">
+                    <span>✓ Trying out voices</span>
+                    <span>✓ Personal projects</span>
+                    <span>✓ Light usage</span>
+                    <span>✓ Testing before upgrading</span>
+                </div>
+                <p style="margin-top: 24px; color: var(--text-medium); font-size: 14px;">
+                    📊 <strong>10,000 characters</strong> ≈ ~5 minutes of audio or ~1,700 words. 
+                    <br>Resets on the 1st of each month.
+                </p>
+            </div>
+            
+            <!-- Competitor Comparison Table -->
+            <div style="max-width: 900px; margin: 80px auto 0;">
+                <h3 style="font-size: 24px; margin-bottom: 32px; color: var(--text-dark); text-align: center;">💰 Why Pay More Elsewhere?</h3>
+                <div style="background: white; border-radius: 20px; overflow: hidden; box-shadow: var(--shadow-medium); border: 1px solid rgba(0,0,0,0.05);">
+                    <table style="width: 100%; border-collapse: collapse; text-align: center;">
+                        <thead>
+                            <tr style="background: linear-gradient(135deg, #FFFBF7, #FFF0EB);">
+                                <th style="padding: 20px; font-weight: 600; color: var(--text-dark); text-align: left; border-bottom: 2px solid rgba(0,0,0,0.05);">Service</th>
+                                <th style="padding: 20px; font-weight: 600; color: var(--text-dark); border-bottom: 2px solid rgba(0,0,0,0.05);">Monthly Price</th>
+                                <th style="padding: 20px; font-weight: 600; color: var(--text-dark); border-bottom: 2px solid rgba(0,0,0,0.05);">Characters</th>
+                                <th style="padding: 20px; font-weight: 600; color: var(--text-dark); border-bottom: 2px solid rgba(0,0,0,0.05);">Cost per 1M chars</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr style="background: #fef2f2;">
+                                <td style="padding: 18px; text-align: left; border-bottom: 1px solid rgba(0,0,0,0.05);"><strong style="color: #ef4444;">ElevenLabs</strong></td>
+                                <td style="padding: 18px; border-bottom: 1px solid rgba(0,0,0,0.05); color: #ef4444; font-weight: 600;">$99/mo</td>
+                                <td style="padding: 18px; border-bottom: 1px solid rgba(0,0,0,0.05);">100,000</td>
+                                <td style="padding: 18px; border-bottom: 1px solid rgba(0,0,0,0.05); color: #ef4444; font-weight: 600;">$990</td>
+                            </tr>
+                            <tr style="background: #fef2f2;">
+                                <td style="padding: 18px; text-align: left; border-bottom: 1px solid rgba(0,0,0,0.05);"><strong style="color: #ef4444;">Play.ht</strong></td>
+                                <td style="padding: 18px; border-bottom: 1px solid rgba(0,0,0,0.05); color: #ef4444; font-weight: 600;">$79/mo</td>
+                                <td style="padding: 18px; border-bottom: 1px solid rgba(0,0,0,0.05);">~500,000 words</td>
+                                <td style="padding: 18px; border-bottom: 1px solid rgba(0,0,0,0.05); color: #ef4444; font-weight: 600;">$158+</td>
+                            </tr>
+                            <tr style="background: #f0fdf4;">
+                                <td style="padding: 18px; text-align: left; border-bottom: 1px solid rgba(0,0,0,0.05);"><strong style="color: #10b981;">✨ Cheap TTS</strong></td>
+                                <td style="padding: 18px; border-bottom: 1px solid rgba(0,0,0,0.05); color: #10b981; font-weight: 700; font-size: 18px;">$7.99/mo</td>
+                                <td style="padding: 18px; border-bottom: 1px solid rgba(0,0,0,0.05); font-weight: 600;">∞ UNLIMITED</td>
+                                <td style="padding: 18px; border-bottom: 1px solid rgba(0,0,0,0.05); color: #10b981; font-weight: 700; font-size: 18px;">$0</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <p style="text-align: center; margin-top: 20px; color: var(--text-medium); font-size: 14px;">
+                    📈 <strong>You save over $1,000/year</strong> compared to ElevenLabs for heavy usage
+                </p>
             </div>
         </div>
     </div>

@@ -222,6 +222,14 @@ class User(db.Model, UserMixin):
     # Mobile App Session
     mobile_session_token = db.Column(db.String(255))  # Token for mobile app auth
     mobile_session_expires = db.Column(db.DateTime)  # When mobile session expires
+    
+    # Character Usage Tracking (Web + Mobile - unified)
+    # Free tier: 10,000 chars/month, Paid: unlimited
+    chars_used = db.Column(db.Integer, default=0)  # Characters used this billing period
+    chars_reset_at = db.Column(db.DateTime)  # When usage resets (monthly)
+    
+    # Character limit constants
+    FREE_CHAR_LIMIT = 10000  # 10k chars/month for free users
 
     def set_password(self, password: str) -> None:
         self.password_hash = generate_password_hash(password)
@@ -291,6 +299,61 @@ class User(db.Model, UserMixin):
         # Track usage
         self.api_chars_used = (self.api_chars_used or 0) + char_count
         return True
+    
+    # --- Web/Mobile Character Usage (10K free, unlimited paid) ---
+    
+    @property
+    def char_limit(self) -> int:
+        """Get character limit - 10K for free users, unlimited for subscribers"""
+        if self.is_subscribed:
+            return 999999999  # Effectively unlimited
+        return self.FREE_CHAR_LIMIT
+    
+    @property
+    def chars_remaining(self) -> int:
+        """Get remaining characters for this billing period"""
+        if self.is_subscribed:
+            return 999999999  # Unlimited
+        self.check_and_reset_usage()
+        return max(0, self.char_limit - (self.chars_used or 0))
+    
+    def check_and_reset_usage(self):
+        """Reset usage if billing period has passed (monthly)"""
+        if not self.chars_reset_at:
+            # First time - set reset date to 30 days from now
+            self.chars_reset_at = datetime.utcnow() + timedelta(days=30)
+            self.chars_used = 0
+            return
+        
+        if datetime.utcnow() >= self.chars_reset_at:
+            # Reset usage and set new reset date
+            self.chars_used = 0
+            self.chars_reset_at = datetime.utcnow() + timedelta(days=30)
+    
+    def use_chars(self, char_count: int) -> tuple:
+        """
+        Track character usage for web/mobile TTS.
+        Returns (success: bool, error_message: str or None)
+        
+        - Subscribers: Always allowed (unlimited)
+        - Free users: 10K chars/month limit
+        """
+        # Subscribers have unlimited access
+        if self.is_subscribed:
+            return (True, None)
+        
+        # Free users - check and reset monthly usage
+        self.check_and_reset_usage()
+        
+        # Check if this request would exceed limit
+        current_used = self.chars_used or 0
+        if current_used + char_count > self.FREE_CHAR_LIMIT:
+            remaining = max(0, self.FREE_CHAR_LIMIT - current_used)
+            return (False, f"Character limit reached. You have {remaining:,} of {self.FREE_CHAR_LIMIT:,} characters remaining this month. Upgrade for unlimited access.")
+        
+        # Track usage
+        self.chars_used = current_used + char_count
+        return (True, None)
 
 
 class APIKey(db.Model):
@@ -512,6 +575,13 @@ with app.app_context():
         if 'mobile_session_expires' not in existing_columns:
             conn.execute(text("ALTER TABLE \"user\" ADD COLUMN mobile_session_expires TIMESTAMP"))
             print("[MIGRATION] Added mobile_session_expires column to user table")
+        # Character usage tracking columns (10K free, unlimited paid)
+        if 'chars_used' not in existing_columns:
+            conn.execute(text("ALTER TABLE \"user\" ADD COLUMN chars_used INTEGER DEFAULT 0"))
+            print("[MIGRATION] Added chars_used column to user table")
+        if 'chars_reset_at' not in existing_columns:
+            conn.execute(text("ALTER TABLE \"user\" ADD COLUMN chars_reset_at TIMESTAMP"))
+            print("[MIGRATION] Added chars_reset_at column to user table")
         conn.commit()
 
 # Cleanup old files on startup (works with Gunicorn)
@@ -853,7 +923,33 @@ def index():
 @login_required
 def dashboard():
     """Serve the TTS tool page"""
-    return render_template('index.html')
+    from datetime import datetime
+    from calendar import monthrange
+    
+    # Check and reset usage if needed
+    if hasattr(current_user, 'check_and_reset_usage'):
+        current_user.check_and_reset_usage()
+    
+    # Get character usage info
+    chars_used = getattr(current_user, 'chars_used', 0) or 0
+    chars_limit = getattr(current_user, 'char_limit', User.FREE_CHAR_LIMIT)
+    is_unlimited = current_user.is_subscribed  # Subscribers have unlimited
+    chars_remaining = max(0, chars_limit - chars_used) if not is_unlimited else -1  # -1 means unlimited
+    
+    # Calculate next reset date (1st of next month)
+    now = datetime.utcnow()
+    if now.month == 12:
+        next_reset = datetime(now.year + 1, 1, 1)
+    else:
+        next_reset = datetime(now.year, now.month + 1, 1)
+    chars_reset_date = next_reset.strftime('%b 1, %Y')
+    
+    return render_template('index.html', 
+                           chars_used=chars_used,
+                           chars_limit=chars_limit,
+                           chars_remaining=chars_remaining,
+                           chars_reset_date=chars_reset_date,
+                           is_unlimited=is_unlimited)
 
 
 @app.route('/signup', methods=['GET', 'POST'])
@@ -885,18 +981,18 @@ def signup():
         # Send welcome email
         send_welcome_email(email)
         
-        flash('Welcome! Your account has been created.', 'success')
+        flash('Welcome! Your account has been created. You have 10,000 free characters per month.', 'success')
         
         # Handle redirects based on signup source
         if next_url:
             # Redirect back to where they came from (e.g., API pricing)
             return redirect(next_url)
-        elif plan:
-            # Web plan signup - go to subscribe with plan
+        elif plan == 'lifetime' or api_plan:
+            # User explicitly wants to purchase a plan - go to subscribe
             return redirect(url_for('subscribe', plan=plan))
         else:
-            # Default - go to subscribe page
-            return redirect(url_for('subscribe'))
+            # Default - go directly to dashboard (free plan)
+            return redirect(url_for('dashboard'))
     
     return render_template('signup.html', plan=plan, next=next_url, api_plan=api_plan)
 
@@ -913,7 +1009,7 @@ def login():
             if user:
                 login_user(user)
                 flash('Admin login successful.', 'success')
-                return redirect(url_for('index'))
+                return redirect(url_for('dashboard'))
         
         user = User.query.filter_by(email=email).first()
         if not user or not user.check_password(password):
@@ -921,7 +1017,7 @@ def login():
             return redirect(url_for('login'))
         login_user(user)
         flash('Signed in successfully.', 'success')
-        return redirect(url_for('index'))
+        return redirect(url_for('dashboard'))
     return render_template('login.html')
 
 
@@ -1439,10 +1535,11 @@ def api_preview():
 
 @app.route('/api/generate', methods=['POST'])
 @login_required
-@subscription_required
 @csrf.exempt
 def api_generate():
-    """Generate speech from text"""
+    """Generate speech from text - with character limit enforcement"""
+    import re
+    
     try:
         data = request.get_json(silent=True) or {}
         raw_text = data.get('text', '') or ''
@@ -1469,6 +1566,35 @@ def api_generate():
             volume = '+' + volume
         if not pitch.startswith(('+', '-')):
             pitch = '+' + pitch
+
+        # --- Calculate total characters for limit checking ---
+        total_chars = 0
+        if chunks is not None:
+            for chunk in chunks:
+                content = chunk.get('content', '')
+                # Strip SSML tags to get plain text char count
+                plain_text = re.sub(r'<[^>]+>', '', str(content))
+                total_chars += len(plain_text)
+        else:
+            # Plain text mode
+            plain_text = re.sub(r'<[^>]+>', '', text) if is_ssml else text
+            total_chars = len(plain_text)
+        
+        # --- Enforce character limit ---
+        success, error_msg = current_user.use_chars(total_chars)
+        if not success:
+            return jsonify({
+                'success': False,
+                'error': error_msg,
+                'limit_reached': True,
+                'chars_used': current_user.chars_used or 0,
+                'chars_limit': current_user.char_limit,
+                'chars_remaining': current_user.chars_remaining,
+                'upgrade_url': '/subscribe'
+            }), 402  # Payment Required
+        
+        # Save the usage
+        db.session.commit()
 
         # --- Chunked SSML path ---
         if chunks is not None:
@@ -1553,6 +1679,9 @@ def api_generate():
                             'volume': chunk_volume,
                         }],
                         'ssml_used': plain_text,  # For compatibility in tests/logs
+                        'chars_used': current_user.chars_used or 0,
+                        'chars_limit': current_user.char_limit,
+                        'chars_remaining': current_user.chars_remaining,
                     })
 
             # Multi-chunk or multi-voice path: render and merge parts
@@ -1571,6 +1700,9 @@ def api_generate():
                 'ssml_used': ssml_preview,
                 'chunk_map': chunk_map_out,
                 'warnings': (style_warnings + chunk_warnings),
+                'chars_used': current_user.chars_used or 0,
+                'chars_limit': current_user.char_limit,
+                'chars_remaining': current_user.chars_remaining,
             })
 
         # --- Auto-chunk path when plain text provided ---
@@ -1613,6 +1745,9 @@ def api_generate():
                 'ssml_used': ssml_preview,
                 'chunk_map': chunk_map_out,
                 'warnings': (style_warnings + chunk_warnings),
+                'chars_used': current_user.chars_used or 0,
+                'chars_limit': current_user.char_limit,
+                'chars_remaining': current_user.chars_remaining,
             })
 
         # --- Legacy plain text / direct SSML path ---
@@ -1632,7 +1767,10 @@ def api_generate():
         
         return jsonify({
             'success': True,
-            'audioUrl': f'/api/audio/{output_file.name}'
+            'audioUrl': f'/api/audio/{output_file.name}',
+            'chars_used': current_user.chars_used or 0,
+            'chars_limit': current_user.char_limit,
+            'chars_remaining': current_user.chars_remaining,
         })
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -1975,6 +2113,8 @@ def api_auth_login():
         try:
             user.mobile_session_token = session_token
             user.mobile_session_expires = datetime.utcnow() + timedelta(days=30)
+            # Also reset usage if needed
+            user.check_and_reset_usage()
             db.session.commit()
         except Exception as db_err:
             print(f"[API Auth] Could not save session token (migration pending): {db_err}")
@@ -1986,10 +2126,14 @@ def api_auth_login():
             'user': {
                 'id': user.id,
                 'email': user.email,
-                'is_subscriber': user.is_subscribed,
+                'is_subscribed': user.is_subscribed,
                 'subscription_status': user.subscription_status,
                 'api_tier': user.api_tier,
-                'api_chars_remaining': user.api_chars_remaining if user.api_tier else 0
+                'api_chars_remaining': user.api_chars_remaining if user.api_tier else 0,
+                # Character usage info for web/mobile
+                'chars_used': user.chars_used or 0,
+                'chars_limit': user.char_limit,
+                'chars_remaining': user.chars_remaining,
             },
             'token': session_token
         })
@@ -2037,6 +2181,9 @@ def api_auth_signup():
         session_token = secrets.token_urlsafe(32)
         user.mobile_session_token = session_token
         user.mobile_session_expires = datetime.utcnow() + timedelta(days=30)
+        # Initialize character usage
+        user.chars_used = 0
+        user.chars_reset_at = datetime.utcnow() + timedelta(days=30)
         db.session.commit()
         
         return jsonify({
@@ -2047,7 +2194,11 @@ def api_auth_signup():
                 'is_subscriber': False,
                 'subscription_status': 'inactive',
                 'api_tier': None,
-                'api_chars_remaining': 0
+                'api_chars_remaining': 0,
+                # Character usage info
+                'chars_used': 0,
+                'chars_limit': User.FREE_CHAR_LIMIT,
+                'chars_remaining': User.FREE_CHAR_LIMIT,
             },
             'token': session_token
         })
@@ -2114,15 +2265,21 @@ def api_auth_me():
     if not user or (user.mobile_session_expires and user.mobile_session_expires < datetime.utcnow()):
         return jsonify({'success': False, 'error': 'Invalid or expired token'}), 401
     
+    # Reset usage if needed
+    user.check_and_reset_usage()
+    
     return jsonify({
         'success': True,
         'user': {
             'id': user.id,
             'email': user.email,
-            'is_subscriber': user.is_subscribed,
+            'is_subscribed': user.is_subscribed,
             'subscription_status': user.subscription_status,
             'api_tier': user.api_tier,
-            'api_chars_remaining': user.api_chars_remaining if user.api_tier else 0
+            'api_chars_remaining': user.api_chars_remaining if user.api_tier else 0,
+            'chars_used': user.chars_used or 0,
+            'chars_limit': user.char_limit,
+            'chars_remaining': user.chars_remaining,
         }
     })
 
@@ -2207,13 +2364,6 @@ def api_mobile_synthesize():
     if not user or (user.mobile_session_expires and user.mobile_session_expires < datetime.utcnow()):
         return jsonify({'success': False, 'error': 'Invalid or expired token. Please login again.'}), 401
     
-    # Check if user has web subscription (required for mobile app access)
-    if not user.is_subscribed:
-        return jsonify({
-            'success': False, 
-            'error': 'Web subscription required. Please subscribe at cheaptts.com to use the mobile app.'
-        }), 403
-    
     try:
         data = request.get_json(silent=True) or {}
         voice = data.get('voice', 'en-US-AriaNeural')
@@ -2232,7 +2382,23 @@ def api_mobile_synthesize():
                 total_chars += len(plain_text)
             
             if total_chars > 10000:
-                return jsonify({'success': False, 'error': 'Total text too long. Maximum 10,000 characters.'}), 400
+                return jsonify({'success': False, 'error': 'Total text too long. Maximum 10,000 characters per request.'}), 400
+            
+            # --- Enforce character limit ---
+            success, error_msg = user.use_chars(total_chars)
+            if not success:
+                return jsonify({
+                    'success': False,
+                    'error': error_msg,
+                    'limit_reached': True,
+                    'chars_used': user.chars_used or 0,
+                    'chars_limit': user.char_limit,
+                    'chars_remaining': user.chars_remaining,
+                    'upgrade_url': 'https://cheaptts.com/subscribe'
+                }), 402  # Payment Required
+            
+            # Save character usage
+            db.session.commit()
             
             print(f"[Mobile API] Multi-speaker request from {user.email}: {len(chunks)} chunks, {total_chars} chars")
             
@@ -2305,7 +2471,9 @@ def api_mobile_synthesize():
                             'success': True,
                             'audio_url': audio_url,
                             'filename': output_file.name,
-                            'chars_used': total_chars
+                            'chars_used': user.chars_used,  # Cumulative total this month
+                            'chars_remaining': user.chars_remaining,
+                            'chars_limit': user.char_limit,
                         })
             
             # Multi-voice SSML path
@@ -2365,8 +2533,10 @@ def api_mobile_synthesize():
                 'success': True,
                 'audio_url': audio_url,
                 'filename': output_file.name,
-                'chars_used': total_chars,
-                'chunks_processed': len(sanitized_chunks)
+                'chars_used': user.chars_used,  # Cumulative total this month
+                'chunks_processed': len(sanitized_chunks),
+                'chars_remaining': user.chars_remaining,
+                'chars_limit': user.char_limit,
             })
         
         # --- Single voice mode (text string) ---
@@ -2376,7 +2546,24 @@ def api_mobile_synthesize():
             return jsonify({'success': False, 'error': 'Text is required'}), 400
         
         if len(text) > 10000:
-            return jsonify({'success': False, 'error': 'Text too long. Maximum 10,000 characters.'}), 400
+            return jsonify({'success': False, 'error': 'Text too long. Maximum 10,000 characters per request.'}), 400
+        
+        # --- Enforce character limit ---
+        char_count = len(text)
+        success, error_msg = user.use_chars(char_count)
+        if not success:
+            return jsonify({
+                'success': False,
+                'error': error_msg,
+                'limit_reached': True,
+                'chars_used': user.chars_used or 0,
+                'chars_limit': user.char_limit,
+                'chars_remaining': user.chars_remaining,
+                'upgrade_url': 'https://cheaptts.com/subscribe'
+            }), 402  # Payment Required
+        
+        # Save character usage
+        db.session.commit()
         
         # Handle numeric rate/pitch from mobile (e.g., -50 to +50)
         rate_val = data.get('rate', 0)
@@ -2448,7 +2635,9 @@ def api_mobile_synthesize():
             'success': True,
             'audio_url': audio_url,
             'filename': output_file.name,
-            'chars_used': len(text)
+            'chars_used': user.chars_used,  # Cumulative total this month
+            'chars_remaining': user.chars_remaining,
+            'chars_limit': user.char_limit,
         })
         
     except Exception as e:

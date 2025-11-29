@@ -487,24 +487,11 @@
 {% if not current_user.is_authenticated %}
 <div class="cta">
   <h3>Sign in to start creating audio</h3>
-  <p>Create an account and subscribe for $7.99/month</p>
+  <p>Create an account to get started with 10,000 free characters per month</p>
   <div class="actions">
     <a class="btn" href="{{ url_for('login') }}">Sign in</a>
-    <a class="btn primary" href="{{ url_for('signup') }}">Sign up</a>
+    <a class="btn primary" href="{{ url_for('signup') }}">Sign up Free</a>
   </div>
-</div>
-{% elif not current_user.is_subscribed %}
-<div class="cta" style="max-width: 600px; margin: 40px auto; padding: 40px;">
-  <h3>Subscribe to unlock Text‑to‑Speech</h3>
-  <p>Unlimited generation on our website. Choose your plan:</p>
-  <div style="display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; margin-top: 20px;">
-    <a class="btn primary" href="{{ url_for('subscribe') }}" style="padding: 14px 28px;">Monthly $7.99/mo</a>
-    <a class="btn" href="{{ url_for('subscribe', plan='lifetime') }}" style="padding: 14px 28px; background: linear-gradient(135deg, #6BCB77, #4ade80); color: white; border: none; box-shadow: 0 4px 12px rgba(107,203,119,0.25);">Lifetime $99 (one-time)</a>
-  </div>
-  <p style="margin-top: 16px; font-size: 13px; color: #FF7B72; font-weight: 600;">🔥 Only 50 lifetime spots at $99! Then $149</p>
-  <p style="margin-top: 20px; font-size: 14px; color: #636E72;">
-    🔌 Want to integrate TTS into your own app? <a href="{{ url_for('api_pricing') }}" style="color: #FF7B72; font-weight: 600;">View API Pricing →</a>
-  </p>
 </div>
 {% else %}
 <div class="dashboard-hero">
@@ -512,6 +499,94 @@
     <h1>Text-to-Speech Studio</h1>
     <p>Transform your text into natural-sounding speech</p>
   </div>
+</div>
+
+<!-- Character Usage Card -->
+<div style="max-width: 900px; margin: 0 auto; padding: 20px 24px 0 24px;">
+  <div id="usageCard" style="background: white; border-radius: 16px; padding: 20px 24px; border: 1px solid rgba(0,0,0,0.05); box-shadow: 0 4px 16px rgba(0,0,0,0.04); margin-bottom: 0;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span id="usageIcon" style="font-size: 18px;">📊</span>
+        <span style="font-weight: 600; color: #2D3436;">Monthly Usage</span>
+        {% if not is_unlimited %}
+        <span style="background: linear-gradient(135deg, rgba(255,154,139,0.15), rgba(255,142,83,0.15)); color: #FF7B72; font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 8px;">FREE PLAN</span>
+        {% else %}
+        <span style="background: linear-gradient(135deg, #7DD3C0, #7EC8E3); color: white; font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 8px;">UNLIMITED</span>
+        {% endif %}
+      </div>
+      <span id="usageText" style="font-weight: 700; color: #636E72;">
+        {% if is_unlimited %}
+          ∞ Unlimited
+        {% else %}
+          {{ chars_used|int }} / {{ chars_limit|int }} characters
+        {% endif %}
+      </span>
+    </div>
+    {% if not is_unlimited %}
+    <div style="background: #f1f5f9; border-radius: 8px; height: 10px; overflow: hidden;">
+      <div id="usageBar" style="height: 100%; border-radius: 8px; transition: width 0.3s, background 0.3s;
+        width: {{ ((chars_used / chars_limit) * 100)|round(1) if chars_limit > 0 else 0 }}%;
+        background: {% if (chars_used / chars_limit) >= 1 %}#ef4444{% elif (chars_used / chars_limit) >= 0.8 %}#f97316{% else %}linear-gradient(135deg, #FF9A8B, #FF8E53){% endif %};
+      "></div>
+    </div>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; flex-wrap: wrap; gap: 10px;">
+      <span id="remainingText" style="font-size: 13px; color: #636E72;">
+        {{ chars_remaining|int }} characters remaining • Resets {{ chars_reset_date }}
+      </span>
+      <a href="{{ url_for('subscribe') }}" id="upgradeBtn" style="
+        display: inline-flex; align-items: center; gap: 6px;
+        padding: 10px 18px; border-radius: 12px;
+        background: {% if (chars_used / chars_limit) >= 1 %}linear-gradient(135deg, #ef4444, #dc2626){% elif (chars_used / chars_limit) >= 0.8 %}linear-gradient(135deg, #f97316, #ea580c){% else %}linear-gradient(135deg, #FF9A8B, #FF8E53){% endif %};
+        color: white; font-size: 13px; font-weight: 600;
+        text-decoration: none; transition: all 0.2s;
+        box-shadow: 0 4px 12px {% if (chars_used / chars_limit) >= 1 %}rgba(239,68,68,0.3){% elif (chars_used / chars_limit) >= 0.8 %}rgba(249,115,22,0.3){% else %}rgba(255,123,114,0.2){% endif %};
+      ">
+        {% if (chars_used / chars_limit) >= 1 %}
+        🚀 Upgrade for Unlimited - $7.99/mo
+        {% elif (chars_used / chars_limit) >= 0.8 %}
+        ⚡ Running Low! Upgrade Now
+        {% else %}
+        ✨ Go Unlimited - $7.99/mo
+        {% endif %}
+      </a>
+    </div>
+    {% else %}
+    <div style="font-size: 13px; color: #10b981; margin-top: 4px;">
+      ✨ You have unlimited characters with your subscription
+    </div>
+    {% endif %}
+  </div>
+  
+  {% if not is_unlimited and (chars_used / chars_limit) >= 0.5 %}
+  <!-- Plan Comparison Popup - shown when usage is 50%+ -->
+  <div id="planCompare" style="position: relative; background: linear-gradient(135deg, #FFFBF7, #FFF0EB); border-radius: 16px; padding: 20px 24px; border: 1px solid rgba(255,123,114,0.2); margin-top: 12px; display: {% if (chars_used / chars_limit) >= 0.8 %}block{% else %}none{% endif %};">
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; flex-wrap: wrap;">
+      <div style="flex: 1; min-width: 200px;">
+        <div style="font-weight: 700; color: #2D3436; margin-bottom: 8px;">📊 Free Plan</div>
+        <ul style="font-size: 13px; color: #636E72; margin: 0; padding-left: 18px; line-height: 1.8;">
+          <li>10,000 characters/month</li>
+          <li>All 550+ voices</li>
+          <li>All features included</li>
+        </ul>
+      </div>
+      <div style="width: 1px; background: rgba(0,0,0,0.1); align-self: stretch; display: none;" class="plan-divider"></div>
+      <div style="flex: 1; min-width: 200px;">
+        <div style="font-weight: 700; color: #FF7B72; margin-bottom: 8px;">✨ Unlimited Plan</div>
+        <ul style="font-size: 13px; color: #636E72; margin: 0; padding-left: 18px; line-height: 1.8;">
+          <li><strong style="color: #2D3436;">Unlimited</strong> characters</li>
+          <li>Priority generation</li>
+          <li>Commercial rights</li>
+        </ul>
+      </div>
+      <div style="flex: 1; min-width: 150px; text-align: center;">
+        <div style="font-size: 28px; font-weight: 700; background: linear-gradient(135deg, #FF9A8B, #FF8E53); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;">$7.99<small style="font-size: 14px; font-weight: 500;">/mo</small></div>
+        <div style="font-size: 12px; color: #7DD3C0; margin: 4px 0;">or $99 lifetime</div>
+        <a href="{{ url_for('subscribe') }}" style="display: inline-block; padding: 10px 20px; background: linear-gradient(135deg, #FF9A8B, #FF8E53); color: white; border-radius: 10px; font-size: 13px; font-weight: 600; text-decoration: none; margin-top: 8px; transition: all 0.2s; box-shadow: 0 4px 12px rgba(255,123,114,0.3);">Upgrade Now</a>
+      </div>
+    </div>
+    <button onclick="this.parentElement.style.display='none'" style="position: absolute; top: 10px; right: 14px; background: none; border: none; font-size: 18px; cursor: pointer; color: #B2BEC3; line-height: 1;">&times;</button>
+  </div>
+  {% endif %}
 </div>
 
 <div class="tts-container">
@@ -629,7 +704,7 @@
 {% endblock %}
 
 {% block scripts %}
-{% if current_user.is_authenticated and current_user.is_subscribed %}
+{% if current_user.is_authenticated %}
 <script src="{{ url_for('static', filename='dialogue-markup.js') }}"></script>
 <script>
   let currentAudioUrl = null;
@@ -1157,8 +1232,25 @@
         dl.href = data.audioUrl;
         document.getElementById('audioPlayer').style.display = 'block';
         audio.play();
+        
+        // Update character usage display if data is provided
+        if (data.chars_used !== undefined && data.chars_limit !== undefined) {
+          updateUsageDisplay(data.chars_used, data.chars_limit, data.chars_remaining);
+        }
       } else {
-        throw new Error(data.error || 'Failed to generate');
+        // Check if it's a character limit error
+        if (data.error && data.error.includes('character limit')) {
+          const el = document.getElementById('error');
+          el.innerHTML = `<div style="display: flex; flex-direction: column; gap: 10px;">
+            <span>⚠️ ${data.error}</span>
+            <a href="/subscribe" style="display: inline-block; padding: 10px 20px; background: #f97316; color: white; border-radius: 8px; text-decoration: none; font-weight: 600; text-align: center;">
+              ⭐ Upgrade for Unlimited Characters
+            </a>
+          </div>`;
+          el.classList.add('visible');
+        } else {
+          throw new Error(data.error || 'Failed to generate');
+        }
       }
     } catch (err) {
       const el = document.getElementById('error');
@@ -1169,6 +1261,57 @@
       document.getElementById('generateBtn').disabled = false;
     }
   });
+  
+  // Function to update the usage display dynamically
+  function updateUsageDisplay(charsUsed, charsLimit, charsRemaining) {
+    const usageText = document.getElementById('usageText');
+    const usageBar = document.getElementById('usageBar');
+    const remainingText = document.getElementById('remainingText');
+    const usageIcon = document.getElementById('usageIcon');
+    const upgradeBtn = document.getElementById('upgradeBtn');
+    
+    if (!usageText) return; // If user has unlimited, these elements don't exist
+    
+    const percent = charsLimit > 0 ? (charsUsed / charsLimit) * 100 : 0;
+    
+    usageText.textContent = `${Math.round(charsUsed)} / ${Math.round(charsLimit)} characters`;
+    if (usageBar) {
+      usageBar.style.width = `${Math.min(percent, 100)}%`;
+      usageBar.style.background = percent >= 100 ? '#ef4444' : percent >= 80 ? '#f97316' : 'linear-gradient(135deg, #FF9A8B, #FF8E53)';
+    }
+    if (remainingText) {
+      remainingText.textContent = `${Math.round(charsRemaining)} characters remaining this month`;
+    }
+    if (usageIcon) {
+      usageIcon.textContent = percent >= 100 ? '🚫' : percent >= 80 ? '⚠️' : '📊';
+    }
+    
+    // Show/update upgrade button if needed
+    if (percent >= 80) {
+      if (!upgradeBtn) {
+        // Create upgrade button if it doesn't exist
+        const container = remainingText?.parentElement;
+        if (container) {
+          const btn = document.createElement('a');
+          btn.id = 'upgradeBtn';
+          btn.href = '/subscribe';
+          btn.style.cssText = `
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 8px 16px; border-radius: 10px;
+            background: ${percent >= 100 ? '#ef4444' : '#f97316'};
+            color: white; font-size: 13px; font-weight: 600;
+            text-decoration: none; transition: all 0.2s;
+          `;
+          btn.innerHTML = `⭐ ${percent >= 100 ? 'Upgrade for Unlimited' : 'Upgrade Now'}`;
+          container.appendChild(btn);
+        }
+      } else {
+        upgradeBtn.style.background = percent >= 100 ? '#ef4444' : '#f97316';
+        upgradeBtn.innerHTML = `⭐ ${percent >= 100 ? 'Upgrade for Unlimited' : 'Upgrade Now'}`;
+      }
+    }
+  }
+  
   loadVoices();
   loadPresets();
   renderChunks();
