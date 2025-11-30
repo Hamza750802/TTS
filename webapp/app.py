@@ -761,6 +761,84 @@ async def generate_speech(text, voice, rate=None, volume=None, pitch=None, is_ss
     return output_file
 
 
+async def generate_speech_with_srt(text, voice, rate=None, volume=None, pitch=None, style=None, style_degree=None, cache_key=None):
+    """Generate speech from text and also generate SRT subtitles.
+    
+    This is a simpler version that works for single-voice, non-SSML text.
+    Returns tuple: (audio_file_path, srt_file_path)
+    """
+    import inspect
+    import edge_tts as tts_module
+    from edge_tts import SubMaker
+    
+    # Create filenames
+    if cache_key:
+        audio_fname = f"speech_{cache_key}.mp3"
+        srt_fname = f"speech_{cache_key}.srt"
+    else:
+        unique_id = hashlib.md5(f"{text}{voice}{time.time()}".encode()).hexdigest()[:10]
+        audio_fname = f"speech_{unique_id}.mp3"
+        srt_fname = f"speech_{unique_id}.srt"
+    
+    audio_file = OUTPUT_DIR / audio_fname
+    srt_file = OUTPUT_DIR / srt_fname
+    
+    # Check cache
+    if cache_key and audio_file.exists() and srt_file.exists():
+        return audio_file, srt_file
+    
+    # Check if style parameter is supported
+    communicate_sig = inspect.signature(tts_module.Communicate.__init__)
+    supports_style = 'style' in communicate_sig.parameters
+    
+    # Create communicate instance with WordBoundary for better subtitles
+    if supports_style and style is not None:
+        communicate = tts_module.Communicate(
+            text=text,
+            voice=voice,
+            rate=rate or "+0%",
+            volume=volume or "+0%",
+            pitch=pitch or "+0Hz",
+            style=style,
+            style_degree=style_degree,
+            boundary="WordBoundary",  # Get word-level timing for subtitles
+            receive_timeout=600
+        )
+    else:
+        communicate = tts_module.Communicate(
+            text=text,
+            voice=voice,
+            rate=rate or "+0%",
+            volume=volume or "+0%",
+            pitch=pitch or "+0Hz",
+            boundary="WordBoundary",  # Get word-level timing for subtitles
+            receive_timeout=600
+        )
+    
+    submaker = SubMaker()
+    
+    # Stream and collect audio + metadata
+    audio_data = b""
+    async for chunk in communicate.stream():
+        if chunk["type"] == "audio":
+            audio_data += chunk["data"]
+        elif chunk["type"] in ("WordBoundary", "SentenceBoundary"):
+            submaker.feed(chunk)
+    
+    # Write audio file
+    with open(audio_file, "wb") as f:
+        f.write(audio_data)
+    
+    # Write SRT file
+    srt_content = submaker.get_srt()
+    with open(srt_file, "w", encoding="utf-8") as f:
+        f.write(srt_content)
+    
+    print(f"[TTS+SRT] Generated: {audio_fname} ({len(audio_data)} bytes), {srt_fname} ({len(srt_content)} chars)")
+    
+    return audio_file, srt_file
+
+
 def enforce_chunk_limits(chunks, max_chars=MAX_CHARS_PER_CHUNK):
     """Split any incoming chunk that is too long to keep each TTS call under the limit."""
     normalized = []
@@ -1552,6 +1630,7 @@ def api_generate():
         auto_pauses = data.get('auto_pauses', True)
         auto_emphasis = data.get('auto_emphasis', True)
         auto_breaths = data.get('auto_breaths', False)
+        generate_srt = data.get('generate_srt', False)  # NEW: SRT generation flag
         global_controls = data.get('global_controls', {}) or {}
 
         # Legacy params for plain text mode
@@ -1651,21 +1730,55 @@ def api_generate():
 
                     cache_key = hashlib.md5(f"{voice}:{plain_text}:{emotion}:{style_degree}:{chunk_rate}:{chunk_pitch}:{chunk_volume}".encode()).hexdigest()[:16]
 
-                    output_file = run_async(
-                        generate_speech(
-                            plain_text,
-                            voice,
-                            rate=chunk_rate,
-                            volume=chunk_volume,
-                            pitch=chunk_pitch,
-                            is_ssml=False,
-                            cache_key=cache_key,
-                            style=emotion,
-                            style_degree=style_degree
+                    # Generate with SRT if requested (single chunk, single voice)
+                    srt_url = None
+                    if generate_srt:
+                        try:
+                            audio_file, srt_file = run_async(
+                                generate_speech_with_srt(
+                                    plain_text,
+                                    voice,
+                                    rate=f"{chunk_rate:+d}%" if isinstance(chunk_rate, int) else chunk_rate,
+                                    volume=f"{chunk_volume:+d}%" if isinstance(chunk_volume, int) else chunk_volume,
+                                    pitch=f"{chunk_pitch:+d}Hz" if isinstance(chunk_pitch, int) else chunk_pitch,
+                                    style=emotion,
+                                    style_degree=style_degree,
+                                    cache_key=cache_key
+                                )
+                            )
+                            output_file = audio_file
+                            srt_url = f'/api/srt/{srt_file.name}'
+                        except Exception as srt_err:
+                            print(f"[SRT ERROR] Failed to generate SRT, falling back to audio-only: {srt_err}")
+                            output_file = run_async(
+                                generate_speech(
+                                    plain_text,
+                                    voice,
+                                    rate=chunk_rate,
+                                    volume=chunk_volume,
+                                    pitch=chunk_pitch,
+                                    is_ssml=False,
+                                    cache_key=cache_key,
+                                    style=emotion,
+                                    style_degree=style_degree
+                                )
+                            )
+                    else:
+                        output_file = run_async(
+                            generate_speech(
+                                plain_text,
+                                voice,
+                                rate=chunk_rate,
+                                volume=chunk_volume,
+                                pitch=chunk_pitch,
+                                is_ssml=False,
+                                cache_key=cache_key,
+                                style=emotion,
+                                style_degree=style_degree
+                            )
                         )
-                    )
 
-                    return jsonify({
+                    response_data = {
                         'success': True,
                         'audioUrl': f'/api/audio/{output_file.name}',
                         'warnings': style_warnings,
@@ -1678,11 +1791,14 @@ def api_generate():
                             'pitch': chunk_pitch,
                             'volume': chunk_volume,
                         }],
-                        'ssml_used': plain_text,  # For compatibility in tests/logs
+                        'ssml_used': plain_text,
                         'chars_used': current_user.chars_used or 0,
                         'chars_limit': current_user.char_limit,
                         'chars_remaining': current_user.chars_remaining,
-                    })
+                    }
+                    if srt_url:
+                        response_data['srtUrl'] = srt_url
+                    return jsonify(response_data)
 
             # Multi-chunk or multi-voice path: render and merge parts
             merged_file, chunk_warnings, chunk_map_out, ssml_preview = synthesize_and_merge_chunks(
@@ -1800,6 +1916,19 @@ def api_audio(filename):
             return send_file(file_path, mimetype='audio/mpeg')
         else:
             return jsonify({'success': False, 'error': 'File not found'}), 404
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/srt/<filename>')
+def api_srt(filename):
+    """Serve SRT subtitle file"""
+    try:
+        file_path = OUTPUT_DIR / filename
+        if file_path.exists():
+            return send_file(file_path, mimetype='text/plain', as_attachment=True, download_name=filename)
+        else:
+            return jsonify({'success': False, 'error': 'SRT file not found'}), 404
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 

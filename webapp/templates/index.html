@@ -634,6 +634,7 @@
           <label><input type="checkbox" id="autoPauses" checked /> Auto pauses</label>
           <label><input type="checkbox" id="autoEmphasis" checked /> Auto emphasis</label>
           <label><input type="checkbox" id="autoBreaths" /> Auto breaths</label>
+          <label><input type="checkbox" id="generateSrt" /> 📝 Generate SRT subtitles</label>
         </div>
       </div>
 
@@ -698,7 +699,10 @@
     <div class="audio-player" id="audioPlayer" style="display:none">
       <strong>✨ Your audio is ready!</strong>
       <audio id="audioElement" controls></audio>
-      <a id="downloadLink" class="download-btn" download="speech.mp3">⬇️ Download MP3</a>
+      <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+        <a id="downloadLink" class="download-btn" download="speech.mp3">⬇️ Download MP3</a>
+        <a id="downloadSrtLink" class="download-btn" download="speech.srt" style="display: none; background: linear-gradient(135deg, #7DD3C0, #7EC8E3);">📝 Download SRT</a>
+      </div>
     </div>
   </form>
 </div>
@@ -1153,6 +1157,7 @@
     const autoPauses = document.getElementById('autoPauses').checked;
     const autoEmphasis = document.getElementById('autoEmphasis').checked;
     const autoBreaths = document.getElementById('autoBreaths').checked;
+    const generateSrt = document.getElementById('generateSrt').checked;
 
     if (!text || !voice) {
       const el = document.getElementById('error');
@@ -1173,6 +1178,7 @@
     document.getElementById('loading').classList.add('visible');
     document.getElementById('error').classList.remove('visible');
     document.getElementById('audioPlayer').style.display = 'none';
+    document.getElementById('downloadSrtLink').style.display = 'none';
     document.getElementById('generateBtn').disabled = true;
     try {
       const requestBody = {
@@ -1189,6 +1195,7 @@
         auto_pauses: autoPauses,
         auto_emphasis: autoEmphasis,
         auto_breaths: autoBreaths,
+        generate_srt: generateSrt,
         global_controls: {
           rate: Number(rate || 0),
           pitch: Number(pitch || 0),
@@ -1206,6 +1213,16 @@
         const dl = document.getElementById('downloadLink');
         dl.href = data.audioUrl;
         document.getElementById('audioPlayer').style.display = 'block';
+        
+        // Show SRT download button if SRT was generated
+        const srtLink = document.getElementById('downloadSrtLink');
+        if (data.srtUrl) {
+          srtLink.href = data.srtUrl;
+          srtLink.style.display = 'inline-flex';
+        } else {
+          srtLink.style.display = 'none';
+        }
+        
         audio.play();
         
         // Update character usage display if data is provided
