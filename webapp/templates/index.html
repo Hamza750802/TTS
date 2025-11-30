@@ -1071,37 +1071,10 @@
       intensityWrap.appendChild(intensityInput);
       grid.appendChild(intensityWrap);
 
-      const speedWrap = document.createElement('div');
-      const speedLabel = document.createElement('label');
-      speedLabel.textContent = 'Speed (+/-%)';
-      const speedInput = document.createElement('input');
-      speedInput.type = 'number';
-      speedInput.min = -50;
-      speedInput.max = 50;
-      speedInput.step = 5;
-      speedInput.value = chunk.speed || 0;
-      speedInput.addEventListener('input', (e) => {
-        chunkState[idx].speed = parseInt(e.target.value || '0');
-      });
-      speedWrap.appendChild(speedLabel);
-      speedWrap.appendChild(speedInput);
-      grid.appendChild(speedWrap);
-
-      const pitchWrap = document.createElement('div');
-      const pitchLabel = document.createElement('label');
-      pitchLabel.textContent = 'Pitch (+/-%)';
-      const pitchInput = document.createElement('input');
-      pitchInput.type = 'number';
-      pitchInput.min = -50;
-      pitchInput.max = 50;
-      pitchInput.step = 5;
-      pitchInput.value = chunk.pitch || 0;
-      pitchInput.addEventListener('input', (e) => {
-        chunkState[idx].pitch = parseInt(e.target.value || '0');
-      });
-      pitchWrap.appendChild(pitchLabel);
-      pitchWrap.appendChild(pitchInput);
-      grid.appendChild(pitchWrap);
+      // Speed and Pitch controls hidden - not effective for multi-voice TTS
+      // Keeping the state variables but not showing UI
+      chunkState[idx].speed = 0;
+      chunkState[idx].pitch = 0;
 
       card.appendChild(grid);
 
