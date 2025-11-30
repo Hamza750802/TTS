@@ -479,19 +479,11 @@ class _ChunkEditorScreenState extends State<ChunkEditorScreen> {
             ),
             const SizedBox(height: 12),
 
-            // Prosody controls
+            // Intensity control (Speed and Pitch removed - not effective for multi-voice)
             Row(
               children: [
                 _buildProsodyControl('Intensity', chunk.intensity.toDouble(), 1, 3, 2, (v) {
                   setState(() => _chunks[index] = chunk.copyWith(intensity: v.round()));
-                }),
-                const SizedBox(width: 8),
-                _buildProsodyControl('Speed', chunk.speed.toDouble(), -50, 50, 100, (v) {
-                  setState(() => _chunks[index] = chunk.copyWith(speed: v.round()));
-                }),
-                const SizedBox(width: 8),
-                _buildProsodyControl('Pitch', chunk.pitch.toDouble(), -50, 50, 100, (v) {
-                  setState(() => _chunks[index] = chunk.copyWith(pitch: v.round()));
                 }),
               ],
             ),

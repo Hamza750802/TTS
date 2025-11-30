@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../services/auth_service.dart';
 import '../services/api_service.dart';
 import '../models/voice.dart';
@@ -95,6 +96,7 @@ class _HomeScreenState extends State<HomeScreen> {
     
     try {
       final apiService = context.read<ApiService>();
+      final authService = context.read<AuthService>();
       final result = await apiService.synthesize(
         text: _textController.text.trim(),
         voice: _selectedVoice!.shortName,
@@ -106,6 +108,15 @@ class _HomeScreenState extends State<HomeScreen> {
       );
       
       if (!mounted) return;
+      
+      // Update character usage from response
+      if (result['chars_remaining'] != null) {
+        await authService.updateCharUsage(
+          charsUsed: (authService.charsLimit - (result['chars_remaining'] as int)),
+          charsRemaining: result['chars_remaining'] as int,
+          charsLimit: result['chars_limit'] as int?,
+        );
+      }
       
       // Navigate to player
       Navigator.push(
@@ -119,14 +130,176 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       );
     } catch (e) {
-      setState(() {
-        _errorMessage = e.toString().replaceAll('Exception: ', '');
-      });
+      final errorStr = e.toString().replaceAll('Exception: ', '');
+      
+      // Check if it's a character limit error
+      if (errorStr.contains('limit reached') || errorStr.contains('Character limit')) {
+        _showUpgradeDialog();
+      } else {
+        setState(() {
+          _errorMessage = errorStr;
+        });
+      }
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
       }
     }
+  }
+  
+  void _showUpgradeDialog() {
+    final authService = context.read<AuthService>();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(colors: [AppTheme.accentCoral, Color(0xFFFF8E53)]),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.star, color: Colors.white, size: 20),
+            ),
+            const SizedBox(width: 12),
+            const Text('Go Unlimited'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.orange.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.orange.shade200),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, color: Colors.orange.shade700, size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'You\'ve used ${_formatNumber(authService.charsUsed.toInt())} of ${_formatNumber(authService.charsLimit.toInt())} characters.',
+                      style: TextStyle(fontSize: 13, color: Colors.orange.shade800),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            // Pricing
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Column(
+                  children: [
+                    const Text(
+                      '\$7.99',
+                      style: TextStyle(
+                        fontSize: 32,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.accentCoral,
+                      ),
+                    ),
+                    Text(
+                      'per month',
+                      style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                    ),
+                  ],
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Text('or', style: TextStyle(color: Colors.grey.shade500)),
+                ),
+                Column(
+                  children: [
+                    const Text(
+                      '\$99',
+                      style: TextStyle(
+                        fontSize: 32,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.accentMint,
+                      ),
+                    ),
+                    Text(
+                      'lifetime',
+                      style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'Unlimited includes:',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+            ),
+            const SizedBox(height: 10),
+            _buildFeatureRow(Icons.all_inclusive, 'Unlimited characters forever'),
+            _buildFeatureRow(Icons.speed, 'Priority audio generation'),
+            _buildFeatureRow(Icons.business, 'Commercial use rights'),
+            _buildFeatureRow(Icons.support_agent, 'Email support'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Later', style: TextStyle(color: Colors.grey.shade600)),
+          ),
+          Container(
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(colors: [AppTheme.accentCoral, Color(0xFFFF8E53)]),
+              borderRadius: BorderRadius.circular(10),
+              boxShadow: [
+                BoxShadow(
+                  color: AppTheme.accentCoral.withAlpha(77),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () async {
+                  Navigator.pop(context);
+                  final url = Uri.parse('https://cheaptts.com/subscribe');
+                  if (await canLaunchUrl(url)) {
+                    await launchUrl(url, mode: LaunchMode.externalApplication);
+                  }
+                },
+                borderRadius: BorderRadius.circular(10),
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  child: Text(
+                    'Upgrade Now',
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildFeatureRow(IconData icon, String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          Icon(icon, color: AppTheme.accentSuccess, size: 18),
+          const SizedBox(width: 10),
+          Expanded(child: Text(text, style: const TextStyle(fontSize: 13))),
+        ],
+      ),
+    );
   }
 
   void _onVoiceChanged(Voice voice) {
@@ -173,9 +346,24 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+  
+  String _formatNumber(int number) {
+    if (number >= 1000000) {
+      return '${(number / 1000000).toStringAsFixed(1)}M';
+    } else if (number >= 1000) {
+      return '${(number / 1000).toStringAsFixed(1)}K';
+    }
+    return number.toString().replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+      (m) => '${m[1]},',
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    final authService = context.watch<AuthService>();
+    final usagePercent = authService.usagePercent;
+    
     return Scaffold(
       appBar: AppBar(
         title: const Text('CheapTTS'),
@@ -223,6 +411,183 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  // Character usage card
+                  Card(
+                    margin: const EdgeInsets.only(bottom: 16),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(
+                                    usagePercent >= 100 
+                                        ? Icons.error 
+                                        : usagePercent >= 80 
+                                            ? Icons.warning 
+                                            : Icons.analytics,
+                                    color: usagePercent >= 100
+                                        ? Colors.red
+                                        : usagePercent >= 80
+                                            ? Colors.orange
+                                            : AppTheme.accentCoral,
+                                    size: 20,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Monthly Usage',
+                                    style: Theme.of(context).textTheme.titleMedium,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      gradient: authService.charsLimit >= 999999999
+                                          ? const LinearGradient(colors: [AppTheme.accentMint, Color(0xFF7EC8E3)])
+                                          : null,
+                                      color: authService.charsLimit >= 999999999 ? null : AppTheme.accentCoral.withAlpha(25),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Text(
+                                      authService.charsLimit >= 999999999 ? 'UNLIMITED' : 'FREE',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                        color: authService.charsLimit >= 999999999 ? Colors.white : AppTheme.accentCoral,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              Text(
+                                authService.charsLimit >= 999999999
+                                    ? '∞ Unlimited'
+                                    : '${_formatNumber(authService.charsUsed.toInt())} / ${_formatNumber(authService.charsLimit.toInt())}',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: usagePercent >= 100
+                                      ? Colors.red
+                                      : usagePercent >= 80
+                                          ? Colors.orange
+                                          : Colors.grey.shade700,
+                                ),
+                              ),
+                            ],
+                          ),
+                          if (authService.charsLimit < 999999999) ...[
+                            const SizedBox(height: 12),
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: LinearProgressIndicator(
+                                value: (usagePercent / 100).clamp(0.0, 1.0),
+                                minHeight: 10,
+                                backgroundColor: Colors.grey.shade200,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  usagePercent >= 100
+                                      ? Colors.red
+                                      : usagePercent >= 80
+                                          ? Colors.orange
+                                          : AppTheme.accentCoral,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  '${_formatNumber(authService.charsRemaining.toInt())} characters left',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey.shade600,
+                                  ),
+                                ),
+                                Text(
+                                  'Resets monthly',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey.shade500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ] else ...[
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                Icon(Icons.check_circle, color: AppTheme.accentSuccess, size: 16),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'You have unlimited characters with your subscription',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: AppTheme.accentSuccess,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                          if (authService.charsLimit < 999999999 && usagePercent >= 50) ...[
+                            const SizedBox(height: 12),
+                            Container(
+                              width: double.infinity,
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: usagePercent >= 100
+                                      ? [Colors.red.shade400, Colors.red.shade600]
+                                      : usagePercent >= 80
+                                          ? [Colors.orange.shade400, Colors.orange.shade600]
+                                          : [AppTheme.accentCoral.withAlpha(204), AppTheme.accentCoral],
+                                ),
+                                borderRadius: BorderRadius.circular(12),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: (usagePercent >= 100 ? Colors.red : usagePercent >= 80 ? Colors.orange : AppTheme.accentCoral).withAlpha(77),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
+                              ),
+                              child: Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: _showUpgradeDialog,
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        const Icon(Icons.star, color: Colors.white, size: 18),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          usagePercent >= 100
+                                              ? 'Upgrade for Unlimited - \$7.99/mo'
+                                              : usagePercent >= 80
+                                                  ? 'Running Low! Upgrade Now'
+                                                  : 'Go Unlimited - \$7.99/mo',
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 14,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+
                   // Error message
                   if (_errorMessage != null)
                     Container(
@@ -251,6 +616,183 @@ class _HomeScreenState extends State<HomeScreen> {
                         ],
                       ),
                     ),
+
+                  // Multi-speaker dialogue instructions
+                  Card(
+                    margin: const EdgeInsets.only(bottom: 16),
+                    color: Colors.blue.shade50,
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Icons.people, color: Colors.blue.shade700, size: 20),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Multi-Speaker Dialogue',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.blue.shade700,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Create conversations with different voices:',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.blue.shade900,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.blue.shade200),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Example:',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                    color: Colors.blue.shade700,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                const Text(
+                                  '[John]: Hello, how are you today?\n[Sarah]: I\'m doing great, thanks!',
+                                  style: TextStyle(
+                                    fontFamily: 'monospace',
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue.shade700,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: const Text(
+                                  '1',
+                                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              const Expanded(
+                                child: Text(
+                                  'Use [Name]: format for each speaker',
+                                  style: TextStyle(fontSize: 12),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue.shade700,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: const Text(
+                                  '2',
+                                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Row(
+                                  children: [
+                                    const Text(
+                                      'Tap ',
+                                      style: TextStyle(fontSize: 12),
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey.shade200,
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: const Text(
+                                        'Split into Chunks',
+                                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                                      ),
+                                    ),
+                                    const Text(
+                                      ' button',
+                                      style: TextStyle(fontSize: 12),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue.shade700,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: const Text(
+                                  '3',
+                                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              const Expanded(
+                                child: Text(
+                                  'Assign different voices to each speaker',
+                                  style: TextStyle(fontSize: 12),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue.shade700,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: const Text(
+                                  '4',
+                                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              const Expanded(
+                                child: Text(
+                                  'Generate to create dialogue audio',
+                                  style: TextStyle(fontSize: 12),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
                   // Text input card
                   Card(
                     child: Padding(
@@ -363,88 +905,6 @@ class _HomeScreenState extends State<HomeScreen> {
                                   const Icon(Icons.chevron_right),
                                 ],
                               ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  // Voice settings card
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              const Icon(Icons.tune, color: AppTheme.accentSuccess),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Voice Settings',
-                                style: Theme.of(context).textTheme.titleLarge,
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 20),
-                          // Speed slider
-                          Row(
-                            children: [
-                              const SizedBox(width: 80, child: Text('Speed')),
-                              Expanded(
-                                child: Slider(
-                                  value: _rate,
-                                  min: -50,
-                                  max: 50,
-                                  divisions: 100,
-                                  label: '${_rate.round()}%',
-                                  onChanged: (value) => setState(() => _rate = value),
-                                ),
-                              ),
-                              SizedBox(
-                                width: 50,
-                                child: Text(
-                                  '${_rate.round()}%',
-                                  textAlign: TextAlign.center,
-                                ),
-                              ),
-                            ],
-                          ),
-                          // Pitch slider
-                          Row(
-                            children: [
-                              const SizedBox(width: 80, child: Text('Pitch')),
-                              Expanded(
-                                child: Slider(
-                                  value: _pitch,
-                                  min: -50,
-                                  max: 50,
-                                  divisions: 100,
-                                  label: '${_pitch.round()}%',
-                                  onChanged: (value) => setState(() => _pitch = value),
-                                ),
-                              ),
-                              SizedBox(
-                                width: 50,
-                                child: Text(
-                                  '${_pitch.round()}%',
-                                  textAlign: TextAlign.center,
-                                ),
-                              ),
-                            ],
-                          ),
-                          // Reset button
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: TextButton(
-                              onPressed: () {
-                                setState(() {
-                                  _rate = 0;
-                                  _pitch = 0;
-                                });
-                              },
-                              child: const Text('Reset to Default'),
                             ),
                           ),
                         ],
