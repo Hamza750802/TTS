@@ -673,6 +673,22 @@ with app.app_context():
         if 'chars_reset_at' not in existing_columns:
             conn.execute(text("ALTER TABLE \"user\" ADD COLUMN chars_reset_at TIMESTAMP"))
             print("[MIGRATION] Added chars_reset_at column to user table")
+        # Premium Bark TTS tier columns
+        if 'premium_tier' not in existing_columns:
+            conn.execute(text("ALTER TABLE \"user\" ADD COLUMN premium_tier VARCHAR(32) DEFAULT 'none'"))
+            print("[MIGRATION] Added premium_tier column to user table")
+        if 'premium_chars_used' not in existing_columns:
+            conn.execute(text("ALTER TABLE \"user\" ADD COLUMN premium_chars_used INTEGER DEFAULT 0"))
+            print("[MIGRATION] Added premium_chars_used column to user table")
+        if 'premium_chars_reset_at' not in existing_columns:
+            conn.execute(text("ALTER TABLE \"user\" ADD COLUMN premium_chars_reset_at TIMESTAMP"))
+            print("[MIGRATION] Added premium_chars_reset_at column to user table")
+        if 'premium_stripe_subscription_id' not in existing_columns:
+            conn.execute(text("ALTER TABLE \"user\" ADD COLUMN premium_stripe_subscription_id VARCHAR(255)"))
+            print("[MIGRATION] Added premium_stripe_subscription_id column to user table")
+        if 'premium_overage_cents' not in existing_columns:
+            conn.execute(text("ALTER TABLE \"user\" ADD COLUMN premium_overage_cents INTEGER DEFAULT 0"))
+            print("[MIGRATION] Added premium_overage_cents column to user table")
         conn.commit()
 
 # Cleanup old files on startup (works with Gunicorn)
