@@ -606,11 +606,58 @@
         <div class="section-title">Voice Settings</div>
         <div class="input-group">
           <label for="voice">Choose Voice</label>
-          <p style="font-size: 13px; color: #636E72; margin-bottom: 8px;">🎭 = Supports emotion control (cheerful, sad,
-            angry, etc.)</p>
+          
+          <!-- Voice Filters -->
+          <div style="display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; align-items: center;">
+            <div style="display: flex; gap: 6px;">
+              <button type="button" id="filterAll" class="voice-filter-btn active" onclick="filterVoices('all')">All Voices</button>
+              <button type="button" id="filterEmotions" class="voice-filter-btn" onclick="filterVoices('emotions')">🎭 With Emotions <span id="emotionCount" style="background: #FF7B72; color: white; font-size: 11px; padding: 2px 6px; border-radius: 10px; margin-left: 4px;">47</span></button>
+            </div>
+            <select id="languageFilter" onchange="filterVoices(currentVoiceFilter)" style="padding: 8px 12px; border-radius: 10px; border: 2px solid rgba(0,0,0,0.06); background: #FFFBF7; font-size: 13px; cursor: pointer;">
+              <option value="all">🌍 All Languages</option>
+              <option value="en">🇺🇸 English</option>
+              <option value="es">🇪🇸 Spanish</option>
+              <option value="fr">🇫🇷 French</option>
+              <option value="de">🇩🇪 German</option>
+              <option value="it">🇮🇹 Italian</option>
+              <option value="pt">🇵🇹 Portuguese</option>
+              <option value="zh">🇨🇳 Chinese</option>
+              <option value="ja">🇯🇵 Japanese</option>
+              <option value="ko">🇰🇷 Korean</option>
+              <option value="ar">🇸🇦 Arabic</option>
+              <option value="hi">🇮🇳 Hindi</option>
+              <option value="other">Other Languages</option>
+            </select>
+          </div>
+          
+          <style>
+            .voice-filter-btn {
+              padding: 8px 14px;
+              border-radius: 10px;
+              border: 2px solid rgba(0,0,0,0.06);
+              background: #FFFBF7;
+              font-size: 13px;
+              font-weight: 600;
+              cursor: pointer;
+              transition: all 0.2s;
+              color: #636E72;
+            }
+            .voice-filter-btn:hover {
+              border-color: #FF7B72;
+              background: #FFF0EB;
+            }
+            .voice-filter-btn.active {
+              background: linear-gradient(135deg, #FF9A8B, #FF8E53);
+              color: white;
+              border-color: transparent;
+              box-shadow: 0 4px 12px rgba(255,123,114,0.25);
+            }
+          </style>
+          
           <select id="voice" required>
             <option value="">Loading voices...</option>
           </select>
+          <p id="voiceCount" style="font-size: 12px; color: #636E72; margin-top: 6px;">Loading voices...</p>
         </div>
         <div class="input-group">
           <label for="preset">Hero Presets</label>
@@ -715,8 +762,10 @@
 <script>
   let currentAudioUrl = null;
   let voiceIndex = {};
+  let allVoices = [];
   let chunkState = [];
   let presets = [];
+  let currentVoiceFilter = 'all';
 
   const chunkListEl = document.getElementById('chunkList');
   const textArea = document.getElementById('text');
@@ -726,44 +775,24 @@
       const response = await fetch('/api/voices');
       const data = await response.json();
       if (data.success) {
-        const voiceSelect = document.getElementById('voice');
-        voiceSelect.innerHTML = '';
         voiceIndex = {};
+        allVoices = data.voices;
 
         // Store voice data for emotion control
         data.voices.forEach(v => {
           voiceIndex[v.shortName] = v;
         });
 
-        const popularVoices = data.voices.filter(v => v.locale.startsWith('en-') && (v.name.includes('Emma') || v.name.includes('Jenny') || v.name.includes('Guy') || v.name.includes('Ryan')));
-        if (popularVoices.length) {
-          const optgroup = document.createElement('optgroup');
-          optgroup.label = 'Popular English Voices';
-          popularVoices.forEach(voice => {
-            const option = document.createElement('option');
-            option.value = voice.shortName;
-            option.textContent = `${voice.has_styles ? '🎭 ' : ''}${voice.localName} (${voice.gender}) - ${voice.locale}`;
-            option.dataset.hasStyles = voice.has_styles;
-            option.dataset.styles = (voice.styles || []).join(',');
-            optgroup.appendChild(option);
-          });
-          voiceSelect.appendChild(optgroup);
-        }
-        const all = document.createElement('optgroup');
-        all.label = 'All Voices';
-        data.voices.forEach(voice => {
-          const option = document.createElement('option');
-          option.value = voice.shortName;
-          option.textContent = `${voice.has_styles ? '🎭 ' : ''}${voice.localName} (${voice.gender}) - ${voice.locale}`;
-          option.dataset.hasStyles = voice.has_styles;
-          option.dataset.styles = (voice.styles || []).join(',');
-          all.appendChild(option);
-        });
-        voiceSelect.appendChild(all);
-        voiceSelect.value = 'en-US-EmmaMultilingualNeural';
+        // Update emotion count badge
+        const emotionVoices = data.voices.filter(v => v.has_styles);
+        const emotionCountEl = document.getElementById('emotionCount');
+        if (emotionCountEl) emotionCountEl.textContent = emotionVoices.length;
+
+        // Render voices with default filter
+        renderVoiceOptions();
 
         // Add change listener for emotion control
-        voiceSelect.addEventListener('change', onVoiceChange);
+        document.getElementById('voice').addEventListener('change', onVoiceChange);
         onVoiceChange();
       }
     } catch (err) {
@@ -772,6 +801,115 @@
       el.textContent = 'Failed to load voices. Please refresh.';
       el.classList.add('visible');
     }
+  }
+
+  function filterVoices(filter) {
+    currentVoiceFilter = filter;
+    
+    // Update button states
+    document.getElementById('filterAll').classList.toggle('active', filter === 'all');
+    document.getElementById('filterEmotions').classList.toggle('active', filter === 'emotions');
+    
+    renderVoiceOptions();
+  }
+
+  function renderVoiceOptions() {
+    const voiceSelect = document.getElementById('voice');
+    const languageFilter = document.getElementById('languageFilter').value;
+    const previousValue = voiceSelect.value;
+    voiceSelect.innerHTML = '';
+
+    // Filter voices based on current filters
+    let filteredVoices = allVoices;
+    
+    // Apply emotion filter
+    if (currentVoiceFilter === 'emotions') {
+      filteredVoices = filteredVoices.filter(v => v.has_styles);
+    }
+    
+    // Apply language filter
+    if (languageFilter !== 'all') {
+      if (languageFilter === 'other') {
+        const mainLangs = ['en', 'es', 'fr', 'de', 'it', 'pt', 'zh', 'ja', 'ko', 'ar', 'hi'];
+        filteredVoices = filteredVoices.filter(v => !mainLangs.some(lang => v.locale.startsWith(lang)));
+      } else {
+        filteredVoices = filteredVoices.filter(v => v.locale.startsWith(languageFilter));
+      }
+    }
+
+    // Group voices
+    const emotionVoices = filteredVoices.filter(v => v.has_styles);
+    const regularVoices = filteredVoices.filter(v => !v.has_styles);
+
+    // Add emotion voices first (if showing all)
+    if (currentVoiceFilter === 'all' && emotionVoices.length > 0) {
+      const emotionGroup = document.createElement('optgroup');
+      emotionGroup.label = `🎭 Voices with Emotions (${emotionVoices.length})`;
+      emotionVoices.forEach(voice => {
+        const option = document.createElement('option');
+        option.value = voice.shortName;
+        option.textContent = `🎭 ${voice.localName} (${voice.gender}) - ${voice.locale}`;
+        option.dataset.hasStyles = voice.has_styles;
+        option.dataset.styles = (voice.styles || []).join(',');
+        emotionGroup.appendChild(option);
+      });
+      voiceSelect.appendChild(emotionGroup);
+    } else if (currentVoiceFilter === 'emotions') {
+      // Just list them without grouping
+      emotionVoices.forEach(voice => {
+        const option = document.createElement('option');
+        option.value = voice.shortName;
+        option.textContent = `🎭 ${voice.localName} (${voice.gender}) - ${voice.locale}`;
+        option.dataset.hasStyles = voice.has_styles;
+        option.dataset.styles = (voice.styles || []).join(',');
+        voiceSelect.appendChild(option);
+      });
+    }
+
+    // Add regular voices
+    if (currentVoiceFilter === 'all' && regularVoices.length > 0) {
+      const regularGroup = document.createElement('optgroup');
+      regularGroup.label = `Standard Voices (${regularVoices.length})`;
+      regularVoices.forEach(voice => {
+        const option = document.createElement('option');
+        option.value = voice.shortName;
+        option.textContent = `${voice.localName} (${voice.gender}) - ${voice.locale}`;
+        option.dataset.hasStyles = voice.has_styles;
+        option.dataset.styles = (voice.styles || []).join(',');
+        regularGroup.appendChild(option);
+      });
+      voiceSelect.appendChild(regularGroup);
+    }
+
+    // Restore previous selection if still available, otherwise pick a good default
+    if (previousValue && voiceIndex[previousValue]) {
+      const stillExists = Array.from(voiceSelect.options).some(opt => opt.value === previousValue);
+      if (stillExists) {
+        voiceSelect.value = previousValue;
+      } else {
+        // Pick first emotion voice if filtering by emotions, otherwise Emma
+        voiceSelect.value = voiceSelect.options[0]?.value || '';
+      }
+    } else {
+      // Default to first emotion voice if available
+      const firstEmotionVoice = emotionVoices[0];
+      if (firstEmotionVoice) {
+        voiceSelect.value = firstEmotionVoice.shortName;
+      }
+    }
+
+    // Update count display
+    const totalShown = filteredVoices.length;
+    const voiceCountEl = document.getElementById('voiceCount');
+    if (voiceCountEl) {
+      if (currentVoiceFilter === 'emotions') {
+        voiceCountEl.innerHTML = `Showing <strong>${totalShown}</strong> voices with emotion control`;
+      } else {
+        voiceCountEl.innerHTML = `Showing <strong>${totalShown}</strong> voices (${emotionVoices.length} with emotions)`;
+      }
+    }
+
+    onVoiceChange();
   }
 
   function onVoiceChange() {
