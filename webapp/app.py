@@ -2,6 +2,7 @@
 Web app for Cheap TTS with auth + Stripe subscriptions
 """
 import asyncio
+import base64
 import hashlib
 import os
 import secrets
@@ -14,6 +15,7 @@ from email.message import EmailMessage
 from functools import wraps
 from pathlib import Path
 
+import requests
 import stripe
 
 # Load environment variables from .env file
@@ -115,6 +117,16 @@ ADMIN_API_KEY = os.environ.get('ADMIN_API_KEY', '')  # Set this in .env
 STRIPE_LIFETIME_PRICE_ID = 'price_1SYORtLz6FHVmZlME0DueU5x'  # $99 lifetime web access
 STRIPE_API_STARTER_PRICE_ID = 'price_1SYThPLz6FHVmZlMFskDh4bS'  # $5/mo API Starter (100k chars)
 STRIPE_API_PRO_PRICE_ID = 'price_1SYTheLz6FHVmZlMH2wwGQ6q'  # $19/mo API Pro (500k chars)
+
+# Premium Bark TTS Stripe Price IDs (to be created in Stripe dashboard)
+STRIPE_PREMIUM_PRICE_ID = os.environ.get('STRIPE_PREMIUM_PRICE_ID', '')  # $19.99/mo (100K chars)
+STRIPE_PREMIUM_PLUS_PRICE_ID = os.environ.get('STRIPE_PREMIUM_PLUS_PRICE_ID', '')  # $29.99/mo (200K chars)
+STRIPE_PREMIUM_PRO_PRICE_ID = os.environ.get('STRIPE_PREMIUM_PRO_PRICE_ID', '')  # $39.99/mo (300K chars)
+
+# RunPod Serverless Configuration (for Premium Bark TTS)
+RUNPOD_API_KEY = os.environ.get('RUNPOD_API_KEY', '')
+RUNPOD_ENDPOINT_ID = os.environ.get('RUNPOD_ENDPOINT_ID', '')  # Your deployed Bark worker endpoint
+RUNPOD_ENDPOINT_URL = f"https://api.runpod.ai/v2/{RUNPOD_ENDPOINT_ID}" if RUNPOD_ENDPOINT_ID else ""
 
 # Password reset + email settings
 try:
@@ -354,6 +366,85 @@ class User(db.Model, UserMixin):
         # Track usage
         self.chars_used = current_used + char_count
         return (True, None)
+    
+    # --- Premium Bark TTS (Premium tier) ---
+    # Premium tiers: 'none' | 'premium' (100K) | 'premium_plus' (200K) | 'premium_pro' (300K)
+    premium_tier = db.Column(db.String(32), default='none')
+    premium_chars_used = db.Column(db.Integer, default=0)
+    premium_chars_reset_at = db.Column(db.DateTime)
+    premium_stripe_subscription_id = db.Column(db.String(255))
+    premium_overage_cents = db.Column(db.Integer, default=0)  # Track overage charges
+    
+    # Premium tier character limits
+    PREMIUM_LIMITS = {
+        'none': 0,
+        'premium': 100000,      # 100K chars (~2.2 hrs)
+        'premium_plus': 200000,  # 200K chars (~4.4 hrs)
+        'premium_pro': 300000    # 300K chars (~6.6 hrs)
+    }
+    
+    @property
+    def has_premium(self) -> bool:
+        """Check if user has any premium Bark access"""
+        return self.premium_tier in ('premium', 'premium_plus', 'premium_pro')
+    
+    @property
+    def premium_char_limit(self) -> int:
+        """Get premium character limit based on tier"""
+        return self.PREMIUM_LIMITS.get(self.premium_tier, 0)
+    
+    @property
+    def premium_chars_remaining(self) -> int:
+        """Get remaining premium characters for this billing period"""
+        if not self.has_premium:
+            return 0
+        self.check_and_reset_premium_usage()
+        return max(0, self.premium_char_limit - (self.premium_chars_used or 0))
+    
+    def check_and_reset_premium_usage(self):
+        """Reset premium usage if billing period has passed (monthly)"""
+        if not self.premium_chars_reset_at:
+            self.premium_chars_reset_at = datetime.utcnow() + timedelta(days=30)
+            self.premium_chars_used = 0
+            return
+        
+        if datetime.utcnow() >= self.premium_chars_reset_at:
+            self.premium_chars_used = 0
+            self.premium_overage_cents = 0
+            self.premium_chars_reset_at = datetime.utcnow() + timedelta(days=30)
+    
+    def use_premium_chars(self, char_count: int, allow_overage: bool = True) -> tuple:
+        """
+        Track premium Bark character usage.
+        Returns (success: bool, is_overage: bool, overage_cost_cents: int, error_message: str or None)
+        
+        Overage rate: $0.40 per 1K chars = 0.04 cents per char
+        """
+        if not self.has_premium:
+            return (False, False, 0, "Premium subscription required for Bark TTS.")
+        
+        self.check_and_reset_premium_usage()
+        
+        current_used = self.premium_chars_used or 0
+        remaining = self.premium_char_limit - current_used
+        
+        if char_count <= remaining:
+            # Within limit
+            self.premium_chars_used = current_used + char_count
+            return (True, False, 0, None)
+        
+        if not allow_overage:
+            return (False, False, 0, f"Premium character limit reached. {remaining:,} characters remaining. Enable overage or upgrade your plan.")
+        
+        # Calculate overage
+        chars_over_limit = char_count - remaining if remaining > 0 else char_count
+        # $0.40 per 1K chars = 40 cents per 1K = 0.04 cents per char
+        overage_cents = int((chars_over_limit / 1000) * 40)
+        
+        self.premium_chars_used = current_used + char_count
+        self.premium_overage_cents = (self.premium_overage_cents or 0) + overage_cents
+        
+        return (True, True, overage_cents, None)
 
 
 class APIKey(db.Model):
@@ -1905,6 +1996,379 @@ def api_generate_pro():
         'success': False,
         'error': 'Pro engine not enabled yet. This endpoint is reserved for CosyVoice-2 CPU mode.'
     }), 501
+
+
+# -------- Premium Bark TTS Endpoints --------
+
+@app.route('/api/generate-premium', methods=['POST'])
+@login_required
+@csrf.exempt
+def api_generate_premium():
+    """
+    Generate premium audio using Bark TTS via RunPod serverless.
+    Requires premium subscription tier.
+    """
+    import re
+    
+    try:
+        # Check if RunPod is configured
+        if not RUNPOD_API_KEY or not RUNPOD_ENDPOINT_ID:
+            return jsonify({
+                'success': False,
+                'error': 'Premium TTS service is not configured. Please contact support.'
+            }), 503
+        
+        data = request.get_json(silent=True) or {}
+        text = (data.get('text', '') or '').strip()
+        voice = data.get('voice', 'v2/en_speaker_6')
+        silence_padding_ms = data.get('silence_padding_ms', 200)
+        allow_overage = data.get('allow_overage', True)
+        
+        if not text:
+            return jsonify({'success': False, 'error': 'No text provided'}), 400
+        
+        # Calculate character count (strip any markup)
+        plain_text = re.sub(r'\[[^\]]+\]', '', text)  # Remove [laughter] etc for char count
+        char_count = len(plain_text)
+        
+        # Check premium subscription and usage
+        if not current_user.has_premium:
+            return jsonify({
+                'success': False,
+                'error': 'Premium subscription required for Bark TTS. Upgrade to Premium for ultra-realistic AI voices.',
+                'upgrade_url': '/subscribe',
+                'premium_required': True
+            }), 402
+        
+        # Check and track usage
+        success, is_overage, overage_cents, error_msg = current_user.use_premium_chars(char_count, allow_overage)
+        if not success:
+            return jsonify({
+                'success': False,
+                'error': error_msg,
+                'limit_reached': True,
+                'premium_chars_used': current_user.premium_chars_used or 0,
+                'premium_chars_limit': current_user.premium_char_limit,
+                'premium_chars_remaining': current_user.premium_chars_remaining,
+                'upgrade_url': '/subscribe'
+            }), 402
+        
+        db.session.commit()
+        
+        # Call RunPod serverless endpoint
+        headers = {
+            'Authorization': f'Bearer {RUNPOD_API_KEY}',
+            'Content-Type': 'application/json'
+        }
+        
+        payload = {
+            'input': {
+                'text': text,
+                'voice': voice,
+                'silence_padding_ms': silence_padding_ms
+            }
+        }
+        
+        # Start the job
+        response = requests.post(
+            f'{RUNPOD_ENDPOINT_URL}/runsync',
+            headers=headers,
+            json=payload,
+            timeout=300  # 5 minute timeout for long generations
+        )
+        
+        if response.status_code != 200:
+            # Refund the characters on failure
+            current_user.premium_chars_used = max(0, (current_user.premium_chars_used or 0) - char_count)
+            if is_overage:
+                current_user.premium_overage_cents = max(0, (current_user.premium_overage_cents or 0) - overage_cents)
+            db.session.commit()
+            
+            return jsonify({
+                'success': False,
+                'error': f'Premium TTS service error: {response.status_code}'
+            }), 502
+        
+        result = response.json()
+        
+        if result.get('status') == 'FAILED' or 'error' in result.get('output', {}):
+            # Refund characters on failure
+            current_user.premium_chars_used = max(0, (current_user.premium_chars_used or 0) - char_count)
+            if is_overage:
+                current_user.premium_overage_cents = max(0, (current_user.premium_overage_cents or 0) - overage_cents)
+            db.session.commit()
+            
+            error_msg = result.get('output', {}).get('error', 'Unknown error')
+            return jsonify({
+                'success': False,
+                'error': f'Premium TTS generation failed: {error_msg}'
+            }), 500
+        
+        # Get the audio data
+        output = result.get('output', {})
+        audio_base64 = output.get('audio_base64')
+        stats = output.get('stats', {})
+        
+        if not audio_base64:
+            return jsonify({
+                'success': False,
+                'error': 'No audio data received from premium service'
+            }), 500
+        
+        # Decode and save the audio file
+        audio_data = base64.b64decode(audio_base64)
+        
+        # Generate unique filename
+        file_hash = hashlib.md5(f"{text[:50]}:{voice}:{time.time()}".encode()).hexdigest()[:12]
+        output_file = OUTPUT_DIR / f"premium_{file_hash}.wav"
+        
+        with open(output_file, 'wb') as f:
+            f.write(audio_data)
+        
+        return jsonify({
+            'success': True,
+            'audioUrl': f'/api/audio/{output_file.name}',
+            'stats': stats,
+            'is_overage': is_overage,
+            'overage_cents': overage_cents if is_overage else 0,
+            'premium_chars_used': current_user.premium_chars_used or 0,
+            'premium_chars_limit': current_user.premium_char_limit,
+            'premium_chars_remaining': current_user.premium_chars_remaining
+        })
+        
+    except requests.Timeout:
+        return jsonify({
+            'success': False,
+            'error': 'Premium TTS generation timed out. Please try with shorter text.'
+        }), 504
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/generate-premium/async', methods=['POST'])
+@login_required
+@csrf.exempt
+def api_generate_premium_async():
+    """
+    Start an async premium generation job. Returns job_id for polling.
+    Use this for longer texts to avoid timeout.
+    """
+    import re
+    
+    try:
+        if not RUNPOD_API_KEY or not RUNPOD_ENDPOINT_ID:
+            return jsonify({
+                'success': False,
+                'error': 'Premium TTS service is not configured.'
+            }), 503
+        
+        data = request.get_json(silent=True) or {}
+        text = (data.get('text', '') or '').strip()
+        voice = data.get('voice', 'v2/en_speaker_6')
+        silence_padding_ms = data.get('silence_padding_ms', 200)
+        allow_overage = data.get('allow_overage', True)
+        
+        if not text:
+            return jsonify({'success': False, 'error': 'No text provided'}), 400
+        
+        # Calculate character count
+        plain_text = re.sub(r'\[[^\]]+\]', '', text)
+        char_count = len(plain_text)
+        
+        # Estimate generation time (~10 sec per 13 sec of audio, ~750 chars per minute)
+        estimated_chunks = max(1, char_count // 200)
+        estimated_seconds = estimated_chunks * 10
+        
+        # Check premium subscription
+        if not current_user.has_premium:
+            return jsonify({
+                'success': False,
+                'error': 'Premium subscription required for Bark TTS.',
+                'upgrade_url': '/subscribe',
+                'premium_required': True
+            }), 402
+        
+        # Check and track usage
+        success, is_overage, overage_cents, error_msg = current_user.use_premium_chars(char_count, allow_overage)
+        if not success:
+            return jsonify({
+                'success': False,
+                'error': error_msg,
+                'limit_reached': True
+            }), 402
+        
+        db.session.commit()
+        
+        # Start async job on RunPod
+        headers = {
+            'Authorization': f'Bearer {RUNPOD_API_KEY}',
+            'Content-Type': 'application/json'
+        }
+        
+        payload = {
+            'input': {
+                'text': text,
+                'voice': voice,
+                'silence_padding_ms': silence_padding_ms
+            }
+        }
+        
+        response = requests.post(
+            f'{RUNPOD_ENDPOINT_URL}/run',
+            headers=headers,
+            json=payload,
+            timeout=30
+        )
+        
+        if response.status_code != 200:
+            # Refund on failure
+            current_user.premium_chars_used = max(0, (current_user.premium_chars_used or 0) - char_count)
+            db.session.commit()
+            return jsonify({
+                'success': False,
+                'error': f'Failed to start premium job: {response.status_code}'
+            }), 502
+        
+        result = response.json()
+        job_id = result.get('id')
+        
+        return jsonify({
+            'success': True,
+            'job_id': job_id,
+            'estimated_seconds': estimated_seconds,
+            'char_count': char_count,
+            'is_overage': is_overage,
+            'overage_cents': overage_cents if is_overage else 0
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/premium-status/<job_id>')
+@login_required
+def api_premium_status(job_id):
+    """Poll for async premium job status"""
+    try:
+        if not RUNPOD_API_KEY or not RUNPOD_ENDPOINT_ID:
+            return jsonify({'success': False, 'error': 'Service not configured'}), 503
+        
+        headers = {
+            'Authorization': f'Bearer {RUNPOD_API_KEY}'
+        }
+        
+        response = requests.get(
+            f'{RUNPOD_ENDPOINT_URL}/status/{job_id}',
+            headers=headers,
+            timeout=10
+        )
+        
+        if response.status_code != 200:
+            return jsonify({
+                'success': False,
+                'error': f'Failed to get job status: {response.status_code}'
+            }), 502
+        
+        result = response.json()
+        status = result.get('status', 'UNKNOWN')
+        
+        if status == 'COMPLETED':
+            output = result.get('output', {})
+            audio_base64 = output.get('audio_base64')
+            stats = output.get('stats', {})
+            
+            if audio_base64:
+                # Decode and save
+                audio_data = base64.b64decode(audio_base64)
+                file_hash = hashlib.md5(f"{job_id}:{time.time()}".encode()).hexdigest()[:12]
+                output_file = OUTPUT_DIR / f"premium_{file_hash}.wav"
+                
+                with open(output_file, 'wb') as f:
+                    f.write(audio_data)
+                
+                return jsonify({
+                    'success': True,
+                    'status': 'COMPLETED',
+                    'audioUrl': f'/api/audio/{output_file.name}',
+                    'stats': stats,
+                    'premium_chars_used': current_user.premium_chars_used or 0,
+                    'premium_chars_remaining': current_user.premium_chars_remaining
+                })
+            else:
+                return jsonify({
+                    'success': False,
+                    'status': 'FAILED',
+                    'error': 'No audio data in completed job'
+                })
+        
+        elif status == 'FAILED':
+            error_msg = result.get('output', {}).get('error', 'Unknown error')
+            return jsonify({
+                'success': False,
+                'status': 'FAILED',
+                'error': error_msg
+            })
+        
+        else:
+            # IN_QUEUE or IN_PROGRESS
+            return jsonify({
+                'success': True,
+                'status': status,
+                'message': 'Job is still processing...'
+            })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/premium-voices')
+def api_premium_voices():
+    """Get list of available Bark voice presets"""
+    voices = []
+    
+    # English voices
+    for i in range(10):
+        voices.append({
+            'id': f'v2/en_speaker_{i}',
+            'name': f'English Speaker {i+1}',
+            'language': 'en',
+            'language_name': 'English'
+        })
+    
+    # Other languages
+    languages = [
+        ('de', 'German'), ('es', 'Spanish'), ('fr', 'French'),
+        ('hi', 'Hindi'), ('it', 'Italian'), ('ja', 'Japanese'),
+        ('ko', 'Korean'), ('pl', 'Polish'), ('pt', 'Portuguese'),
+        ('ru', 'Russian'), ('tr', 'Turkish'), ('zh', 'Chinese')
+    ]
+    
+    for lang_code, lang_name in languages:
+        for i in range(10):
+            voices.append({
+                'id': f'v2/{lang_code}_speaker_{i}',
+                'name': f'{lang_name} Speaker {i+1}',
+                'language': lang_code,
+                'language_name': lang_name
+            })
+    
+    return jsonify({
+        'success': True,
+        'voices': voices,
+        'special_effects': [
+            {'tag': '[laughter]', 'description': 'Adds laughter'},
+            {'tag': '[laughs]', 'description': 'Adds laughing sound'},
+            {'tag': '[sighs]', 'description': 'Adds sighing sound'},
+            {'tag': '[gasps]', 'description': 'Adds gasping sound'},
+            {'tag': '[clears throat]', 'description': 'Clears throat'},
+            {'tag': '[music]', 'description': 'Adds background music'},
+            {'tag': '♪', 'description': 'Wrap lyrics for singing'},
+            {'tag': '...', 'description': 'Adds hesitation/pause'},
+            {'tag': '—', 'description': 'Adds dramatic pause'},
+            {'tag': '[MAN]', 'description': 'Bias toward male voice'},
+            {'tag': '[WOMAN]', 'description': 'Bias toward female voice'}
+        ]
+    })
 
 
 @app.route('/api/audio/<filename>')

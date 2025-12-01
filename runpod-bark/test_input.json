@@ -1,0 +1,7 @@
+{
+    "input": {
+        "text": "Hello, this is a test of the Bark text to speech system. It can generate very natural sounding speech with emotions and even special sounds like laughter. Let me tell you a bit more about how it works. The system uses a transformer based architecture to convert text directly into audio.",
+        "voice": "v2/en_speaker_6",
+        "silence_padding_ms": 200
+    }
+}
