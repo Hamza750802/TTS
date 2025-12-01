@@ -1,0 +1,32 @@
+Server is running!
+============================================================
+TESTING USER SIGNUP FLOW
+============================================================
+
+Step 0: Getting CSRF token...
+  CSRF token found: ImRlMjNjNDJiMzY2NDAz...
+
+Step 1: Signing up new user...
+  Email: testuser_1764414122@test.com
+  Status: 302
+  Redirect to: /dashboard
+
+Step 2: Following redirect to dashboard...
+  Status: 200
+  SUCCESS - Dashboard loaded!
+
+  Dashboard elements:
+    [OK] Character usage info
+    [OK] Generate button
+    [MISSING] Voice selector
+    [OK] Text input
+
+Step 3: Testing TTS generation...
+  Status: 200
+  SUCCESS - Audio generated!
+    chars_used: 51
+    chars_remaining: 9949
+
+============================================================
+TEST COMPLETE
+============================================================

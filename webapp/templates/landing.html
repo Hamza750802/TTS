@@ -500,6 +500,122 @@
             text-align: center;
         }
 
+        /* Premium Coming Soon Banner */
+        .premium-coming-section {
+            background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+            padding: 60px 0;
+            position: relative;
+            overflow: hidden;
+        }
+        .premium-coming-banner {
+            position: relative;
+            background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05));
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 28px;
+            padding: 48px;
+            text-align: center;
+            backdrop-filter: blur(20px);
+        }
+        .premium-coming-glow {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 400px;
+            height: 400px;
+            background: radial-gradient(circle, rgba(147,51,234,0.3), transparent 70%);
+            pointer-events: none;
+        }
+        .premium-coming-content {
+            position: relative;
+            z-index: 1;
+        }
+        .premium-coming-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #9333ea, #ec4899);
+            color: white;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            padding: 8px 18px;
+            border-radius: 50px;
+            margin-bottom: 20px;
+            animation: pulse-glow 2s infinite;
+        }
+        @keyframes pulse-glow {
+            0%, 100% { box-shadow: 0 0 20px rgba(147,51,234,0.5); }
+            50% { box-shadow: 0 0 40px rgba(236,72,153,0.6); }
+        }
+        .premium-coming-banner h2 {
+            font-size: 42px;
+            font-weight: 800;
+            color: white;
+            margin-bottom: 12px;
+            background: linear-gradient(135deg, #ffffff, #e0e0ff);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .premium-coming-tagline {
+            font-size: 18px;
+            color: rgba(255,255,255,0.85);
+            margin-bottom: 28px;
+        }
+        .premium-coming-tagline strong {
+            color: #a78bfa;
+        }
+        .premium-coming-features {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 16px 28px;
+            margin-bottom: 32px;
+        }
+        .premium-feature {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: rgba(255,255,255,0.9);
+            font-size: 14px;
+        }
+        .premium-feature .check {
+            color: #22c55e;
+            font-weight: bold;
+        }
+        .premium-notify-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            background: linear-gradient(135deg, #9333ea, #ec4899);
+            color: white;
+            font-size: 16px;
+            font-weight: 600;
+            padding: 16px 36px;
+            border-radius: 50px;
+            text-decoration: none;
+            transition: all 0.3s;
+            box-shadow: 0 8px 32px rgba(147,51,234,0.4);
+        }
+        .premium-notify-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 40px rgba(147,51,234,0.5);
+        }
+        @media (max-width: 768px) {
+            .premium-coming-banner {
+                padding: 32px 20px;
+            }
+            .premium-coming-banner h2 {
+                font-size: 28px;
+            }
+            .premium-coming-tagline {
+                font-size: 15px;
+            }
+            .premium-coming-features {
+                flex-direction: column;
+                gap: 12px;
+            }
+        }
+
         /* Pricing Comparison */
         .pricing-section {
             background: var(--bg-cream);
@@ -794,6 +910,31 @@
                 
                 <div class="demo-cta">
                     <a href="/signup" class="cta-button primary">Start Creating Free →</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Premium Ultra-Realistic Voices Coming Soon Banner -->
+    <div class="section premium-coming-section">
+        <div class="container">
+            <div class="premium-coming-banner">
+                <div class="premium-coming-glow"></div>
+                <div class="premium-coming-content">
+                    <div class="premium-coming-badge">🚀 COMING SOON</div>
+                    <h2>Premium Ultra-Realistic Voices</h2>
+                    <p class="premium-coming-tagline">The most human-like AI voices ever created — <strong>more natural than ElevenLabs</strong></p>
+                    <div class="premium-coming-features">
+                        <span class="premium-feature"><span class="check">✓</span> Indistinguishable from real humans</span>
+                        <span class="premium-feature"><span class="check">✓</span> Natural breathing & pauses</span>
+                        <span class="premium-feature"><span class="check">✓</span> Emotional depth & nuance</span>
+                        <span class="premium-feature"><span class="check">✓</span> Long-form generation</span>
+                    </div>
+                    <div class="premium-coming-cta">
+                        <a href="/signup" class="premium-notify-btn">
+                            <span>🔔</span> Get Notified at Launch
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>

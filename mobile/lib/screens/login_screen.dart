@@ -61,6 +61,9 @@ class _LoginScreenState extends State<LoginScreen> {
         token: token,
         subscriptionStatus: user['subscription_status']?.toString(),
         apiTier: user['api_tier']?.toString(),
+        charsUsed: user['chars_used'] as int? ?? 0,
+        charsLimit: user['chars_limit'] as int? ?? 10000,
+        charsRemaining: user['chars_remaining'] as int? ?? 10000,
       );
       
       // Set token for future API requests

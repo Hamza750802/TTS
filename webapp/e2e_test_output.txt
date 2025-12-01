@@ -1,0 +1,36 @@
+Server is running!
+======================================================================
+COMPLETE END-TO-END TEST
+======================================================================
+
+[STEP 0] Getting CSRF token...
+  CSRF token: OK
+
+[STEP 1] Signing up new free user...
+  Email: e2etest_1764414280@test.com
+  SUCCESS: Free user redirected to /dashboard (not payment page)
+
+[STEP 2] Loading dashboard...
+  SUCCESS: Dashboard loaded
+
+[STEP 3] Testing TTS generation...
+  SUCCESS: Audio generated
+    chars_used: 83
+    chars_remaining: 9917
+
+[STEP 4] Verifying usage persists (re-login)...
+  SUCCESS: Usage persisted and updated (83 -> 88 chars)
+
+[STEP 5] Testing character limit enforcement...
+  SUCCESS: Character limit enforced (HTTP 402)
+    error: Character limit reached. You have 9,912 of 10,000 characters remaining this mont...
+    limit_reached: True
+    upgrade_url: /subscribe
+
+[STEP 6] Testing small request after large one blocked...
+  SUCCESS: Small request still works
+    chars_remaining after: 9910
+
+======================================================================
+E2E TEST COMPLETE
+======================================================================

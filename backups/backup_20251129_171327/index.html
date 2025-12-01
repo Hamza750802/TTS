@@ -506,7 +506,7 @@
   <div id="usageCard" style="background: white; border-radius: 16px; padding: 20px 24px; border: 1px solid rgba(0,0,0,0.05); box-shadow: 0 4px 16px rgba(0,0,0,0.04); margin-bottom: 0;">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
       <div style="display: flex; align-items: center; gap: 8px;">
-        <span id="usageIcon" style="font-size: 18px;">📈</span>
+        <span id="usageIcon" style="font-size: 18px;">📊</span>
         <span style="font-weight: 600; color: #2D3436;">Monthly Usage</span>
         {% if not is_unlimited %}
         <span style="background: linear-gradient(135deg, rgba(255,154,139,0.15), rgba(255,142,83,0.15)); color: #FF7B72; font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 8px;">FREE PLAN</span>
@@ -562,7 +562,7 @@
   <div id="planCompare" style="position: relative; background: linear-gradient(135deg, #FFFBF7, #FFF0EB); border-radius: 16px; padding: 20px 24px; border: 1px solid rgba(255,123,114,0.2); margin-top: 12px; display: {% if (chars_used / chars_limit) >= 0.8 %}block{% else %}none{% endif %};">
     <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; flex-wrap: wrap;">
       <div style="flex: 1; min-width: 200px;">
-        <div style="font-weight: 700; color: #2D3436; margin-bottom: 8px;">Free Plan</div>
+        <div style="font-weight: 700; color: #2D3436; margin-bottom: 8px;">📊 Free Plan</div>
         <ul style="font-size: 13px; color: #636E72; margin: 0; padding-left: 18px; line-height: 1.8;">
           <li>10,000 characters/month</li>
           <li>All 550+ voices</li>
@@ -589,60 +589,6 @@
   {% endif %}
 </div>
 
-<!-- Premium Ultra-Realistic Voices Coming Soon Banner -->
-<div style="max-width: 900px; margin: 16px auto 0; padding: 0 24px;">
-  <div style="
-    position: relative;
-    background: linear-gradient(135deg, #1e1b4b, #312e81, #3730a3);
-    border-radius: 20px;
-    padding: 24px 28px;
-    overflow: hidden;
-    border: 1px solid rgba(147,51,234,0.3);
-    box-shadow: 0 8px 32px rgba(147,51,234,0.15);
-  ">
-    <!-- Glow effect -->
-    <div style="position: absolute; top: -50px; right: -50px; width: 200px; height: 200px; background: radial-gradient(circle, rgba(236,72,153,0.25), transparent 70%); pointer-events: none;"></div>
-    <div style="position: absolute; bottom: -30px; left: -30px; width: 150px; height: 150px; background: radial-gradient(circle, rgba(147,51,234,0.3), transparent 70%); pointer-events: none;"></div>
-    
-    <div style="position: relative; z-index: 1; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 20px;">
-      <div style="flex: 1; min-width: 280px;">
-        <div style="display: inline-flex; align-items: center; gap: 8px; background: linear-gradient(135deg, #9333ea, #ec4899); color: white; font-size: 10px; font-weight: 700; letter-spacing: 1.2px; padding: 5px 12px; border-radius: 50px; margin-bottom: 12px; animation: pulse-badge 2s infinite;">
-          🚀 COMING SOON
-        </div>
-        <h3 style="color: white; font-size: 22px; font-weight: 700; margin: 0 0 8px 0; background: linear-gradient(135deg, #fff, #e0e7ff); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;">Premium Ultra-Realistic Voices</h3>
-        <p style="color: rgba(255,255,255,0.8); font-size: 13px; margin: 0; line-height: 1.5;">The most human-like AI voices ever — <span style="color: #a78bfa; font-weight: 600;">more natural than ElevenLabs</span></p>
-      </div>
-      <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
-        <div style="display: flex; gap: 16px; flex-wrap: wrap; justify-content: center;">
-          <span style="display: flex; align-items: center; gap: 6px; color: rgba(255,255,255,0.9); font-size: 12px;">
-            <span style="color: #22c55e;">✓</span> Real human breathing
-          </span>
-          <span style="display: flex; align-items: center; gap: 6px; color: rgba(255,255,255,0.9); font-size: 12px;">
-            <span style="color: #22c55e;">✓</span> Emotional depth
-          </span>
-        </div>
-        <a href="{{ url_for('subscribe') }}" style="
-          display: inline-flex; align-items: center; gap: 8px;
-          background: linear-gradient(135deg, #9333ea, #ec4899);
-          color: white; font-size: 13px; font-weight: 600;
-          padding: 12px 24px; border-radius: 50px;
-          text-decoration: none; transition: all 0.2s;
-          box-shadow: 0 6px 24px rgba(147,51,234,0.4);
-        " onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 32px rgba(147,51,234,0.5)';" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 6px 24px rgba(147,51,234,0.4)';">
-          🔔 Get Notified
-        </a>
-      </div>
-    </div>
-  </div>
-</div>
-
-<style>
-  @keyframes pulse-badge {
-    0%, 100% { box-shadow: 0 0 12px rgba(147,51,234,0.5); }
-    50% { box-shadow: 0 0 24px rgba(236,72,153,0.6); }
-  }
-</style>
-
 <div class="tts-container">
   <form id="ttsForm">
     <div class="form-card">
@@ -660,58 +606,11 @@
         <div class="section-title">Voice Settings</div>
         <div class="input-group">
           <label for="voice">Choose Voice</label>
-          
-          <!-- Voice Filters -->
-          <div style="display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; align-items: center;">
-            <div style="display: flex; gap: 6px;">
-              <button type="button" id="filterAll" class="voice-filter-btn active" onclick="filterVoices('all')">All Voices</button>
-              <button type="button" id="filterEmotions" class="voice-filter-btn" onclick="filterVoices('emotions')">🎭 With Emotions <span id="emotionCount" style="background: #FF7B72; color: white; font-size: 11px; padding: 2px 6px; border-radius: 10px; margin-left: 4px;">47</span></button>
-            </div>
-            <select id="languageFilter" onchange="filterVoices(currentVoiceFilter)" style="padding: 8px 12px; border-radius: 10px; border: 2px solid rgba(0,0,0,0.06); background: #FFFBF7; font-size: 13px; cursor: pointer;">
-              <option value="all">🌍 All Languages</option>
-              <option value="en">🇺🇸 English</option>
-              <option value="es">🇪🇸 Spanish</option>
-              <option value="fr">🇫🇷 French</option>
-              <option value="de">🇩🇪 German</option>
-              <option value="it">🇮🇹 Italian</option>
-              <option value="pt">🇵🇹 Portuguese</option>
-              <option value="zh">🇨🇳 Chinese</option>
-              <option value="ja">🇯🇵 Japanese</option>
-              <option value="ko">🇰🇷 Korean</option>
-              <option value="ar">🇸🇦 Arabic</option>
-              <option value="hi">🇮🇳 Hindi</option>
-              <option value="other">Other Languages</option>
-            </select>
-          </div>
-          
-          <style>
-            .voice-filter-btn {
-              padding: 8px 14px;
-              border-radius: 10px;
-              border: 2px solid rgba(0,0,0,0.06);
-              background: #FFFBF7;
-              font-size: 13px;
-              font-weight: 600;
-              cursor: pointer;
-              transition: all 0.2s;
-              color: #636E72;
-            }
-            .voice-filter-btn:hover {
-              border-color: #FF7B72;
-              background: #FFF0EB;
-            }
-            .voice-filter-btn.active {
-              background: linear-gradient(135deg, #FF9A8B, #FF8E53);
-              color: white;
-              border-color: transparent;
-              box-shadow: 0 4px 12px rgba(255,123,114,0.25);
-            }
-          </style>
-          
+          <p style="font-size: 13px; color: #636E72; margin-bottom: 8px;">🎭 = Supports emotion control (cheerful, sad,
+            angry, etc.)</p>
           <select id="voice" required>
             <option value="">Loading voices...</option>
           </select>
-          <p id="voiceCount" style="font-size: 12px; color: #636E72; margin-top: 6px;">Loading voices...</p>
         </div>
         <div class="input-group">
           <label for="preset">Hero Presets</label>
@@ -735,7 +634,6 @@
           <label><input type="checkbox" id="autoPauses" checked /> Auto pauses</label>
           <label><input type="checkbox" id="autoEmphasis" checked /> Auto emphasis</label>
           <label><input type="checkbox" id="autoBreaths" /> Auto breaths</label>
-          <label><input type="checkbox" id="generateSrt" disabled /> 📝 Generate SRT subtitles <span style="background: #fef3c7; color: #d97706; font-size: 10px; font-weight: 600; padding: 2px 6px; border-radius: 4px;">COMING SOON</span></label>
         </div>
       </div>
 
@@ -746,11 +644,9 @@
           style="background: linear-gradient(135deg, rgba(107,203,119,0.1), rgba(126,200,227,0.1)); border: 1px solid rgba(107,203,119,0.3); padding: 14px; border-radius: 12px; margin-bottom: 14px;">
           <strong style="color: #6BCB77;">💡 Pro Tip: Use Dialogue Markup!</strong>
           <p style="color: #2D3436; font-size: 13px; margin: 6px 0 0 0;">
-            Format: <code style="background: rgba(107,203,119,0.15); padding: 2px 8px; border-radius: 6px; color: #2D3436;">[SpeakerA]: Hello!</code> or
+            Type <code style="background: rgba(107,203,119,0.15); padding: 2px 8px; border-radius: 6px; color: #2D3436;">[SpeakerA]: Hello!</code> or
             <code style="background: rgba(107,203,119,0.15); padding: 2px 8px; border-radius: 6px; color: #2D3436;">[SpeakerA:cheerful]: Hello!</code>
-          </p>
-          <p style="color: #E17055; font-size: 13px; margin: 8px 0 0 0; font-weight: 600;">
-            ⚠️ Important: Text must be on the <u>same line</u> as the speaker tag. After entering your dialogue, click <strong>"Split Text into Chunks"</strong> below.
+            to auto-create multi-speaker chunks, then click "Split Text into Chunks".
           </p>
         </div>
         <p style="color:#636E72; font-size:14px; margin-bottom:10px;">Split your text to assign different voices &
@@ -800,10 +696,7 @@
     <div class="audio-player" id="audioPlayer" style="display:none">
       <strong>✨ Your audio is ready!</strong>
       <audio id="audioElement" controls></audio>
-      <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-        <a id="downloadLink" class="download-btn" download="speech.mp3">⬇️ Download MP3</a>
-        <a id="downloadSrtLink" class="download-btn" download="speech.srt" style="display: none; background: linear-gradient(135deg, #7DD3C0, #7EC8E3);">📝 Download SRT</a>
-      </div>
+      <a id="downloadLink" class="download-btn" download="speech.mp3">⬇️ Download MP3</a>
     </div>
   </form>
 </div>
@@ -816,10 +709,8 @@
 <script>
   let currentAudioUrl = null;
   let voiceIndex = {};
-  let allVoices = [];
   let chunkState = [];
   let presets = [];
-  let currentVoiceFilter = 'all';
 
   const chunkListEl = document.getElementById('chunkList');
   const textArea = document.getElementById('text');
@@ -829,24 +720,44 @@
       const response = await fetch('/api/voices');
       const data = await response.json();
       if (data.success) {
+        const voiceSelect = document.getElementById('voice');
+        voiceSelect.innerHTML = '';
         voiceIndex = {};
-        allVoices = data.voices;
 
         // Store voice data for emotion control
         data.voices.forEach(v => {
           voiceIndex[v.shortName] = v;
         });
 
-        // Update emotion count badge
-        const emotionVoices = data.voices.filter(v => v.has_styles);
-        const emotionCountEl = document.getElementById('emotionCount');
-        if (emotionCountEl) emotionCountEl.textContent = emotionVoices.length;
-
-        // Render voices with default filter
-        renderVoiceOptions();
+        const popularVoices = data.voices.filter(v => v.locale.startsWith('en-') && (v.name.includes('Emma') || v.name.includes('Jenny') || v.name.includes('Guy') || v.name.includes('Ryan')));
+        if (popularVoices.length) {
+          const optgroup = document.createElement('optgroup');
+          optgroup.label = 'Popular English Voices';
+          popularVoices.forEach(voice => {
+            const option = document.createElement('option');
+            option.value = voice.shortName;
+            option.textContent = `${voice.has_styles ? '🎭 ' : ''}${voice.localName} (${voice.gender}) - ${voice.locale}`;
+            option.dataset.hasStyles = voice.has_styles;
+            option.dataset.styles = (voice.styles || []).join(',');
+            optgroup.appendChild(option);
+          });
+          voiceSelect.appendChild(optgroup);
+        }
+        const all = document.createElement('optgroup');
+        all.label = 'All Voices';
+        data.voices.forEach(voice => {
+          const option = document.createElement('option');
+          option.value = voice.shortName;
+          option.textContent = `${voice.has_styles ? '🎭 ' : ''}${voice.localName} (${voice.gender}) - ${voice.locale}`;
+          option.dataset.hasStyles = voice.has_styles;
+          option.dataset.styles = (voice.styles || []).join(',');
+          all.appendChild(option);
+        });
+        voiceSelect.appendChild(all);
+        voiceSelect.value = 'en-US-EmmaMultilingualNeural';
 
         // Add change listener for emotion control
-        document.getElementById('voice').addEventListener('change', onVoiceChange);
+        voiceSelect.addEventListener('change', onVoiceChange);
         onVoiceChange();
       }
     } catch (err) {
@@ -855,115 +766,6 @@
       el.textContent = 'Failed to load voices. Please refresh.';
       el.classList.add('visible');
     }
-  }
-
-  function filterVoices(filter) {
-    currentVoiceFilter = filter;
-    
-    // Update button states
-    document.getElementById('filterAll').classList.toggle('active', filter === 'all');
-    document.getElementById('filterEmotions').classList.toggle('active', filter === 'emotions');
-    
-    renderVoiceOptions();
-  }
-
-  function renderVoiceOptions() {
-    const voiceSelect = document.getElementById('voice');
-    const languageFilter = document.getElementById('languageFilter').value;
-    const previousValue = voiceSelect.value;
-    voiceSelect.innerHTML = '';
-
-    // Filter voices based on current filters
-    let filteredVoices = allVoices;
-    
-    // Apply emotion filter
-    if (currentVoiceFilter === 'emotions') {
-      filteredVoices = filteredVoices.filter(v => v.has_styles);
-    }
-    
-    // Apply language filter
-    if (languageFilter !== 'all') {
-      if (languageFilter === 'other') {
-        const mainLangs = ['en', 'es', 'fr', 'de', 'it', 'pt', 'zh', 'ja', 'ko', 'ar', 'hi'];
-        filteredVoices = filteredVoices.filter(v => !mainLangs.some(lang => v.locale.startsWith(lang)));
-      } else {
-        filteredVoices = filteredVoices.filter(v => v.locale.startsWith(languageFilter));
-      }
-    }
-
-    // Group voices
-    const emotionVoices = filteredVoices.filter(v => v.has_styles);
-    const regularVoices = filteredVoices.filter(v => !v.has_styles);
-
-    // Add emotion voices first (if showing all)
-    if (currentVoiceFilter === 'all' && emotionVoices.length > 0) {
-      const emotionGroup = document.createElement('optgroup');
-      emotionGroup.label = `🎭 Voices with Emotions (${emotionVoices.length})`;
-      emotionVoices.forEach(voice => {
-        const option = document.createElement('option');
-        option.value = voice.shortName;
-        option.textContent = `🎭 ${voice.localName} (${voice.gender}) - ${voice.locale}`;
-        option.dataset.hasStyles = voice.has_styles;
-        option.dataset.styles = (voice.styles || []).join(',');
-        emotionGroup.appendChild(option);
-      });
-      voiceSelect.appendChild(emotionGroup);
-    } else if (currentVoiceFilter === 'emotions') {
-      // Just list them without grouping
-      emotionVoices.forEach(voice => {
-        const option = document.createElement('option');
-        option.value = voice.shortName;
-        option.textContent = `🎭 ${voice.localName} (${voice.gender}) - ${voice.locale}`;
-        option.dataset.hasStyles = voice.has_styles;
-        option.dataset.styles = (voice.styles || []).join(',');
-        voiceSelect.appendChild(option);
-      });
-    }
-
-    // Add regular voices
-    if (currentVoiceFilter === 'all' && regularVoices.length > 0) {
-      const regularGroup = document.createElement('optgroup');
-      regularGroup.label = `Standard Voices (${regularVoices.length})`;
-      regularVoices.forEach(voice => {
-        const option = document.createElement('option');
-        option.value = voice.shortName;
-        option.textContent = `${voice.localName} (${voice.gender}) - ${voice.locale}`;
-        option.dataset.hasStyles = voice.has_styles;
-        option.dataset.styles = (voice.styles || []).join(',');
-        regularGroup.appendChild(option);
-      });
-      voiceSelect.appendChild(regularGroup);
-    }
-
-    // Restore previous selection if still available, otherwise pick a good default
-    if (previousValue && voiceIndex[previousValue]) {
-      const stillExists = Array.from(voiceSelect.options).some(opt => opt.value === previousValue);
-      if (stillExists) {
-        voiceSelect.value = previousValue;
-      } else {
-        // Pick first emotion voice if filtering by emotions, otherwise Emma
-        voiceSelect.value = voiceSelect.options[0]?.value || '';
-      }
-    } else {
-      // Default to first emotion voice if available
-      const firstEmotionVoice = emotionVoices[0];
-      if (firstEmotionVoice) {
-        voiceSelect.value = firstEmotionVoice.shortName;
-      }
-    }
-
-    // Update count display
-    const totalShown = filteredVoices.length;
-    const voiceCountEl = document.getElementById('voiceCount');
-    if (voiceCountEl) {
-      if (currentVoiceFilter === 'emotions') {
-        voiceCountEl.innerHTML = `Showing <strong>${totalShown}</strong> voices with emotion control`;
-      } else {
-        voiceCountEl.innerHTML = `Showing <strong>${totalShown}</strong> voices (${emotionVoices.length} with emotions)`;
-      }
-    }
-
-    onVoiceChange();
   }
 
   function onVoiceChange() {
@@ -1267,10 +1069,37 @@
       intensityWrap.appendChild(intensityInput);
       grid.appendChild(intensityWrap);
 
-      // Speed and Pitch controls hidden - not effective for multi-voice TTS
-      // Keeping the state variables but not showing UI
-      chunkState[idx].speed = 0;
-      chunkState[idx].pitch = 0;
+      const speedWrap = document.createElement('div');
+      const speedLabel = document.createElement('label');
+      speedLabel.textContent = 'Speed (+/-%)';
+      const speedInput = document.createElement('input');
+      speedInput.type = 'number';
+      speedInput.min = -50;
+      speedInput.max = 50;
+      speedInput.step = 5;
+      speedInput.value = chunk.speed || 0;
+      speedInput.addEventListener('input', (e) => {
+        chunkState[idx].speed = parseInt(e.target.value || '0');
+      });
+      speedWrap.appendChild(speedLabel);
+      speedWrap.appendChild(speedInput);
+      grid.appendChild(speedWrap);
+
+      const pitchWrap = document.createElement('div');
+      const pitchLabel = document.createElement('label');
+      pitchLabel.textContent = 'Pitch (+/-%)';
+      const pitchInput = document.createElement('input');
+      pitchInput.type = 'number';
+      pitchInput.min = -50;
+      pitchInput.max = 50;
+      pitchInput.step = 5;
+      pitchInput.value = chunk.pitch || 0;
+      pitchInput.addEventListener('input', (e) => {
+        chunkState[idx].pitch = parseInt(e.target.value || '0');
+      });
+      pitchWrap.appendChild(pitchLabel);
+      pitchWrap.appendChild(pitchInput);
+      grid.appendChild(pitchWrap);
 
       card.appendChild(grid);
 
@@ -1349,7 +1178,6 @@
     const autoPauses = document.getElementById('autoPauses').checked;
     const autoEmphasis = document.getElementById('autoEmphasis').checked;
     const autoBreaths = document.getElementById('autoBreaths').checked;
-    const generateSrt = document.getElementById('generateSrt').checked;
 
     if (!text || !voice) {
       const el = document.getElementById('error');
@@ -1370,7 +1198,6 @@
     document.getElementById('loading').classList.add('visible');
     document.getElementById('error').classList.remove('visible');
     document.getElementById('audioPlayer').style.display = 'none';
-    document.getElementById('downloadSrtLink').style.display = 'none';
     document.getElementById('generateBtn').disabled = true;
     try {
       const requestBody = {
@@ -1387,7 +1214,6 @@
         auto_pauses: autoPauses,
         auto_emphasis: autoEmphasis,
         auto_breaths: autoBreaths,
-        generate_srt: generateSrt,
         global_controls: {
           rate: Number(rate || 0),
           pitch: Number(pitch || 0),
@@ -1405,16 +1231,6 @@
         const dl = document.getElementById('downloadLink');
         dl.href = data.audioUrl;
         document.getElementById('audioPlayer').style.display = 'block';
-        
-        // Show SRT download button if SRT was generated
-        const srtLink = document.getElementById('downloadSrtLink');
-        if (data.srtUrl) {
-          srtLink.href = data.srtUrl;
-          srtLink.style.display = 'inline-flex';
-        } else {
-          srtLink.style.display = 'none';
-        }
-        
         audio.play();
         
         // Update character usage display if data is provided
@@ -1467,7 +1283,7 @@
       remainingText.textContent = `${Math.round(charsRemaining)} characters remaining this month`;
     }
     if (usageIcon) {
-      usageIcon.textContent = percent >= 100 ? '🚫' : percent >= 80 ? '⚠️' : '📈';
+      usageIcon.textContent = percent >= 100 ? '🚫' : percent >= 80 ? '⚠️' : '📊';
     }
     
     // Show/update upgrade button if needed
