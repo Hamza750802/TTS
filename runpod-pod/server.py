@@ -116,6 +116,50 @@ def generate_silence(duration_ms=200):
     return np.zeros(num_samples, dtype=np.float32)
 
 
+def trim_audio_silence(audio, threshold=0.01, min_silence_samples=2000):
+    """
+    Trim silence from the end of audio to remove Bark's trailing artifacts.
+    Also removes trailing 'umm', 'uh' sounds by trimming more aggressively at the end.
+    """
+    # Find where audio drops below threshold from the end
+    abs_audio = np.abs(audio)
+    
+    # Trim trailing silence
+    end_idx = len(audio)
+    silence_count = 0
+    for i in range(len(audio) - 1, -1, -1):
+        if abs_audio[i] < threshold:
+            silence_count += 1
+            if silence_count > min_silence_samples:
+                end_idx = i + min_silence_samples
+        else:
+            break
+    
+    # Additional trim: remove last 0.3 seconds to cut off trailing artifacts like "umm"
+    extra_trim = int(SAMPLE_RATE * 0.25)  # 0.25 seconds
+    end_idx = max(int(SAMPLE_RATE * 0.5), end_idx - extra_trim)  # Keep at least 0.5s
+    
+    return audio[:end_idx]
+
+
+def clean_text_for_bark(text):
+    """
+    Clean text to reduce Bark artifacts.
+    - Add period if missing (prevents trailing sounds)
+    - Remove excessive punctuation
+    """
+    text = text.strip()
+    
+    # Ensure text ends with punctuation to signal completion
+    if text and text[-1] not in '.!?':
+        text += '.'
+    
+    # Remove multiple spaces
+    text = re.sub(r'\s+', ' ', text)
+    
+    return text
+
+
 @app.route("/health", methods=["GET"])
 def health():
     return jsonify({"status": "healthy", "model": "bark"})
@@ -141,7 +185,7 @@ def text_to_speech():
         data = request.get_json() or {}
         text = (data.get("text", "") or "").strip()
         default_voice = data.get("voice", "v2/en_speaker_6")
-        silence_padding_ms = data.get("silence_padding_ms", 200)
+        silence_padding_ms = data.get("silence_padding_ms", 100)  # Reduced from 200ms
         
         if not text:
             return jsonify({"error": "No text provided"}), 400
@@ -163,22 +207,26 @@ def text_to_speech():
             segments = parse_multi_speaker_text(text)
             for voice, segment_text in segments:
                 voice = voice or default_voice
+                segment_text = clean_text_for_bark(segment_text)
                 chunks = split_text_into_chunks(segment_text)
                 for chunk in chunks:
                     if audio_segments:
                         audio_segments.append(silence)
                     print(f"Generating: {chunk[:50]}... (voice: {voice})")
                     audio = generate_audio(chunk, history_prompt=voice)
+                    audio = trim_audio_silence(audio)  # Trim trailing silence/artifacts
                     audio_segments.append(audio)
                     total_chunks += 1
         else:
             # Single speaker mode
+            text = clean_text_for_bark(text)
             chunks = split_text_into_chunks(text)
             for chunk in chunks:
                 if audio_segments:
                     audio_segments.append(silence)
                 print(f"Generating: {chunk[:50]}... (voice: {default_voice})")
                 audio = generate_audio(chunk, history_prompt=default_voice)
+                audio = trim_audio_silence(audio)  # Trim trailing silence/artifacts
                 audio_segments.append(audio)
                 total_chunks += 1
         
