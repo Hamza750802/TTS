@@ -160,6 +160,33 @@ def clean_text_for_bark(text):
     return text
 
 
+def generate_audio_clean(text, voice):
+    """
+    Generate audio with extra safeguards against hallucination.
+    Uses semantic tokens with min_eos_p to force stopping.
+    """
+    from bark.generation import (
+        generate_text_semantic,
+        semantic_to_waveform,
+    )
+    
+    # Generate semantic tokens with stricter stopping
+    # min_eos_p=0.05 makes it more likely to stop at end of sentence
+    semantic_tokens = generate_text_semantic(
+        text,
+        history_prompt=voice,
+        min_eos_p=0.05,  # Lower = stops sooner (default is 0.2)
+    )
+    
+    # Convert to audio
+    audio = semantic_to_waveform(
+        semantic_tokens,
+        history_prompt=voice,
+    )
+    
+    return audio
+
+
 @app.route("/health", methods=["GET"])
 def health():
     return jsonify({"status": "healthy", "model": "bark"})
@@ -213,7 +240,7 @@ def text_to_speech():
                     if audio_segments:
                         audio_segments.append(silence)
                     print(f"Generating: {chunk[:50]}... (voice: {voice})")
-                    audio = generate_audio(chunk, history_prompt=voice)
+                    audio = generate_audio_clean(chunk, voice)  # Use clean generator
                     audio = trim_audio_silence(audio)  # Trim trailing silence/artifacts
                     audio_segments.append(audio)
                     total_chunks += 1
@@ -225,7 +252,7 @@ def text_to_speech():
                 if audio_segments:
                     audio_segments.append(silence)
                 print(f"Generating: {chunk[:50]}... (voice: {default_voice})")
-                audio = generate_audio(chunk, history_prompt=default_voice)
+                audio = generate_audio_clean(chunk, default_voice)  # Use clean generator
                 audio = trim_audio_silence(audio)  # Trim trailing silence/artifacts
                 audio_segments.append(audio)
                 total_chunks += 1
