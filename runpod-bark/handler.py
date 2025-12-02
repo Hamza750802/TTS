@@ -1,6 +1,6 @@
 """
 Bark TTS RunPod Serverless Handler
-Long-form audio generation with semantic continuation for voice consistency
+Long-form audio generation with multi-speaker support
 """
 
 import runpod
@@ -30,6 +30,65 @@ from bark.generation import SAMPLE_RATE, preload_models, generate_text_semantic,
 print("Loading Bark models...")
 preload_models()
 print("Models loaded successfully!")
+
+# Speaker voice mapping - maps speaker names/numbers to voice presets
+SPEAKER_VOICES = {
+    # Numbered speakers
+    "1": "v2/en_speaker_0",   # Male, deep
+    "2": "v2/en_speaker_6",   # Female, natural
+    "3": "v2/en_speaker_3",   # Male, energetic
+    "4": "v2/en_speaker_9",   # Female, young
+    "5": "v2/en_speaker_1",   # Male, warm
+    "6": "v2/en_speaker_5",   # Female, soft
+    "7": "v2/en_speaker_2",   # Male, clear
+    "8": "v2/en_speaker_7",   # Female, bright
+    # Named speakers (common names)
+    "narrator": "v2/en_speaker_0",
+    "man": "v2/en_speaker_1",
+    "woman": "v2/en_speaker_6",
+    "boy": "v2/en_speaker_3",
+    "girl": "v2/en_speaker_9",
+    "host": "v2/en_speaker_0",
+    "guest": "v2/en_speaker_6",
+}
+
+
+def parse_multi_speaker_text(text):
+    """
+    Parse text with speaker tags like [S1]: or [Speaker1]: or [Narrator]:
+    Returns list of (speaker_voice, text) tuples
+    """
+    # Pattern matches [S1], [S2], [Speaker1], [Narrator], etc.
+    pattern = r'\[(?:S|Speaker)?(\w+)\]:\s*'
+    
+    # Split by speaker tags
+    parts = re.split(pattern, text, flags=re.IGNORECASE)
+    
+    # If no speaker tags found, return original text with default voice
+    if len(parts) == 1:
+        return [(None, text.strip())]
+    
+    segments = []
+    # parts[0] is text before first tag (usually empty)
+    # Then alternating: speaker_id, text, speaker_id, text, ...
+    
+    if parts[0].strip():
+        # Text before any speaker tag - use default voice
+        segments.append((None, parts[0].strip()))
+    
+    for i in range(1, len(parts), 2):
+        speaker_id = parts[i].lower()
+        if i + 1 < len(parts):
+            segment_text = parts[i + 1].strip()
+            if segment_text:
+                # Map speaker to voice
+                voice = SPEAKER_VOICES.get(speaker_id)
+                if not voice:
+                    # Try to use speaker number directly
+                    voice = f"v2/en_speaker_{hash(speaker_id) % 10}"
+                segments.append((voice, segment_text))
+    
+    return segments
 
 
 def split_text_into_chunks(text, max_chars=200):
@@ -116,13 +175,58 @@ def generate_long_audio(text, voice_preset="v2/en_speaker_6", silence_padding_ms
     }
 
 
+def generate_multi_speaker_audio(text, default_voice="v2/en_speaker_6", silence_padding_ms=300):
+    """
+    Generate audio with multiple speakers.
+    Parses [S1]:, [S2]:, [Speaker1]:, [Narrator]: etc. tags
+    """
+    segments = parse_multi_speaker_text(text)
+    
+    if not segments:
+        return None, {"error": "No text provided"}
+    
+    audio_segments = []
+    silence = generate_silence(silence_padding_ms)
+    total_chunks = 0
+    
+    for idx, (voice, segment_text) in enumerate(segments):
+        voice = voice or default_voice
+        print(f"Generating segment {idx + 1}/{len(segments)} with voice {voice}: {segment_text[:50]}...")
+        
+        # Split segment into chunks if needed
+        chunks = split_text_into_chunks(segment_text, max_chars=200)
+        
+        for chunk_idx, chunk in enumerate(chunks):
+            if audio_segments:  # Add silence between segments
+                audio_segments.append(silence)
+            
+            print(f"  Chunk {chunk_idx + 1}/{len(chunks)}: {chunk[:40]}...")
+            chunk_audio = generate_audio(chunk, history_prompt=voice)
+            audio_segments.append(chunk_audio)
+            total_chunks += 1
+    
+    if not audio_segments:
+        return None, {"error": "No audio generated"}
+    
+    # Concatenate all audio segments
+    full_audio = np.concatenate(audio_segments)
+    
+    return full_audio, {
+        "speakers": len(segments),
+        "chunks_generated": total_chunks,
+        "total_samples": len(full_audio),
+        "duration_seconds": len(full_audio) / SAMPLE_RATE
+    }
+
+
 def handler(job):
     """
     RunPod serverless handler for Bark TTS
     
     Input:
         text: str - The text to convert to speech
-        voice: str - Voice preset (e.g., "v2/en_speaker_6")
+                   Supports multi-speaker: [S1]: Hello! [S2]: Hi there!
+        voice: str - Default voice preset (e.g., "v2/en_speaker_6")
         silence_padding_ms: int - Silence between chunks (default: 200)
     
     Output:
@@ -148,14 +252,25 @@ def handler(job):
         if len(text) > 50000:  # ~67 minutes max
             return {"error": "Text too long. Maximum 50,000 characters."}
         
-        print(f"Generating audio for {len(text)} characters with voice {voice}")
+        print(f"Generating audio for {len(text)} characters")
         
-        # Generate audio
-        audio_array, stats = generate_long_audio(
-            text=text,
-            voice_preset=voice,
-            silence_padding_ms=silence_padding_ms
-        )
+        # Check if multi-speaker format
+        has_speaker_tags = bool(re.search(r'\[(?:S|Speaker)?\w+\]:', text, re.IGNORECASE))
+        
+        if has_speaker_tags:
+            print("Detected multi-speaker format")
+            audio_array, stats = generate_multi_speaker_audio(
+                text=text,
+                default_voice=voice,
+                silence_padding_ms=silence_padding_ms
+            )
+        else:
+            print(f"Single speaker with voice {voice}")
+            audio_array, stats = generate_long_audio(
+                text=text,
+                voice_preset=voice,
+                silence_padding_ms=silence_padding_ms
+            )
         
         if audio_array is None:
             return stats  # Contains error
@@ -183,6 +298,8 @@ def handler(job):
         
     except Exception as e:
         print(f"Error during generation: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return {"error": str(e)}
 
 
