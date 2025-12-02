@@ -11,6 +11,15 @@ import re
 import numpy as np
 from scipy.io.wavfile import write as write_wav
 
+# Use network volume for model cache if available (faster cold starts)
+CACHE_DIR = "/runpod-volume/bark_cache" if os.path.exists("/runpod-volume") else None
+if CACHE_DIR:
+    os.makedirs(CACHE_DIR, exist_ok=True)
+    os.environ["XDG_CACHE_HOME"] = CACHE_DIR
+    print(f"Using network volume for model cache: {CACHE_DIR}")
+else:
+    print("No network volume found, using container storage")
+
 # Enable optimizations for lower VRAM usage
 os.environ["SUNO_OFFLOAD_CPU"] = "True"
 

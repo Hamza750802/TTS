@@ -700,12 +700,12 @@
   <!-- TTS Tabs -->
   <div class="tts-tabs">
     <button type="button" class="tts-tab active" onclick="switchTab('standard')" id="tabStandard">
-      🎙️ Standard TTS
-      <div style="font-size: 11px; color: #636E72; font-weight: 400; margin-top: 4px;">550+ voices • Free tier included</div>
+      🎙️ Edge TTS <span style="background: linear-gradient(135deg, #22c55e, #16a34a); color: white; font-size: 9px; padding: 2px 6px; border-radius: 6px; margin-left: 6px; font-weight: 700;">PRO</span>
+      <div style="font-size: 11px; color: #636E72; font-weight: 400; margin-top: 4px;">550+ voices • Fast & reliable</div>
     </button>
     <button type="button" class="tts-tab premium-tab" onclick="switchTab('premium')" id="tabPremium">
-      ✨ Premium TTS <span class="premium-badge-small">BARK AI</span>
-      <div style="font-size: 11px; color: #9333ea; font-weight: 400; margin-top: 4px;">Ultra-realistic • Emotions • Laughter</div>
+      ✨ Bark AI <span class="premium-badge-small">ULTRA</span>
+      <div style="font-size: 11px; color: #9333ea; font-weight: 400; margin-top: 4px;">Human-like • Emotions • Laughter</div>
     </button>
   </div>
 
@@ -963,7 +963,11 @@
       </div>
 
       <div class="loading" id="premiumLoading">
-        <p>✨ Generating with Bark AI... This may take 30-60 seconds...</p>
+        <p id="premiumLoadingText">✨ Generating with Bark AI...</p>
+        <p style="font-size: 12px; color: #9333ea; margin-top: 8px;" id="premiumLoadingHint">First generation may take 1-2 minutes (loading AI models). Subsequent requests are faster!</p>
+        <div style="margin-top: 12px; height: 4px; background: rgba(147,51,234,0.2); border-radius: 2px; overflow: hidden;">
+          <div id="premiumProgressBar" style="height: 100%; width: 0%; background: linear-gradient(90deg, #9333ea, #ec4899); border-radius: 2px; transition: width 0.5s ease;"></div>
+        </div>
       </div>
       <div class="error" id="premiumError"></div>
       <div class="audio-player" id="premiumAudioPlayer" style="display:none">
@@ -1014,6 +1018,8 @@
     const loading = document.getElementById('premiumLoading');
     const error = document.getElementById('premiumError');
     const audioPlayer = document.getElementById('premiumAudioPlayer');
+    const progressBar = document.getElementById('premiumProgressBar');
+    const loadingText = document.getElementById('premiumLoadingText');
     
     if (!text) {
       error.textContent = 'Please enter some text.';
@@ -1021,11 +1027,31 @@
       return;
     }
     
-    // Show loading
+    // Show loading with animated progress
     generateBtn.disabled = true;
     loading.classList.add('visible');
     error.classList.remove('visible');
     audioPlayer.style.display = 'none';
+    
+    // Animate progress bar (fake progress to show activity)
+    let progress = 0;
+    progressBar.style.width = '0%';
+    const progressInterval = setInterval(() => {
+      if (progress < 90) {
+        progress += Math.random() * 8;
+        if (progress > 90) progress = 90;
+        progressBar.style.width = progress + '%';
+        
+        // Update loading text based on progress
+        if (progress > 20 && progress < 50) {
+          loadingText.textContent = '🚀 Warming up AI models...';
+        } else if (progress > 50 && progress < 80) {
+          loadingText.textContent = '🎤 Generating speech...';
+        } else if (progress > 80) {
+          loadingText.textContent = '✨ Almost ready...';
+        }
+      }
+    }, 500);
     
     try {
       const response = await fetch('/api/generate-premium', {
@@ -1038,6 +1064,9 @@
           voice: voice
         })
       });
+      
+      clearInterval(progressInterval);
+      progressBar.style.width = '100%';
       
       const data = await response.json();
       
@@ -1059,6 +1088,7 @@
         }
       }
     } catch (err) {
+      clearInterval(progressInterval);
       console.error(err);
       error.textContent = 'Network error. Please try again.';
       error.classList.add('visible');
