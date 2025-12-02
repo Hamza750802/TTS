@@ -20,8 +20,8 @@ RUN pip install --no-cache-dir git+https://github.com/suno-ai/bark.git
 # Copy handler
 COPY handler.py .
 
-# Pre-download Bark models during build (faster cold starts)
-RUN python -c "from bark import preload_models; preload_models()"
+# Models will download on first request (avoids build timeout)
+# First request takes ~2-3 min, subsequent requests are fast
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
