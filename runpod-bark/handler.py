@@ -21,7 +21,8 @@ else:
     print("No network volume found, using container storage")
 
 # Enable optimizations for lower VRAM usage
-os.environ["SUNO_OFFLOAD_CPU"] = "True"
+os.environ["SUNO_OFFLOAD_CPU"] = "True"      # Offload to CPU when possible
+os.environ["SUNO_USE_SMALL_MODELS"] = "True"  # Use smaller models (~4GB VRAM vs ~12GB)
 
 from bark import SAMPLE_RATE, generate_audio, preload_models
 from bark.generation import SAMPLE_RATE, preload_models, generate_text_semantic, semantic_to_waveform
