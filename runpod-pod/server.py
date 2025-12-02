@@ -14,11 +14,12 @@ from flask_cors import CORS
 import numpy as np
 from scipy.io.wavfile import write as write_wav
 
-# Bark optimizations
-os.environ["SUNO_OFFLOAD_CPU"] = "True"
-os.environ["SUNO_USE_SMALL_MODELS"] = "True"
+# Full quality Bark - uses GPU with full-size models
+# Set these env vars only if you need to reduce VRAM usage:
+# SUNO_OFFLOAD_CPU=True - offloads some ops to CPU (slower but less VRAM)
+# SUNO_USE_SMALL_MODELS=True - uses smaller models (faster but lower quality)
 
-print("Loading Bark models... (this may take a few minutes on first run)")
+print("Loading Bark models (full quality)... (this may take a few minutes on first run)")
 from bark import SAMPLE_RATE, generate_audio, preload_models
 preload_models()
 print("Models loaded successfully!")
