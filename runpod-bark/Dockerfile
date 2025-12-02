@@ -1,11 +1,15 @@
 # Bark TTS RunPod Worker
 FROM pytorch/pytorch:2.1.0-cuda11.8-cudnn8-runtime
 
+# Prevent interactive prompts during build
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=UTC
+
 # Set working directory
 WORKDIR /app
 
 # Install system dependencies
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     ffmpeg \
     && rm -rf /var/lib/apt/lists/*
