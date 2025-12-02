@@ -123,10 +123,12 @@ STRIPE_PREMIUM_PRICE_ID = os.environ.get('STRIPE_PREMIUM_PRICE_ID', '')  # $19.9
 STRIPE_PREMIUM_PLUS_PRICE_ID = os.environ.get('STRIPE_PREMIUM_PLUS_PRICE_ID', '')  # $29.99/mo (200K chars)
 STRIPE_PREMIUM_PRO_PRICE_ID = os.environ.get('STRIPE_PREMIUM_PRO_PRICE_ID', '')  # $39.99/mo (300K chars)
 
-# RunPod Serverless Configuration (for Premium Bark TTS)
+# RunPod Configuration (for Premium Bark TTS)
 RUNPOD_API_KEY = os.environ.get('RUNPOD_API_KEY', '')
-RUNPOD_ENDPOINT_ID = os.environ.get('RUNPOD_ENDPOINT_ID', '')  # Your deployed Bark worker endpoint
-RUNPOD_ENDPOINT_URL = f"https://api.runpod.ai/v2/{RUNPOD_ENDPOINT_ID}" if RUNPOD_ENDPOINT_ID else ""
+RUNPOD_ENDPOINT_ID = os.environ.get('RUNPOD_ENDPOINT_ID', '')  # Legacy serverless endpoint (unused)
+# RunPod Pod URL - direct HTTP to the Bark API server
+RUNPOD_POD_URL = os.environ.get('RUNPOD_POD_URL', 'https://oc89d5sxshunb3-8888.proxy.runpod.net')
+RUNPOD_ENDPOINT_URL = RUNPOD_POD_URL  # Use Pod URL for premium TTS
 
 # Password reset + email settings
 try:
@@ -2021,14 +2023,14 @@ def api_generate_pro():
 @csrf.exempt
 def api_generate_premium():
     """
-    Generate premium audio using Bark TTS via RunPod serverless.
+    Generate premium audio using Bark TTS via RunPod Pod.
     Requires premium subscription tier.
     """
     import re
     
     try:
-        # Check if RunPod is configured
-        if not RUNPOD_API_KEY or not RUNPOD_ENDPOINT_ID:
+        # Check if RunPod Pod is configured
+        if not RUNPOD_POD_URL:
             return jsonify({
                 'success': False,
                 'error': 'Premium TTS service is not configured. Please contact support.'
@@ -2051,7 +2053,7 @@ def api_generate_premium():
         if not current_user.has_premium:
             return jsonify({
                 'success': False,
-                'error': 'Premium subscription required for Bark TTS. Upgrade to Premium for ultra-realistic AI voices.',
+                'error': 'Premium subscription required for Ultra Voices. Upgrade to Premium for ultra-realistic AI voices.',
                 'upgrade_url': '/subscribe',
                 'premium_required': True
             }), 402
@@ -2071,23 +2073,20 @@ def api_generate_premium():
         
         db.session.commit()
         
-        # Call RunPod serverless endpoint
+        # Call RunPod Pod API directly
         headers = {
-            'Authorization': f'Bearer {RUNPOD_API_KEY}',
             'Content-Type': 'application/json'
         }
         
         payload = {
-            'input': {
-                'text': text,
-                'voice': voice,
-                'silence_padding_ms': silence_padding_ms
-            }
+            'text': text,
+            'voice': voice,
+            'silence_padding_ms': silence_padding_ms
         }
         
-        # Start the job
+        # Call the Pod's /api/tts endpoint
         response = requests.post(
-            f'{RUNPOD_ENDPOINT_URL}/runsync',
+            f'{RUNPOD_POD_URL}/api/tts',
             headers=headers,
             json=payload,
             timeout=300  # 5 minute timeout for long generations
@@ -2100,30 +2099,35 @@ def api_generate_premium():
                 current_user.premium_overage_cents = max(0, (current_user.premium_overage_cents or 0) - overage_cents)
             db.session.commit()
             
+            error_detail = ''
+            try:
+                error_detail = response.json().get('error', '')
+            except:
+                pass
+            
             return jsonify({
                 'success': False,
-                'error': f'Premium TTS service error: {response.status_code}'
+                'error': f'Premium TTS service error: {response.status_code} {error_detail}'
             }), 502
         
         result = response.json()
         
-        if result.get('status') == 'FAILED' or 'error' in result.get('output', {}):
+        if not result.get('success') or 'error' in result:
             # Refund characters on failure
             current_user.premium_chars_used = max(0, (current_user.premium_chars_used or 0) - char_count)
             if is_overage:
                 current_user.premium_overage_cents = max(0, (current_user.premium_overage_cents or 0) - overage_cents)
             db.session.commit()
             
-            error_msg = result.get('output', {}).get('error', 'Unknown error')
+            error_msg = result.get('error', 'Unknown error')
             return jsonify({
                 'success': False,
                 'error': f'Premium TTS generation failed: {error_msg}'
             }), 500
         
-        # Get the audio data
-        output = result.get('output', {})
-        audio_base64 = output.get('audio_base64')
-        stats = output.get('stats', {})
+        # Get the audio data from Pod response
+        audio_base64 = result.get('audio_base64')
+        stats = result.get('stats', {})
         
         if not audio_base64:
             return jsonify({
