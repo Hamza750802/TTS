@@ -15,13 +15,18 @@ import numpy as np
 from scipy.io.wavfile import write as write_wav
 
 print("Loading Bark models (full quality)... (this may take a few minutes on first run)")
-from bark import SAMPLE_RATE
+from bark import SAMPLE_RATE, generate_audio
 from bark.generation import (
     generate_text_semantic,
-    semantic_to_waveform,
     preload_models,
-    SEMANTIC_RATE_HZ,
 )
+from bark.api import semantic_to_waveform
+
+# Get semantic rate from generation module
+try:
+    from bark.generation import SEMANTIC_RATE_HZ
+except ImportError:
+    SEMANTIC_RATE_HZ = 49.9  # Default value
 
 # Preload all models
 preload_models()
