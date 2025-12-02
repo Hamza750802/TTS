@@ -704,7 +704,7 @@
       <div style="font-size: 11px; color: #636E72; font-weight: 400; margin-top: 4px;">550+ voices • Fast & reliable</div>
     </button>
     <button type="button" class="tts-tab premium-tab" onclick="switchTab('premium')" id="tabPremium">
-      ✨ Bark AI <span class="premium-badge-small">ULTRA</span>
+      ✨ Ultra Voices <span class="premium-badge-small">PREMIUM</span>
       <div style="font-size: 11px; color: #9333ea; font-weight: 400; margin-top: 4px;">Human-like • Emotions • Laughter</div>
     </button>
   </div>
@@ -881,7 +881,7 @@
       <div class="form-card">
         <!-- Premium Header -->
         <div style="background: linear-gradient(135deg, rgba(147,51,234,0.1), rgba(236,72,153,0.1)); border: 2px solid rgba(147,51,234,0.2); border-radius: 16px; padding: 20px; margin-bottom: 24px; text-align: center;">
-          <h3 style="margin: 0 0 8px 0; background: linear-gradient(135deg, #9333ea, #ec4899); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; font-size: 20px;">✨ Bark AI - Ultra-Realistic Voices</h3>
+          <h3 style="margin: 0 0 8px 0; background: linear-gradient(135deg, #9333ea, #ec4899); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; font-size: 20px;">✨ Ultra-Realistic AI Voices</h3>
           <p style="margin: 0; color: #636E72; font-size: 14px;">Natural emotions, laughter, sighs, and human-like speech</p>
         </div>
 
@@ -898,7 +898,7 @@
         <!-- Non-Premium User - Upgrade prompt -->
         <div style="background: linear-gradient(135deg, rgba(147,51,234,0.1), rgba(236,72,153,0.1)); border: 2px solid rgba(147,51,234,0.3); border-radius: 16px; padding: 24px; margin-bottom: 24px; text-align: center;">
           <h4 style="margin: 0 0 12px 0; color: #9333ea;">🔒 Premium Subscription Required</h4>
-          <p style="color: #636E72; margin: 0 0 16px 0; font-size: 14px;">Upgrade to access ultra-realistic Bark AI voices with emotions, laughter, and natural speech.</p>
+          <p style="color: #636E72; margin: 0 0 16px 0; font-size: 14px;">Upgrade to access ultra-realistic AI voices with emotions, laughter, and natural speech.</p>
           <a href="/subscribe" style="display: inline-block; padding: 12px 32px; background: linear-gradient(135deg, #9333ea, #ec4899); color: white; text-decoration: none; border-radius: 12px; font-weight: 600; box-shadow: 0 4px 16px rgba(147,51,234,0.3);">Upgrade to Premium →</a>
         </div>
         {% endif %}
@@ -907,7 +907,7 @@
         <div class="form-section">
           <div class="section-title">Your Text</div>
           <div class="input-group">
-            <label for="premiumText">Enter text to convert with Bark AI</label>
+            <label for="premiumText">Enter text to convert with Ultra Voices</label>
             <textarea id="premiumText" placeholder="Type your text here... You can use [laughter], [sighs], [music], [gasps] for effects!" {% if not current_user.has_premium %}disabled{% endif %} style="{% if not current_user.has_premium %}opacity: 0.5; cursor: not-allowed;{% endif %}"></textarea>
             <p style="font-size: 12px; color: #9333ea; margin-top: 8px;">💡 Tip: Add [laughter], [sighs], [clears throat], ♪ for music, or CAPITALS for emphasis!</p>
           </div>
@@ -958,12 +958,12 @@
         </div>
 
         <button type="submit" class="generate-btn" id="premiumGenerateBtn" {% if not current_user.has_premium %}disabled style="opacity: 0.5; cursor: not-allowed; background: linear-gradient(135deg, #9333ea, #ec4899);"{% else %}style="background: linear-gradient(135deg, #9333ea, #ec4899);"{% endif %}>
-          ✨ Generate with Bark AI
+          ✨ Generate Ultra Voice
         </button>
       </div>
 
       <div class="loading" id="premiumLoading">
-        <p id="premiumLoadingText">✨ Generating with Bark AI...</p>
+        <p id="premiumLoadingText">✨ Generating ultra-realistic voice...</p>
         <p style="font-size: 12px; color: #9333ea; margin-top: 8px;" id="premiumLoadingHint">First generation may take 1-2 minutes (loading AI models). Subsequent requests are faster!</p>
         <div style="margin-top: 12px; height: 4px; background: rgba(147,51,234,0.2); border-radius: 2px; overflow: hidden;">
           <div id="premiumProgressBar" style="height: 100%; width: 0%; background: linear-gradient(90deg, #9333ea, #ec4899); border-radius: 2px; transition: width 0.5s ease;"></div>
