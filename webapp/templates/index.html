@@ -629,11 +629,90 @@
     0%, 100% { box-shadow: 0 0 12px rgba(147,51,234,0.5); }
     50% { box-shadow: 0 0 24px rgba(236,72,153,0.6); }
   }
+  
+  /* Tab Styles */
+  .tts-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 24px;
+  }
+  .tts-tab {
+    flex: 1;
+    padding: 16px 24px;
+    border-radius: 16px 16px 0 0;
+    border: 2px solid rgba(0,0,0,0.06);
+    border-bottom: none;
+    background: #f8f9fa;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: #636E72;
+    text-align: center;
+  }
+  .tts-tab:hover {
+    background: #FFF0EB;
+  }
+  .tts-tab.active {
+    background: white;
+    color: #2D3436;
+    border-color: rgba(255,123,114,0.3);
+    position: relative;
+  }
+  .tts-tab.active::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: white;
+  }
+  .tts-tab.premium-tab {
+    background: linear-gradient(135deg, rgba(147,51,234,0.1), rgba(236,72,153,0.1));
+    border-color: rgba(147,51,234,0.2);
+  }
+  .tts-tab.premium-tab:hover {
+    background: linear-gradient(135deg, rgba(147,51,234,0.15), rgba(236,72,153,0.15));
+  }
+  .tts-tab.premium-tab.active {
+    background: linear-gradient(135deg, rgba(147,51,234,0.1), rgba(236,72,153,0.1));
+    border-color: rgba(147,51,234,0.4);
+  }
+  .tab-content {
+    display: none;
+  }
+  .tab-content.active {
+    display: block;
+  }
+  .premium-badge-small {
+    background: linear-gradient(135deg, #9333ea, #ec4899);
+    color: white;
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 6px;
+    margin-left: 6px;
+    font-weight: 700;
+  }
 </style>
 
 <div class="tts-container">
-  <form id="ttsForm">
-    <div class="form-card">
+  <!-- TTS Tabs -->
+  <div class="tts-tabs">
+    <button type="button" class="tts-tab active" onclick="switchTab('standard')" id="tabStandard">
+      🎙️ Standard TTS
+      <div style="font-size: 11px; color: #636E72; font-weight: 400; margin-top: 4px;">550+ voices • Free tier included</div>
+    </button>
+    <button type="button" class="tts-tab premium-tab" onclick="switchTab('premium')" id="tabPremium">
+      ✨ Premium TTS <span class="premium-badge-small">BARK AI</span>
+      <div style="font-size: 11px; color: #9333ea; font-weight: 400; margin-top: 4px;">Ultra-realistic • Emotions • Laughter</div>
+    </button>
+  </div>
+
+  <!-- Standard TTS Tab Content -->
+  <div class="tab-content active" id="standardTab">
+    <form id="ttsForm">
+      <div class="form-card">
       <!-- Text Input Section -->
       <div class="form-section">
         <div class="section-title">Your Text</div>
@@ -794,6 +873,109 @@
       </div>
     </div>
   </form>
+  </div><!-- End Standard Tab -->
+
+  <!-- Premium TTS Tab Content -->
+  <div class="tab-content" id="premiumTab">
+    <form id="premiumTtsForm">
+      <div class="form-card">
+        <!-- Premium Header -->
+        <div style="background: linear-gradient(135deg, rgba(147,51,234,0.1), rgba(236,72,153,0.1)); border: 2px solid rgba(147,51,234,0.2); border-radius: 16px; padding: 20px; margin-bottom: 24px; text-align: center;">
+          <h3 style="margin: 0 0 8px 0; background: linear-gradient(135deg, #9333ea, #ec4899); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; font-size: 20px;">✨ Bark AI - Ultra-Realistic Voices</h3>
+          <p style="margin: 0; color: #636E72; font-size: 14px;">Natural emotions, laughter, sighs, and human-like speech</p>
+        </div>
+
+        {% if current_user.has_premium %}
+        <!-- Premium User - Can use -->
+        <div style="background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.3); border-radius: 12px; padding: 12px 16px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
+          <span style="color: #22c55e; font-weight: 600;">✓ Premium Active</span>
+          <span style="color: #636E72; font-size: 13px;">
+            <span id="premiumCharsUsed">{{ current_user.premium_chars_used or 0 }}</span> / 
+            <span id="premiumCharsLimit">{{ current_user.premium_char_limit }}</span> chars used
+          </span>
+        </div>
+        {% else %}
+        <!-- Non-Premium User - Upgrade prompt -->
+        <div style="background: linear-gradient(135deg, rgba(147,51,234,0.1), rgba(236,72,153,0.1)); border: 2px solid rgba(147,51,234,0.3); border-radius: 16px; padding: 24px; margin-bottom: 24px; text-align: center;">
+          <h4 style="margin: 0 0 12px 0; color: #9333ea;">🔒 Premium Subscription Required</h4>
+          <p style="color: #636E72; margin: 0 0 16px 0; font-size: 14px;">Upgrade to access ultra-realistic Bark AI voices with emotions, laughter, and natural speech.</p>
+          <a href="/subscribe" style="display: inline-block; padding: 12px 32px; background: linear-gradient(135deg, #9333ea, #ec4899); color: white; text-decoration: none; border-radius: 12px; font-weight: 600; box-shadow: 0 4px 16px rgba(147,51,234,0.3);">Upgrade to Premium →</a>
+        </div>
+        {% endif %}
+
+        <!-- Text Input -->
+        <div class="form-section">
+          <div class="section-title">Your Text</div>
+          <div class="input-group">
+            <label for="premiumText">Enter text to convert with Bark AI</label>
+            <textarea id="premiumText" placeholder="Type your text here... You can use [laughter], [sighs], [music], [gasps] for effects!" {% if not current_user.has_premium %}disabled{% endif %} style="{% if not current_user.has_premium %}opacity: 0.5; cursor: not-allowed;{% endif %}"></textarea>
+            <p style="font-size: 12px; color: #9333ea; margin-top: 8px;">💡 Tip: Add [laughter], [sighs], [clears throat], ♪ for music, or CAPITALS for emphasis!</p>
+          </div>
+        </div>
+
+        <!-- Voice Selection -->
+        <div class="form-section">
+          <div class="section-title">Voice Selection</div>
+          <div class="input-group">
+            <label for="premiumVoice">Choose Speaker</label>
+            <select id="premiumVoice" {% if not current_user.has_premium %}disabled{% endif %} style="{% if not current_user.has_premium %}opacity: 0.5; cursor: not-allowed;{% endif %}">
+              <optgroup label="🇺🇸 English Speakers">
+                <option value="v2/en_speaker_0">Speaker 0 (Male, Deep)</option>
+                <option value="v2/en_speaker_1">Speaker 1 (Male, Warm)</option>
+                <option value="v2/en_speaker_2">Speaker 2 (Male, Clear)</option>
+                <option value="v2/en_speaker_3">Speaker 3 (Male, Energetic)</option>
+                <option value="v2/en_speaker_4">Speaker 4 (Male, Calm)</option>
+                <option value="v2/en_speaker_5">Speaker 5 (Female, Soft)</option>
+                <option value="v2/en_speaker_6" selected>Speaker 6 (Female, Natural)</option>
+                <option value="v2/en_speaker_7">Speaker 7 (Female, Bright)</option>
+                <option value="v2/en_speaker_8">Speaker 8 (Female, Mature)</option>
+                <option value="v2/en_speaker_9">Speaker 9 (Female, Young)</option>
+              </optgroup>
+              <optgroup label="🇩🇪 German Speakers">
+                <option value="v2/de_speaker_0">German Speaker 0</option>
+                <option value="v2/de_speaker_1">German Speaker 1</option>
+                <option value="v2/de_speaker_2">German Speaker 2</option>
+              </optgroup>
+              <optgroup label="🇪🇸 Spanish Speakers">
+                <option value="v2/es_speaker_0">Spanish Speaker 0</option>
+                <option value="v2/es_speaker_1">Spanish Speaker 1</option>
+                <option value="v2/es_speaker_2">Spanish Speaker 2</option>
+              </optgroup>
+              <optgroup label="🇫🇷 French Speakers">
+                <option value="v2/fr_speaker_0">French Speaker 0</option>
+                <option value="v2/fr_speaker_1">French Speaker 1</option>
+              </optgroup>
+              <optgroup label="🇯🇵 Japanese Speakers">
+                <option value="v2/ja_speaker_0">Japanese Speaker 0</option>
+                <option value="v2/ja_speaker_1">Japanese Speaker 1</option>
+              </optgroup>
+              <optgroup label="🇨🇳 Chinese Speakers">
+                <option value="v2/zh_speaker_0">Chinese Speaker 0</option>
+                <option value="v2/zh_speaker_1">Chinese Speaker 1</option>
+              </optgroup>
+            </select>
+          </div>
+        </div>
+
+        <button type="submit" class="generate-btn" id="premiumGenerateBtn" {% if not current_user.has_premium %}disabled style="opacity: 0.5; cursor: not-allowed; background: linear-gradient(135deg, #9333ea, #ec4899);"{% else %}style="background: linear-gradient(135deg, #9333ea, #ec4899);"{% endif %}>
+          ✨ Generate with Bark AI
+        </button>
+      </div>
+
+      <div class="loading" id="premiumLoading">
+        <p>✨ Generating with Bark AI... This may take 30-60 seconds...</p>
+      </div>
+      <div class="error" id="premiumError"></div>
+      <div class="audio-player" id="premiumAudioPlayer" style="display:none">
+        <strong>✨ Premium audio ready!</strong>
+        <audio id="premiumAudioElement" controls></audio>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+          <a id="premiumDownloadLink" class="download-btn" download="premium_speech.wav" style="background: linear-gradient(135deg, #9333ea, #ec4899); color: white; border-color: transparent;">⬇️ Download WAV</a>
+        </div>
+      </div>
+    </form>
+  </div><!-- End Premium Tab -->
+
 </div>
 {% endif %}
 {% endblock %}
@@ -808,9 +990,83 @@
   let chunkState = [];
   let presets = [];
   let currentVoiceFilter = 'all';
+  let currentTab = 'standard';
 
   const chunkListEl = document.getElementById('chunkList');
   const textArea = document.getElementById('text');
+
+  // Tab switching
+  function switchTab(tab) {
+    currentTab = tab;
+    document.getElementById('tabStandard').classList.toggle('active', tab === 'standard');
+    document.getElementById('tabPremium').classList.toggle('active', tab === 'premium');
+    document.getElementById('standardTab').classList.toggle('active', tab === 'standard');
+    document.getElementById('premiumTab').classList.toggle('active', tab === 'premium');
+  }
+
+  // Premium TTS Form Handler
+  document.getElementById('premiumTtsForm')?.addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const text = document.getElementById('premiumText').value.trim();
+    const voice = document.getElementById('premiumVoice').value;
+    const generateBtn = document.getElementById('premiumGenerateBtn');
+    const loading = document.getElementById('premiumLoading');
+    const error = document.getElementById('premiumError');
+    const audioPlayer = document.getElementById('premiumAudioPlayer');
+    
+    if (!text) {
+      error.textContent = 'Please enter some text.';
+      error.classList.add('visible');
+      return;
+    }
+    
+    // Show loading
+    generateBtn.disabled = true;
+    loading.classList.add('visible');
+    error.classList.remove('visible');
+    audioPlayer.style.display = 'none';
+    
+    try {
+      const response = await fetch('/api/generate-premium', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          text: text,
+          voice: voice
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        // Update usage display
+        const usedEl = document.getElementById('premiumCharsUsed');
+        if (usedEl) usedEl.textContent = data.premium_chars_used || 0;
+        
+        // Show audio player
+        document.getElementById('premiumAudioElement').src = data.audioUrl;
+        document.getElementById('premiumDownloadLink').href = data.audioUrl;
+        audioPlayer.style.display = 'block';
+      } else {
+        error.textContent = data.error || 'Failed to generate audio.';
+        error.classList.add('visible');
+        
+        if (data.premium_required) {
+          error.innerHTML = data.error + ' <a href="/subscribe" style="color: #9333ea; font-weight: 600;">Upgrade Now →</a>';
+        }
+      }
+    } catch (err) {
+      console.error(err);
+      error.textContent = 'Network error. Please try again.';
+      error.classList.add('visible');
+    } finally {
+      generateBtn.disabled = false;
+      loading.classList.remove('visible');
+    }
+  });
 
   async function loadVoices() {
     try {
