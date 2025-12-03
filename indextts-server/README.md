@@ -1,6 +1,6 @@
 # IndexTTS2 Server for CheapTTS
 
-High-quality zero-shot TTS with emotion control. Runs on Vast.ai GPU instance.
+High-quality zero-shot TTS with emotion control and **instant cached voice embeddings**. Runs on Vast.ai GPU instance.
 
 ## Requirements
 
@@ -12,16 +12,21 @@ High-quality zero-shot TTS with emotion control. Runs on Vast.ai GPU instance.
 
 **Recommended GPUs:** RTX 3090, RTX 4090, A10, A40
 
+---
+
 ## Quick Start (Vast.ai)
 
-### 1. Create a Vast.ai Instance
+### Step 1: Create a Vast.ai Instance
 
-- **Image:** `pytorch/pytorch:2.5.1-cuda12.4-cudnn9-runtime`
-- **GPU:** RTX 3090 or RTX 4090 (cheapest options with enough VRAM)
-- **Disk:** 50GB
-- **Expose port:** 8000
+1. Go to [vast.ai](https://vast.ai) and create an account
+2. Search for template: `pytorch/pytorch:2.5.1-cuda12.4-cudnn9-runtime`
+3. Settings:
+   - **GPU:** RTX 3090 or RTX 4090 (cheapest with enough VRAM)
+   - **Disk:** 50GB minimum
+   - **Expose port:** 8000
+4. Launch the instance and wait for it to start
 
-### 2. SSH into the instance and run:
+### Step 2: SSH into the instance and run setup
 
 ```bash
 # Clone CheapTTS repo
@@ -33,54 +38,82 @@ chmod +x setup.sh
 ./setup.sh
 ```
 
-Or manually:
+This will:
+- Install dependencies (git-lfs, ffmpeg, etc.)
+- Clone IndexTTS2 repository
+- Download the model checkpoints (~10GB)
+- Start the server on port 8000
+
+---
+
+## Adding Voice Presets
+
+### Option 1: Upload via API (Recommended)
+
+**Single voice upload:**
+```bash
+curl -X POST http://YOUR-VAST-IP:8000/upload-voice \
+  -F "file=@emily.wav" \
+  -F "name=Emily"
+```
+
+**Bulk upload via ZIP:**
+```bash
+# Create a ZIP with all your voice files
+# voices.zip containing: emily.wav, michael.wav, sarah.wav, etc.
+
+curl -X POST http://YOUR-VAST-IP:8000/upload-voices-zip \
+  -F "file=@voices.zip" \
+  -F "cache_immediately=true"
+```
+
+The server will:
+1. Save each audio file to `/voices/`
+2. Extract speaker embedding (takes ~5-10 seconds per voice)
+3. Cache embedding to `/cache/` for instant reuse
+
+### Option 2: SCP/SFTP Upload
 
 ```bash
-# Install git-lfs
-apt-get update && apt-get install -y git-lfs ffmpeg libsndfile1
+# Upload files directly to the voices folder
+scp emily.wav root@YOUR-VAST-IP:/root/TTS/indextts-server/voices/
+scp michael.wav root@YOUR-VAST-IP:/root/TTS/indextts-server/voices/
 
-# Clone IndexTTS2
-git clone https://github.com/index-tts/index-tts.git
-cd index-tts
-git lfs install && git lfs pull
-
-# Install with uv (recommended) or pip
-pip install uv
-uv sync --extra webui
-
-# Or with pip
-pip install -e .
-
-# Download model
-pip install "huggingface-hub[cli,hf_xet]"
-huggingface-cli download IndexTeam/IndexTTS-2 --local-dir=checkpoints
-
-# Go back and start server
-cd ..
-pip install fastapi uvicorn python-multipart
-python server.py
+# Then cache all voices
+curl -X POST http://YOUR-VAST-IP:8000/cache-all
 ```
 
-### 3. Add Voice References
+### Option 3: Mount a Volume with Pre-existing Voices
 
-Upload WAV files (5-30 seconds each) to the `voices/` directory:
-
+When starting the Docker container, mount a volume:
 ```bash
-# Create voices directory
-mkdir -p voices
-
-# Upload your voice files
-# Example: voices/Emily.wav, voices/Michael.wav, etc.
-
-# Run setup to create voice entries
-python setup_voices.py
+docker run -d --gpus all -p 8000:8000 \
+  -v /path/to/your/voices:/app/voices \
+  -v /path/to/cache:/app/cache \
+  indextts-server
 ```
 
-### 4. Set Environment Variable on Railway
+---
 
-```
-INDEXTTS_URL=http://YOUR-VAST-IP:8000
-```
+## Voice File Requirements
+
+| Requirement | Details |
+|-------------|---------|
+| **Format** | WAV (16-bit PCM), MP3, or FLAC |
+| **Duration** | 5-30 seconds ideal |
+| **Quality** | Clean recording, minimal background noise |
+| **Content** | Natural conversational speech |
+| **Sample Rate** | 16kHz or higher (will be resampled) |
+
+### Voice Quality Tips
+
+| Duration | Quality |
+|----------|---------|
+| 5-10 seconds | Basic cloning |
+| 20-30 seconds | Good quality |
+| 60+ seconds | Excellent quality |
+
+---
 
 ## API Endpoints
 
@@ -90,7 +123,7 @@ GET /
 GET /health
 ```
 
-### List Voices
+### List All Voices
 ```
 GET /voices
 ```
@@ -100,11 +133,17 @@ Response:
 {
   "success": true,
   "voices": [
-    {"id": "Emily", "name": "Emily", "type": "audio"},
-    {"id": "Michael", "name": "Michael", "type": "audio"}
+    {"id": "Emily", "name": "Emily", "cached": true, "status": "ready"},
+    {"id": "Michael", "name": "Michael", "cached": false, "status": "will_cache_on_first_use"}
   ],
-  "count": 2
+  "count": 2,
+  "cached_count": 1
 }
+```
+
+### Get Voice Info
+```
+GET /voice/{voice_name}/info
 ```
 
 ### Generate Speech
@@ -122,7 +161,43 @@ Content-Type: application/json
 
 Response: WAV audio file
 
-### Parameters
+**First generation with a new voice:** Takes ~10-15 seconds (extracting + caching embedding)
+**Subsequent generations:** Takes ~2-5 seconds (uses cached embedding)
+
+### Upload Single Voice
+```
+POST /upload-voice
+Content-Type: multipart/form-data
+
+file: <audio file>
+name: "CustomVoice"
+```
+
+### Upload Multiple Voices (ZIP)
+```
+POST /upload-voices-zip
+Content-Type: multipart/form-data
+
+file: <zip archive>
+cache_immediately: true
+```
+
+### Pre-Cache a Voice
+```
+POST /cache-voice/{voice_name}
+```
+
+### Cache All Voices
+```
+POST /cache-all
+```
+
+### Delete a Voice
+```
+DELETE /voices/{voice_name}
+```
+
+### Generate Parameters
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
@@ -139,15 +214,6 @@ Response: WAV audio file
 `[happy, angry, sad, afraid, disgusted, melancholic, surprised, calm]`
 
 Example: `[0.8, 0, 0, 0, 0, 0, 0.2, 0]` = happy + slightly surprised
-
-### Upload Voice
-```
-POST /upload-voice
-Content-Type: multipart/form-data
-
-file: <audio file>
-name: "CustomVoice"
-```
 
 ## Voice File Requirements
 

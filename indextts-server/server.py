@@ -10,11 +10,13 @@ Runs on Vast.ai GPU instance (RTX 3090/4090, ~6GB VRAM in FP16 mode).
 
 import os
 import sys
+import io
 import json
 import time
 import uuid
 import pickle
 import asyncio
+import zipfile
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 from contextlib import asynccontextmanager
@@ -608,6 +610,115 @@ async def delete_voice(voice_name: str):
         raise HTTPException(status_code=404, detail=f"Voice '{voice_name}' not found")
     
     return {"success": True, "deleted": deleted}
+
+
+@app.post("/upload-voices-zip")
+async def upload_voices_zip(file: UploadFile = File(...), cache_immediately: bool = Form(True)):
+    """
+    Upload multiple voice reference files as a ZIP archive.
+    Each file in the ZIP will be saved as a separate voice.
+    Voice name = filename without extension.
+    
+    Example: voices.zip containing:
+      - emily.wav -> voice "emily"
+      - michael.wav -> voice "michael"
+    """
+    if not model_loaded:
+        raise HTTPException(status_code=503, detail="Model not loaded yet")
+    
+    if not file.filename.lower().endswith('.zip'):
+        raise HTTPException(status_code=400, detail="File must be a ZIP archive")
+    
+    uploaded = []
+    cached = []
+    errors = []
+    
+    try:
+        content = await file.read()
+        with zipfile.ZipFile(io.BytesIO(content), 'r') as zf:
+            for name in zf.namelist():
+                # Skip directories and hidden files
+                if name.endswith('/') or name.startswith('__') or name.startswith('.'):
+                    continue
+                
+                # Check if it's an audio file
+                lower_name = name.lower()
+                if not any(lower_name.endswith(ext) for ext in ['.wav', '.mp3', '.flac']):
+                    continue
+                
+                try:
+                    # Extract voice name from filename
+                    basename = Path(name).name
+                    voice_name = Path(basename).stem
+                    voice_name = "".join(c for c in voice_name if c.isalnum() or c in "._-").strip()
+                    
+                    if not voice_name:
+                        continue
+                    
+                    # Get extension
+                    ext = Path(basename).suffix.lower()
+                    audio_path = VOICES_DIR / f"{voice_name}{ext}"
+                    
+                    # Extract and save
+                    with zf.open(name) as src, open(audio_path, 'wb') as dst:
+                        dst.write(src.read())
+                    
+                    uploaded.append(voice_name)
+                    
+                    # Cache immediately if requested
+                    if cache_immediately:
+                        try:
+                            embedding = extract_voice_embedding(voice_name, str(audio_path))
+                            voice_cache[voice_name] = embedding
+                            cached.append(voice_name)
+                        except Exception as e:
+                            errors.append({"voice": voice_name, "error": f"Cache failed: {str(e)}"})
+                
+                except Exception as e:
+                    errors.append({"file": name, "error": str(e)})
+        
+        return {
+            "success": True,
+            "uploaded": uploaded,
+            "cached": cached,
+            "errors": errors,
+            "message": f"Uploaded {len(uploaded)} voices, cached {len(cached)}"
+        }
+        
+    except zipfile.BadZipFile:
+        raise HTTPException(status_code=400, detail="Invalid ZIP file")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/voice/{voice_name}/info")
+async def get_voice_info(voice_name: str):
+    """Get detailed info about a specific voice"""
+    # Check if audio file exists
+    audio_path = get_voice_audio_path(voice_name)
+    
+    # Check cache status
+    is_cached = voice_name in voice_cache or (CACHE_DIR / f"{voice_name}.pkl").exists()
+    
+    if not audio_path and not is_cached:
+        raise HTTPException(status_code=404, detail=f"Voice '{voice_name}' not found")
+    
+    info = {
+        "name": voice_name,
+        "cached": is_cached,
+        "audio_file": audio_path
+    }
+    
+    # Get cache metadata if available
+    if voice_name in voice_cache:
+        cache_data = voice_cache[voice_name]
+        info["extracted_at"] = cache_data.get("extracted_at")
+    elif (CACHE_DIR / f"{voice_name}.pkl").exists():
+        cache_data = load_voice_from_cache(voice_name)
+        if cache_data:
+            info["extracted_at"] = cache_data.get("extracted_at")
+    
+    return info
 
 
 # Cleanup old output files periodically
