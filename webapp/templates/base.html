@@ -241,6 +241,7 @@
         <span>💬 Cheap TTS</span>
       </a>
       <div class="nav-actions">
+        <a class="btn" href="{{ url_for('about') }}">About</a>
         {% if current_user.is_authenticated %}
           {% if current_user.is_subscribed %}
             {% if current_user.is_lifetime %}

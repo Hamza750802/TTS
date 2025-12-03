@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% block title %}About Us - Cheap TTS{% endblock %}
+
+{% block content %}
+<div class="hero" style="padding: 40px 0;">
+  <h1 class="title">About Us</h1>
+  <p class="subtitle">Learn more about Cheap TTS and the team behind it.</p>
+</div>
+
+<div style="max-width: 700px; margin: 0 auto; padding: 20px 0;">
+  
+  <!-- Company Info -->
+  <div style="background: var(--bg-soft); border-radius: 20px; padding: 32px; margin-bottom: 24px; border: 1px solid var(--border-light);">
+    <h2 style="font-size: 22px; margin-bottom: 20px; color: var(--text-dark);">
+      <span style="background: var(--gradient-primary); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;">🏢 Company Information</span>
+    </h2>
+    
+    <div style="display: grid; gap: 16px;">
+      <div style="display: flex; align-items: flex-start; gap: 12px;">
+        <span style="font-size: 20px;">🏷️</span>
+        <div>
+          <div style="font-weight: 600; color: var(--text-dark); margin-bottom: 2px;">Website</div>
+          <div style="color: var(--text-medium);">CheapTTS.com is property of ApexPath LLC</div>
+        </div>
+      </div>
+      
+      <div style="display: flex; align-items: flex-start; gap: 12px;">
+        <span style="font-size: 20px;">🏛️</span>
+        <div>
+          <div style="font-weight: 600; color: var(--text-dark); margin-bottom: 2px;">Company Name</div>
+          <div style="color: var(--text-medium);">ApexPath LLC</div>
+        </div>
+      </div>
+      
+      <div style="display: flex; align-items: flex-start; gap: 12px;">
+        <span style="font-size: 20px;">📍</span>
+        <div>
+          <div style="font-weight: 600; color: var(--text-dark); margin-bottom: 2px;">Address</div>
+          <div style="color: var(--text-medium);">1309 Coffeen Avenue<br>Sheridan, Wyoming 82801<br>USA</div>
+        </div>
+      </div>
+      
+      <div style="display: flex; align-items: flex-start; gap: 12px;">
+        <span style="font-size: 20px;">👤</span>
+        <div>
+          <div style="font-weight: 600; color: var(--text-dark); margin-bottom: 2px;">Owner</div>
+          <div style="color: var(--text-medium);">Hamza Arshad</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Contact Info -->
+  <div style="background: var(--bg-soft); border-radius: 20px; padding: 32px; margin-bottom: 24px; border: 1px solid var(--border-light);">
+    <h2 style="font-size: 22px; margin-bottom: 20px; color: var(--text-dark);">
+      <span style="background: var(--gradient-secondary); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;">📬 Contact Us</span>
+    </h2>
+    
+    <div style="display: grid; gap: 16px;">
+      <div style="display: flex; align-items: flex-start; gap: 12px;">
+        <span style="font-size: 20px;">💼</span>
+        <div>
+          <div style="font-weight: 600; color: var(--text-dark); margin-bottom: 2px;">Work Email</div>
+          <a href="mailto:admin@apexpath.net" style="color: var(--accent-coral); font-weight: 500;">admin@apexpath.net</a>
+        </div>
+      </div>
+      
+      <div style="display: flex; align-items: flex-start; gap: 12px;">
+        <span style="font-size: 20px;">🎧</span>
+        <div>
+          <div style="font-weight: 600; color: var(--text-dark); margin-bottom: 2px;">Support (CheapTTS)</div>
+          <div style="color: var(--text-medium); margin-bottom: 6px;">For support related queries regarding CheapTTS, please reach out to us at:</div>
+          <a href="mailto:support@cheaptts.com" style="color: var(--accent-coral); font-weight: 500;">support@cheaptts.com</a>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- CTA -->
+  <div style="text-align: center; padding: 20px 0;">
+    <a href="{{ url_for('index') }}" class="btn primary" style="padding: 14px 32px; font-size: 16px;">← Back to Home</a>
+  </div>
+  
+</div>
+{% endblock %}

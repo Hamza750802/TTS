@@ -1141,6 +1141,12 @@ def index():
     return render_template('landing.html')
 
 
+@app.route('/about')
+def about():
+    """Serve the About page"""
+    return render_template('about.html')
+
+
 @app.route('/dashboard')
 @login_required
 def dashboard():
