@@ -1,6 +1,9 @@
 """
 IndexTTS2 Server for CheapTTS
-FastAPI wrapper for IndexTTS2 with pre-saved voice embeddings.
+FastAPI wrapper for IndexTTS2 with pre-cached voice embeddings.
+
+The server extracts and caches voice embeddings on first use,
+then reuses them for instant generation.
 
 Runs on Vast.ai GPU instance (RTX 3090/4090, ~6GB VRAM in FP16 mode).
 """
@@ -10,39 +13,42 @@ import sys
 import json
 import time
 import uuid
+import pickle
 import asyncio
 from pathlib import Path
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from contextlib import asynccontextmanager
 
+import torch
 import numpy as np
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, BackgroundTasks
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-# Add parent to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
 # Directories
 VOICES_DIR = Path("voices")
-EMBEDDINGS_DIR = Path("embeddings")
+CACHE_DIR = Path("cache")  # For embeddings cache
 OUTPUT_DIR = Path("outputs")
 TEMP_DIR = Path("temp")
 
 # Create directories
-for d in [VOICES_DIR, EMBEDDINGS_DIR, OUTPUT_DIR, TEMP_DIR]:
+for d in [VOICES_DIR, CACHE_DIR, OUTPUT_DIR, TEMP_DIR]:
     d.mkdir(exist_ok=True)
 
 # Global model instance
 tts_model = None
 model_loaded = False
 
+# Voice embedding cache - stores extracted embeddings for all voices
+# Key: voice_name, Value: dict with spk_cond, style, prompt, etc.
+voice_cache: Dict[str, Dict[str, Any]] = {}
+
 
 class TTSRequest(BaseModel):
     """Request for single-speaker TTS generation"""
     text: str
-    voice: str = "Emily"  # Voice name (without .json extension)
+    voice: str = "Emily"  # Voice name (without extension)
     # Emotion control options
     emo_alpha: float = 0.6  # Emotion intensity (0.0-1.0)
     use_emo_text: bool = False  # Use text content to infer emotion
@@ -50,7 +56,6 @@ class TTSRequest(BaseModel):
     emo_vector: Optional[List[float]] = None  # [happy, angry, sad, afraid, disgusted, melancholic, surprised, calm]
     # Generation options
     use_random: bool = False  # Enable stochastic sampling
-    seed: Optional[int] = None
 
 
 class VoiceUploadResponse(BaseModel):
@@ -68,11 +73,21 @@ def load_model():
     start = time.time()
     
     try:
+        # Add indextts to path
+        indextts_path = Path("index-tts")
+        if indextts_path.exists():
+            sys.path.insert(0, str(indextts_path))
+        
         from indextts.infer_v2 import IndexTTS2
         
+        # Determine checkpoint path
+        checkpoint_dir = "checkpoints"
+        if indextts_path.exists():
+            checkpoint_dir = str(indextts_path / "checkpoints")
+        
         tts_model = IndexTTS2(
-            cfg_path="checkpoints/config.yaml",
-            model_dir="checkpoints",
+            cfg_path=f"{checkpoint_dir}/config.yaml",
+            model_dir=checkpoint_dir,
             use_fp16=True,  # FP16 for lower VRAM (~4-6GB)
             use_cuda_kernel=False,  # Disable for compatibility
             use_deepspeed=False  # Disable for simplicity
@@ -81,76 +96,176 @@ def load_model():
         model_loaded = True
         print(f"[IndexTTS2] Model loaded in {time.time() - start:.2f}s")
         
+        # Pre-cache existing voices
+        preload_voice_cache()
+        
     except Exception as e:
         print(f"[IndexTTS2] Failed to load model: {e}")
+        import traceback
+        traceback.print_exc()
         raise
 
 
-def extract_and_save_embedding(audio_path: str, voice_name: str) -> str:
-    """
-    Extract speaker embedding from audio and save as JSON.
-    
-    Args:
-        audio_path: Path to reference audio file (WAV)
-        voice_name: Name for the voice (will save as {voice_name}.json)
-    
-    Returns:
-        Path to saved embedding file
-    """
-    global tts_model
-    
-    if not model_loaded or tts_model is None:
-        raise RuntimeError("Model not loaded")
-    
-    print(f"[IndexTTS2] Extracting embedding from {audio_path}...")
-    
-    # IndexTTS2 extracts embedding internally during inference
-    # We need to use the model's internal methods to get the embedding
-    # For now, we'll store the audio path and let the model process it
-    
-    # Actually, looking at the IndexTTS2 code, embeddings are extracted on-the-fly
-    # The recommended approach is to store reference audio files and load them
-    # But for faster inference, we can pre-compute and cache embeddings
-    
-    # Let's store the audio file path for now, and the model will handle it
-    voice_info = {
-        "name": voice_name,
-        "audio_path": str(audio_path),
-        "created_at": time.time()
-    }
-    
-    embedding_path = EMBEDDINGS_DIR / f"{voice_name}.json"
-    with open(embedding_path, "w") as f:
-        json.dump(voice_info, f)
-    
-    print(f"[IndexTTS2] Saved voice info to {embedding_path}")
-    return str(embedding_path)
-
-
-def get_voice_audio_path(voice_name: str) -> str:
-    """
-    Get the audio path for a voice.
-    First checks embeddings JSON, then falls back to voices directory.
-    """
-    # Check embedding JSON
-    embedding_path = EMBEDDINGS_DIR / f"{voice_name}.json"
-    if embedding_path.exists():
-        with open(embedding_path) as f:
-            info = json.load(f)
-            audio_path = info.get("audio_path")
-            if audio_path and Path(audio_path).exists():
-                return audio_path
-    
-    # Fall back to voices directory
+def get_voice_audio_path(voice_name: str) -> Optional[str]:
+    """Get the audio path for a voice from the voices directory"""
     for ext in [".wav", ".mp3", ".flac"]:
         voice_path = VOICES_DIR / f"{voice_name}{ext}"
         if voice_path.exists():
             return str(voice_path)
+    return None
+
+
+def extract_voice_embedding(voice_name: str, audio_path: str) -> Dict[str, Any]:
+    """
+    Extract and cache voice embedding from audio file.
     
-    raise FileNotFoundError(f"Voice '{voice_name}' not found")
+    This extracts the same data that IndexTTS2 caches internally,
+    but we store it persistently so it survives server restarts.
+    """
+    global tts_model
+    
+    if tts_model is None:
+        raise RuntimeError("Model not loaded")
+    
+    print(f"[IndexTTS2] Extracting embedding for '{voice_name}' from {audio_path}...")
+    start = time.time()
+    
+    import torchaudio
+    import librosa
+    
+    # Load and preprocess audio (same as IndexTTS2.infer_generator does)
+    audio, sr = librosa.load(audio_path)
+    audio = torch.tensor(audio).unsqueeze(0)
+    
+    # Limit to 15 seconds
+    max_audio_samples = int(15 * sr)
+    if audio.shape[1] > max_audio_samples:
+        audio = audio[:, :max_audio_samples]
+    
+    # Resample
+    audio_22k = torchaudio.transforms.Resample(sr, 22050)(audio)
+    audio_16k = torchaudio.transforms.Resample(sr, 16000)(audio)
+    
+    # Extract features using the model's feature extractor
+    inputs = tts_model.extract_features(audio_16k, sampling_rate=16000, return_tensors="pt")
+    input_features = inputs["input_features"].to(tts_model.device)
+    attention_mask = inputs["attention_mask"].to(tts_model.device)
+    
+    # Get speaker embedding
+    spk_cond_emb = tts_model.get_emb(input_features, attention_mask)
+    
+    # Get semantic codes
+    _, S_ref = tts_model.semantic_codec.quantize(spk_cond_emb)
+    
+    # Get mel spectrogram
+    ref_mel = tts_model.mel_fn(audio_22k.to(spk_cond_emb.device).float())
+    ref_target_lengths = torch.LongTensor([ref_mel.size(2)]).to(ref_mel.device)
+    
+    # Get style from campplus model
+    feat = torchaudio.compliance.kaldi.fbank(
+        audio_16k.to(ref_mel.device),
+        num_mel_bins=80,
+        dither=0,
+        sample_frequency=16000
+    )
+    feat = feat - feat.mean(dim=0, keepdim=True)
+    style = tts_model.campplus_model(feat.unsqueeze(0))
+    
+    # Get prompt condition
+    prompt_condition = tts_model.s2mel.models['length_regulator'](
+        S_ref,
+        ylens=ref_target_lengths,
+        n_quantizers=3,
+        f0=None
+    )[0]
+    
+    # Store the cached data
+    embedding_data = {
+        "name": voice_name,
+        "audio_path": audio_path,
+        "spk_cond_emb": spk_cond_emb.cpu(),
+        "style": style.cpu(),
+        "prompt_condition": prompt_condition.cpu(),
+        "ref_mel": ref_mel.cpu(),
+        "extracted_at": time.time()
+    }
+    
+    # Save to disk cache
+    cache_path = CACHE_DIR / f"{voice_name}.pkl"
+    with open(cache_path, "wb") as f:
+        pickle.dump(embedding_data, f)
+    
+    print(f"[IndexTTS2] Extracted embedding for '{voice_name}' in {time.time() - start:.2f}s")
+    
+    return embedding_data
 
 
-def generate_speech(
+def load_voice_from_cache(voice_name: str) -> Optional[Dict[str, Any]]:
+    """Load a voice embedding from disk cache"""
+    cache_path = CACHE_DIR / f"{voice_name}.pkl"
+    if cache_path.exists():
+        try:
+            with open(cache_path, "rb") as f:
+                return pickle.load(f)
+        except Exception as e:
+            print(f"[IndexTTS2] Failed to load cache for {voice_name}: {e}")
+    return None
+
+
+def preload_voice_cache():
+    """Load all cached voice embeddings into memory"""
+    global voice_cache
+    
+    print("[IndexTTS2] Preloading voice cache...")
+    
+    # Load from disk cache
+    for cache_file in CACHE_DIR.glob("*.pkl"):
+        voice_name = cache_file.stem
+        try:
+            data = load_voice_from_cache(voice_name)
+            if data:
+                voice_cache[voice_name] = data
+                print(f"  - Loaded cached embedding: {voice_name}")
+        except Exception as e:
+            print(f"  - Failed to load {voice_name}: {e}")
+    
+    print(f"[IndexTTS2] Loaded {len(voice_cache)} cached voices")
+    
+    # Check for new voice files that need extraction
+    for ext in ["*.wav", "*.mp3", "*.flac"]:
+        for voice_file in VOICES_DIR.glob(ext):
+            voice_name = voice_file.stem
+            if voice_name not in voice_cache:
+                print(f"  - New voice found: {voice_name} (will extract on first use)")
+
+
+def get_or_extract_embedding(voice_name: str) -> Dict[str, Any]:
+    """Get voice embedding from cache, or extract it if not cached"""
+    global voice_cache
+    
+    # Check memory cache first
+    if voice_name in voice_cache:
+        return voice_cache[voice_name]
+    
+    # Check disk cache
+    cached = load_voice_from_cache(voice_name)
+    if cached:
+        voice_cache[voice_name] = cached
+        return cached
+    
+    # Need to extract from audio file
+    audio_path = get_voice_audio_path(voice_name)
+    if not audio_path:
+        raise FileNotFoundError(f"Voice '{voice_name}' not found. Add {voice_name}.wav to voices/ directory.")
+    
+    # Extract and cache
+    embedding = extract_voice_embedding(voice_name, audio_path)
+    voice_cache[voice_name] = embedding
+    
+    return embedding
+
+
+def generate_speech_with_cache(
     text: str,
     voice: str,
     emo_alpha: float = 0.6,
@@ -160,44 +275,44 @@ def generate_speech(
     use_random: bool = False
 ) -> bytes:
     """
-    Generate speech using IndexTTS2.
-    
-    Args:
-        text: Text to synthesize
-        voice: Voice name
-        emo_alpha: Emotion intensity
-        use_emo_text: Use text content to infer emotion
-        emo_text: Separate emotion description
-        emo_vector: Direct emotion vector [happy, angry, sad, afraid, disgusted, melancholic, surprised, calm]
-        use_random: Enable stochastic sampling
-    
-    Returns:
-        WAV audio bytes
+    Generate speech using cached voice embedding for instant generation.
     """
     global tts_model
     
     if not model_loaded or tts_model is None:
         raise RuntimeError("Model not loaded")
     
-    # Get voice audio path
-    voice_path = get_voice_audio_path(voice)
-    print(f"[IndexTTS2] Generating: voice={voice}, text_len={len(text)}")
+    # Get cached embedding
+    embedding = get_or_extract_embedding(voice)
+    
+    print(f"[IndexTTS2] Generating with cached voice '{voice}': text_len={len(text)}")
+    start = time.time()
+    
+    # Set the model's internal cache to our cached values
+    # This tricks the model into using our pre-extracted embedding
+    tts_model.cache_spk_cond = embedding["spk_cond_emb"].to(tts_model.device)
+    tts_model.cache_s2mel_style = embedding["style"].to(tts_model.device)
+    tts_model.cache_s2mel_prompt = embedding["prompt_condition"].to(tts_model.device)
+    tts_model.cache_spk_audio_prompt = embedding["audio_path"]
+    tts_model.cache_mel = embedding["ref_mel"].to(tts_model.device)
+    
+    # Also set emotion cache to same voice (for consistent emotion reference)
+    tts_model.cache_emo_cond = embedding["spk_cond_emb"].to(tts_model.device)
+    tts_model.cache_emo_audio_prompt = embedding["audio_path"]
     
     # Generate unique output filename
     output_filename = f"gen_{uuid.uuid4().hex[:8]}.wav"
     output_path = OUTPUT_DIR / output_filename
     
-    start = time.time()
-    
     # Build inference kwargs
     kwargs = {
-        "spk_audio_prompt": voice_path,
+        "spk_audio_prompt": embedding["audio_path"],  # Needed for cache check
         "text": text,
         "output_path": str(output_path),
-        "verbose": True
+        "verbose": False
     }
     
-    # Add emotion control options
+    # Add emotion control
     if emo_vector:
         kwargs["emo_vector"] = emo_vector
         kwargs["emo_alpha"] = emo_alpha
@@ -214,7 +329,7 @@ def generate_speech(
     tts_model.infer(**kwargs)
     
     gen_time = time.time() - start
-    print(f"[IndexTTS2] Generated in {gen_time:.2f}s")
+    print(f"[IndexTTS2] Generated in {gen_time:.2f}s (using cached embedding)")
     
     # Read and return audio bytes
     with open(output_path, "rb") as f:
@@ -230,23 +345,9 @@ def generate_speech(
 
 
 def list_available_voices() -> List[dict]:
-    """List all available voices (from embeddings and voices directory)"""
+    """List all available voices"""
     voices = []
     seen = set()
-    
-    # Check embeddings directory
-    for f in EMBEDDINGS_DIR.glob("*.json"):
-        name = f.stem
-        if name not in seen:
-            seen.add(name)
-            with open(f) as fp:
-                info = json.load(fp)
-            voices.append({
-                "id": name,
-                "name": name,
-                "type": "embedding",
-                "created_at": info.get("created_at")
-            })
     
     # Check voices directory
     for ext in ["*.wav", "*.mp3", "*.flac"]:
@@ -254,10 +355,12 @@ def list_available_voices() -> List[dict]:
             name = f.stem
             if name not in seen:
                 seen.add(name)
+                is_cached = name in voice_cache or (CACHE_DIR / f"{name}.pkl").exists()
                 voices.append({
                     "id": name,
                     "name": name,
-                    "type": "audio"
+                    "cached": is_cached,
+                    "status": "ready" if is_cached else "will_cache_on_first_use"
                 })
     
     return sorted(voices, key=lambda x: x["name"])
@@ -269,14 +372,13 @@ async def lifespan(app: FastAPI):
     """Load model on startup"""
     load_model()
     yield
-    # Cleanup on shutdown
     print("[IndexTTS2] Shutting down...")
 
 
 app = FastAPI(
     title="IndexTTS2 Server",
-    description="High-quality zero-shot TTS with emotion control for CheapTTS",
-    version="1.0.0",
+    description="High-quality zero-shot TTS with emotion control and cached voice embeddings",
+    version="2.0.0",
     lifespan=lifespan
 )
 
@@ -298,7 +400,8 @@ async def root():
         "model": "IndexTTS2",
         "model_loaded": model_loaded,
         "fp16": True,
-        "voices_count": len(list_available_voices())
+        "cached_voices": len(voice_cache),
+        "total_voices": len(list_available_voices())
     }
 
 
@@ -307,7 +410,8 @@ async def health():
     """Health check endpoint"""
     return {
         "status": "healthy" if model_loaded else "loading",
-        "model_loaded": model_loaded
+        "model_loaded": model_loaded,
+        "cached_voices": len(voice_cache)
     }
 
 
@@ -318,13 +422,70 @@ async def get_voices():
     return {
         "success": True,
         "voices": voices,
-        "count": len(voices)
+        "count": len(voices),
+        "cached_count": sum(1 for v in voices if v.get("cached"))
+    }
+
+
+@app.post("/cache-voice/{voice_name}")
+async def cache_voice(voice_name: str, background_tasks: BackgroundTasks):
+    """
+    Pre-cache a voice embedding.
+    Call this after uploading a voice file to extract the embedding immediately.
+    """
+    if not model_loaded:
+        raise HTTPException(status_code=503, detail="Model not loaded yet")
+    
+    audio_path = get_voice_audio_path(voice_name)
+    if not audio_path:
+        raise HTTPException(status_code=404, detail=f"Voice file not found: {voice_name}")
+    
+    if voice_name in voice_cache:
+        return {"success": True, "message": f"Voice '{voice_name}' already cached"}
+    
+    try:
+        embedding = extract_voice_embedding(voice_name, audio_path)
+        voice_cache[voice_name] = embedding
+        return {
+            "success": True,
+            "message": f"Voice '{voice_name}' cached successfully",
+            "voice_id": voice_name
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/cache-all")
+async def cache_all_voices():
+    """Cache all voice files that aren't already cached"""
+    if not model_loaded:
+        raise HTTPException(status_code=503, detail="Model not loaded yet")
+    
+    cached = []
+    errors = []
+    
+    for ext in ["*.wav", "*.mp3", "*.flac"]:
+        for voice_file in VOICES_DIR.glob(ext):
+            voice_name = voice_file.stem
+            if voice_name not in voice_cache:
+                try:
+                    embedding = extract_voice_embedding(voice_name, str(voice_file))
+                    voice_cache[voice_name] = embedding
+                    cached.append(voice_name)
+                except Exception as e:
+                    errors.append({"voice": voice_name, "error": str(e)})
+    
+    return {
+        "success": True,
+        "cached": cached,
+        "errors": errors,
+        "total_cached": len(voice_cache)
     }
 
 
 @app.post("/generate")
 async def generate(request: TTSRequest):
-    """Generate speech from text"""
+    """Generate speech from text using cached voice embedding"""
     if not model_loaded:
         raise HTTPException(status_code=503, detail="Model not loaded yet")
     
@@ -337,7 +498,7 @@ async def generate(request: TTSRequest):
     try:
         start = time.time()
         
-        audio_bytes = generate_speech(
+        audio_bytes = generate_speech_with_cache(
             text=request.text,
             voice=request.voice,
             emo_alpha=request.emo_alpha,
@@ -361,7 +522,9 @@ async def generate(request: TTSRequest):
             filename="speech.wav",
             headers={
                 "X-Generation-Time": str(gen_time),
-                "X-Text-Length": str(len(request.text))
+                "X-Text-Length": str(len(request.text)),
+                "X-Voice": request.voice,
+                "X-Cached": "true" if request.voice in voice_cache else "false"
             }
         )
         
@@ -369,6 +532,8 @@ async def generate(request: TTSRequest):
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         print(f"[IndexTTS2] Error: {e}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -378,8 +543,7 @@ async def upload_voice(
     name: str = Form(...)
 ):
     """
-    Upload a voice reference audio file.
-    The embedding will be extracted and saved for fast generation.
+    Upload a voice reference audio file and cache its embedding.
     """
     if not model_loaded:
         raise HTTPException(status_code=503, detail="Model not loaded yet")
@@ -402,13 +566,14 @@ async def upload_voice(
             content = await file.read()
             f.write(content)
         
-        # Create embedding entry
-        extract_and_save_embedding(str(audio_path), voice_name)
+        # Extract and cache embedding immediately
+        embedding = extract_voice_embedding(voice_name, str(audio_path))
+        voice_cache[voice_name] = embedding
         
         return VoiceUploadResponse(
             success=True,
             voice_id=voice_name,
-            message=f"Voice '{voice_name}' uploaded and ready to use"
+            message=f"Voice '{voice_name}' uploaded and cached. Ready for instant generation!"
         )
         
     except Exception as e:
@@ -418,21 +583,26 @@ async def upload_voice(
 
 @app.delete("/voices/{voice_name}")
 async def delete_voice(voice_name: str):
-    """Delete a voice (both audio and embedding)"""
+    """Delete a voice (audio file and cached embedding)"""
     deleted = []
     
-    # Delete embedding
-    embedding_path = EMBEDDINGS_DIR / f"{voice_name}.json"
-    if embedding_path.exists():
-        embedding_path.unlink()
-        deleted.append("embedding")
+    # Delete from memory cache
+    if voice_name in voice_cache:
+        del voice_cache[voice_name]
+        deleted.append("memory_cache")
+    
+    # Delete disk cache
+    cache_path = CACHE_DIR / f"{voice_name}.pkl"
+    if cache_path.exists():
+        cache_path.unlink()
+        deleted.append("disk_cache")
     
     # Delete audio files
     for ext in [".wav", ".mp3", ".flac"]:
         audio_path = VOICES_DIR / f"{voice_name}{ext}"
         if audio_path.exists():
             audio_path.unlink()
-            deleted.append("audio")
+            deleted.append("audio_file")
     
     if not deleted:
         raise HTTPException(status_code=404, detail=f"Voice '{voice_name}' not found")
