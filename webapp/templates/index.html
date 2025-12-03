@@ -705,8 +705,14 @@
     </button>
     <button type="button" class="tts-tab premium-tab" onclick="switchTab('premium')" id="tabPremium">
       ✨ Ultra Voices <span class="premium-badge-small">PREMIUM</span>
-      <div style="font-size: 11px; color: #FF7B72; font-weight: 400; margin-top: 4px;">Ultra-realistic emotions & expressions</div>
+      <div style="font-size: 11px; color: #FF7B72; font-weight: 400; margin-top: 4px;">Best for audiobooks & storytelling</div>
     </button>
+    {% if higgs_enabled %}
+    <button type="button" class="tts-tab" onclick="switchTab('higgs')" id="tabHiggs" style="border-left: 3px solid #8B5CF6;">
+      🎬 HiggsAudio <span style="background: linear-gradient(135deg, #8B5CF6, #A78BFA); color: white; font-size: 9px; padding: 2px 6px; border-radius: 6px; margin-left: 6px; font-weight: 700;">DIALOGUE</span>
+      <div style="font-size: 11px; color: #8B5CF6; font-weight: 400; margin-top: 4px;">Multi-speaker conversations</div>
+    </button>
+    {% endif %}
   </div>
 
   <!-- Standard TTS Tab Content -->
@@ -1062,6 +1068,90 @@
     </form>
   </div><!-- End Premium Tab -->
 
+  <!-- HiggsAudio Tab Content -->
+  {% if higgs_enabled %}
+  <div class="tab-content" id="higgsTab">
+    <form id="higgsTtsForm">
+      <div class="form-card">
+        <!-- HiggsAudio Header -->
+        <div style="background: linear-gradient(135deg, rgba(139,92,246,0.1), rgba(167,139,250,0.1)); border: 2px solid rgba(139,92,246,0.3); border-radius: 16px; padding: 20px; margin-bottom: 24px; text-align: center;">
+          <h3 style="margin: 0 0 8px 0; background: linear-gradient(135deg, #8B5CF6, #A78BFA); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; font-size: 20px;">🎬 HiggsAudio Dialogue</h3>
+          <p style="margin: 0 0 10px 0; color: #636E72; font-size: 14px;">Premium multi-speaker dialogue with automatic voice assignment</p>
+          <a href="{{ url_for('storytelling') }}" style="color: #8B5CF6; font-size: 13px; text-decoration: none;">Learn more about dialogue features →</a>
+        </div>
+
+        {% if current_user.has_premium %}
+        <!-- Premium User - Can use HiggsAudio -->
+        <div style="background: rgba(139,92,246,0.1); border: 1px solid rgba(139,92,246,0.3); border-radius: 12px; padding: 12px 16px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
+          <span style="color: #8B5CF6; font-weight: 600;">✓ HiggsAudio Enabled</span>
+          <span style="color: #636E72; font-size: 13px;">AI auto-assigns distinct voices</span>
+        </div>
+        
+        <!-- Dialogue Text Input -->
+        <div class="form-section">
+          <div class="section-title">Dialogue Script</div>
+          <div class="input-group">
+            <label for="higgsText">Enter your dialogue (AI auto-assigns voices)</label>
+            <textarea id="higgsText" placeholder="[Speaker1]: Hello, how are you today?
+[Speaker2]: I'm doing great, thanks for asking!
+[Speaker1]: That's wonderful to hear.
+
+Or just write natural dialogue - the AI will figure out the speakers automatically!" 
+              style="width: 100%; min-height: 200px; padding: 16px; border: 2px solid #DFE6E9; border-radius: 12px; font-size: 15px; resize: vertical; font-family: inherit;"></textarea>
+            <p style="font-size: 12px; color: #636E72; margin-top: 8px;">💡 Use [Speaker1]: [Speaker2]: format for explicit control, or just write natural dialogue</p>
+          </div>
+        </div>
+
+        <!-- Generation Settings -->
+        <div class="form-section">
+          <div class="section-title">Generation Settings</div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+            <div class="input-group">
+              <label for="higgsTemperature">Temperature: <span id="higgsTempValue">0.3</span></label>
+              <input type="range" id="higgsTemperature" min="0.1" max="1.0" step="0.05" value="0.3" style="width: 100%;">
+              <p style="font-size: 11px; color: #999; margin-top: 4px;">Lower = more consistent, Higher = more varied</p>
+            </div>
+            <div class="input-group">
+              <label for="higgsSeed">Seed (optional)</label>
+              <input type="number" id="higgsSeed" placeholder="Random" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px;">
+              <p style="font-size: 11px; color: #999; margin-top: 4px;">For reproducible results</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Generate Button -->
+        <button type="submit" id="higgsGenerateBtn" style="width: 100%; padding: 16px; font-size: 16px; background: linear-gradient(135deg, #8B5CF6, #A78BFA); color: white; border: none; border-radius: 12px; font-weight: 600; cursor: pointer; box-shadow: 0 4px 16px rgba(139,92,246,0.3); transition: all 0.2s;">
+          🎬 Generate Dialogue
+        </button>
+        
+        {% else %}
+        <!-- Non-Premium User - Upgrade prompt -->
+        <div style="background: linear-gradient(135deg, rgba(139,92,246,0.1), rgba(167,139,250,0.1)); border: 2px solid rgba(139,92,246,0.3); border-radius: 16px; padding: 24px; margin-bottom: 24px; text-align: center;">
+          <h4 style="margin: 0 0 12px 0; color: #8B5CF6;">🔒 Premium Subscription Required</h4>
+          <p style="color: #636E72; margin: 0 0 16px 0; font-size: 14px;">Upgrade to access HiggsAudio multi-speaker dialogue with automatic voice assignment.</p>
+          <a href="/subscribe" style="display: inline-block; padding: 12px 32px; background: linear-gradient(135deg, #8B5CF6, #A78BFA); color: white; text-decoration: none; border-radius: 12px; font-weight: 600; box-shadow: 0 4px 16px rgba(139,92,246,0.3);">Upgrade to Premium →</a>
+        </div>
+        {% endif %}
+
+        <!-- Status & Progress -->
+        <div id="higgsStatus" style="display: none; margin-top: 16px; padding: 14px 18px; border-radius: 14px; background: rgba(139,92,246,0.1); color: #8B5CF6; font-weight: 500; text-align: center;">
+          ⏳ Generating multi-speaker dialogue...
+        </div>
+        <div class="error" id="higgsError" style="display: none;"></div>
+        
+        <!-- Audio Player -->
+        <div class="audio-player" id="higgsAudioPlayer" style="display: none; margin-top: 20px; padding: 20px; background: rgba(139,92,246,0.05); border-radius: 16px; border: 1px solid rgba(139,92,246,0.2);">
+          <strong style="color: #8B5CF6;">🎬 Dialogue audio ready!</strong>
+          <audio id="higgsAudioElement" controls style="width: 100%; margin-top: 12px;"></audio>
+          <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px;">
+            <a id="higgsDownloadLink" class="download-btn" download="dialogue.wav" style="background: linear-gradient(135deg, #8B5CF6, #A78BFA); color: white; border-color: transparent; padding: 10px 20px; border-radius: 10px; text-decoration: none; font-weight: 600;">⬇️ Download WAV</a>
+          </div>
+        </div>
+      </div>
+    </form>
+  </div><!-- End HiggsAudio Tab -->
+  {% endif %}
+
 </div>
 {% endif %}
 {% endblock %}
@@ -1088,6 +1178,12 @@
     document.getElementById('tabPremium').classList.toggle('active', tab === 'premium');
     document.getElementById('standardTab').classList.toggle('active', tab === 'standard');
     document.getElementById('premiumTab').classList.toggle('active', tab === 'premium');
+    
+    // HiggsAudio tab (if exists)
+    const tabHiggs = document.getElementById('tabHiggs');
+    const higgsTab = document.getElementById('higgsTab');
+    if (tabHiggs) tabHiggs.classList.toggle('active', tab === 'higgs');
+    if (higgsTab) higgsTab.classList.toggle('active', tab === 'higgs');
   }
 
   // ===== CHUNK EDITOR MANAGEMENT =====
@@ -1438,6 +1534,103 @@
         
         if (data.premium_required) {
           error.innerHTML = data.error + ' <a href="/subscribe" style="color: #FF7B72; font-weight: 600;">Upgrade Now →</a>';
+        }
+      }
+    } catch (err) {
+      clearInterval(progressInterval);
+      console.error(err);
+      error.textContent = 'Network error. Please try again.';
+      error.classList.add('visible');
+    } finally {
+      generateBtn.disabled = false;
+      loading.classList.remove('visible');
+    }
+  });
+  
+  // HiggsAudio Dialogue Form Handler
+  document.getElementById('higgsTtsForm')?.addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const dialogue = document.getElementById('higgsDialogue').value.trim();
+    const temperature = parseFloat(document.getElementById('higgsTemperature').value);
+    const seed = document.getElementById('higgsSeed').value.trim();
+    const generateBtn = document.getElementById('higgsGenerateBtn');
+    const loading = document.getElementById('higgsLoading');
+    const error = document.getElementById('higgsError');
+    const audioPlayer = document.getElementById('higgsAudioPlayer');
+    const progressBar = document.getElementById('higgsProgressBar');
+    const loadingText = document.getElementById('higgsLoadingText');
+    
+    if (!dialogue) {
+      error.textContent = 'Please enter dialogue text.';
+      error.classList.add('visible');
+      return;
+    }
+    
+    // Show loading with animated progress
+    generateBtn.disabled = true;
+    loading.classList.add('visible');
+    error.classList.remove('visible');
+    audioPlayer.style.display = 'none';
+    
+    // Animate progress bar (HiggsAudio is fast)
+    let progress = 0;
+    progressBar.style.width = '0%';
+    const progressInterval = setInterval(() => {
+      if (progress < 95) {
+        progress += Math.random() * 6;
+        if (progress > 95) progress = 95;
+        progressBar.style.width = progress + '%';
+        
+        if (progress > 10 && progress < 40) {
+          loadingText.textContent = '🎭 Parsing dialogue...';
+        } else if (progress > 40 && progress < 70) {
+          loadingText.textContent = '🎬 Generating multi-speaker audio...';
+        } else if (progress > 70) {
+          loadingText.textContent = '✨ Finalizing...';
+        }
+      }
+    }, 500);
+    
+    try {
+      const requestBody = {
+        dialogue: dialogue,
+        temperature: temperature
+      };
+      
+      // Add seed if provided
+      if (seed && !isNaN(parseInt(seed))) {
+        requestBody.seed = parseInt(seed);
+      }
+      
+      const response = await fetch('/api/higgs/dialogue', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody)
+      });
+      
+      clearInterval(progressInterval);
+      progressBar.style.width = '100%';
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        // Update usage display
+        const usedEl = document.getElementById('premiumCharsUsed');
+        if (usedEl) usedEl.textContent = data.premium_chars_used || 0;
+        
+        // Show audio player
+        document.getElementById('higgsAudioElement').src = data.audioUrl;
+        document.getElementById('higgsDownloadLink').href = data.audioUrl;
+        audioPlayer.style.display = 'block';
+      } else {
+        error.textContent = data.error || 'Failed to generate dialogue audio.';
+        error.classList.add('visible');
+        
+        if (data.premium_required) {
+          error.innerHTML = data.error + ' <a href="/subscribe" style="color: #7C3AED; font-weight: 600;">Upgrade Now →</a>';
         }
       }
     } catch (err) {
