@@ -2137,7 +2137,7 @@ def generate_chatterbox_audio(text, voice_mode='predefined', predefined_voice_id
             error_msg = response.json().get('detail', response.text[:200])
         except:
             error_msg = response.text[:200] if response.text else f'HTTP {response.status_code}'
-        raise Exception(f'Chatterbox error: {error_msg}')
+        raise Exception(f'Ultra TTS error: {error_msg}')
     
     # Response is streaming audio
     return response.content
@@ -2536,16 +2536,16 @@ def api_generate_premium_async():
 @app.route('/api/premium-status/<job_id>')
 @login_required
 def api_premium_status(job_id):
-    """Job status - not needed for Chatterbox (sync only)"""
+    """Job status - not needed (sync only)"""
     return jsonify({
         'success': False,
-        'error': 'Job status not available. Chatterbox processes requests synchronously.'
+        'error': 'Job status not available. Ultra TTS processes requests synchronously.'
     }), 501
 
 
 @app.route('/api/premium-voices')
 def api_premium_voices():
-    """Get available speaker presets for Chatterbox Ultra Voices"""
+    """Get available speaker presets for Ultra Voices"""
     voices = [
         {'id': '1', 'name': 'Speaker 1 (Calm)', 'exaggeration': 0.3, 'description': 'Calm, neutral tone'},
         {'id': '2', 'name': 'Speaker 2 (Moderate)', 'exaggeration': 0.5, 'description': 'Balanced expression'},
