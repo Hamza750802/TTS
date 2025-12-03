@@ -2218,18 +2218,22 @@ def upload_reference_audio_to_chatterbox(file_path, filename=None):
     if filename is None:
         filename = os.path.basename(file_path)
     
+    print(f"[ULTRA TTS] Uploading reference audio from {file_path} as {filename}...")
+    
     with open(file_path, 'rb') as f:
         files = {'file': (filename, f, 'audio/wav')}
         response = requests.post(
             f'{CHATTERBOX_URL}/upload_reference',
             files=files,
-            timeout=60
+            timeout=120  # Increased timeout for large files
         )
     
     if response.status_code != 200:
-        raise Exception(f'Failed to upload reference audio: {response.text}')
+        error_detail = response.text[:500] if response.text else f'HTTP {response.status_code}'
+        print(f"[ULTRA TTS] Upload failed: {error_detail}")
+        raise Exception(f'Failed to upload reference audio: {error_detail}')
     
-    print(f"[ULTRA TTS] Uploaded reference audio: {filename}")
+    print(f"[ULTRA TTS] Successfully uploaded reference audio: {filename}")
     return filename
 
 
@@ -2247,7 +2251,11 @@ def get_chatterbox_reference_files():
         )
         if response.status_code == 200:
             data = response.json()
-            return data.get('files', [])
+            files = data.get('files', [])
+            print(f"[ULTRA TTS] Reference files on server: {files}")
+            return files
+        else:
+            print(f"[ULTRA TTS] Error getting reference files: HTTP {response.status_code}")
     except Exception as e:
         print(f"[ULTRA TTS] Error getting reference files: {e}")
     return []
@@ -2263,8 +2271,15 @@ def ensure_reference_audio_uploaded(local_path, filename):
     - filename: Filename to use on the server
     
     Returns:
-    - True if file is available on server
+    - True if file is available on server, False otherwise
     """
+    print(f"[ULTRA TTS] Ensuring reference audio is uploaded: {filename}")
+    
+    # Check if local file exists
+    if not os.path.exists(local_path):
+        print(f"[ULTRA TTS] ERROR: Local file not found: {local_path}")
+        return False
+    
     # Check if file already exists on server
     existing_files = get_chatterbox_reference_files()
     if filename in existing_files:
@@ -2274,6 +2289,10 @@ def ensure_reference_audio_uploaded(local_path, filename):
     # Upload if not exists
     try:
         upload_reference_audio_to_chatterbox(local_path, filename)
+        return True
+    except Exception as e:
+        print(f"[ULTRA TTS] Failed to upload reference audio: {e}")
+        return False
         return True
     except Exception as e:
         print(f"[ULTRA TTS] Failed to upload reference audio: {e}")
@@ -2638,6 +2657,8 @@ def api_generate_premium():
                 
                 # Detect if using cloned voice (format: "clone:VoiceName")
                 is_cloned_voice = str(chunk_voice).startswith('clone:')
+                reference_filename = None
+                
                 if is_cloned_voice:
                     # Extract the voice name and get the reference audio filename
                     clone_name = chunk_voice.replace('clone:', '')
@@ -2645,9 +2666,13 @@ def api_generate_premium():
                     if reference_filename:
                         # Ensure reference audio is uploaded to server
                         local_path = os.path.join(app.static_folder, reference_filename)
-                        if os.path.exists(local_path):
-                            ensure_reference_audio_uploaded(local_path, reference_filename)
-                        print(f"[PREMIUM TTS] Chunk {idx+1}/{len(chunks)}: CLONED Voice={clone_name} (ref={reference_filename}), Exag={chunk_exag}, {len(chunk_text)} chars")
+                        upload_success = ensure_reference_audio_uploaded(local_path, reference_filename)
+                        if not upload_success:
+                            print(f"[PREMIUM TTS] Warning: Failed to upload cloned voice '{clone_name}', falling back to Emily")
+                            is_cloned_voice = False
+                            chunk_voice = 'Emily.wav'
+                        else:
+                            print(f"[PREMIUM TTS] Chunk {idx+1}/{len(chunks)}: CLONED Voice={clone_name} (ref={reference_filename}), Exag={chunk_exag}, {len(chunk_text)} chars")
                     else:
                         print(f"[PREMIUM TTS] Warning: Unknown cloned voice '{clone_name}', falling back to Emily")
                         is_cloned_voice = False
@@ -2720,14 +2745,19 @@ def api_generate_premium():
                     use_clone_for_segment = is_cloned_voice_main
                 
                 # Handle cloned voice for single-speaker mode
+                reference_filename = None
                 if use_clone_for_segment:
                     clone_name = voice.replace('clone:', '')
                     reference_filename = CHATTERBOX_CLONED_VOICES.get(clone_name)
                     if reference_filename:
                         local_path = os.path.join(app.static_folder, reference_filename)
-                        if os.path.exists(local_path):
-                            ensure_reference_audio_uploaded(local_path, reference_filename)
-                        print(f"[PREMIUM TTS] Segment {idx+1}/{len(segments)}: CLONED Voice={clone_name}, {len(segment_text)} chars")
+                        upload_success = ensure_reference_audio_uploaded(local_path, reference_filename)
+                        if not upload_success:
+                            print(f"[PREMIUM TTS] Warning: Failed to upload cloned voice '{clone_name}', falling back to Emily")
+                            use_clone_for_segment = False
+                            voice_name = 'Emily'
+                        else:
+                            print(f"[PREMIUM TTS] Segment {idx+1}/{len(segments)}: CLONED Voice={clone_name}, {len(segment_text)} chars")
                     else:
                         print(f"[PREMIUM TTS] Warning: Unknown cloned voice '{clone_name}', falling back to Emily")
                         use_clone_for_segment = False
