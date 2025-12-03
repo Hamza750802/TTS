@@ -141,9 +141,15 @@ CHATTERBOX_VOICES = [
 # Custom cloned voices (voice cloning using reference audio files)
 # Format: display_name -> reference_audio_filename
 # These are uploaded to the Chatterbox server's reference_audio/ folder
+# Note: Server replaces spaces with underscores in filenames
 CHATTERBOX_CLONED_VOICES = {
-    'Luna': 'Sample Audio.wav',  # Unique female voice from our samples
+    'Luna': 'Sample_Audio.wav',  # Unique female voice from our samples (uploaded as Sample_Audio.wav)
     # Add more cloned voices here as: 'DisplayName': 'filename.wav'
+}
+
+# Local filenames (with spaces) that map to server filenames (with underscores)
+CLONED_VOICE_LOCAL_FILES = {
+    'Luna': 'Sample Audio.wav',  # Local file in static folder
 }
 
 # Predefined speaker voices for multi-speaker dialogue [S1]: [S2]: format
@@ -2213,7 +2219,7 @@ def upload_reference_audio_to_chatterbox(file_path, filename=None):
     - filename: Optional filename to use on server (defaults to original filename)
     
     Returns:
-    - The filename on the server (for use in voice cloning)
+    - The actual filename on the server (may have spaces replaced with underscores)
     """
     if filename is None:
         filename = os.path.basename(file_path)
@@ -2221,7 +2227,8 @@ def upload_reference_audio_to_chatterbox(file_path, filename=None):
     print(f"[ULTRA TTS] Uploading reference audio from {file_path} as {filename}...")
     
     with open(file_path, 'rb') as f:
-        files = {'file': (filename, f, 'audio/wav')}
+        # Note: Chatterbox server expects 'files' key, not 'file'
+        files = {'files': (filename, f, 'audio/wav')}
         response = requests.post(
             f'{CHATTERBOX_URL}/upload_reference',
             files=files,
@@ -2232,6 +2239,14 @@ def upload_reference_audio_to_chatterbox(file_path, filename=None):
         error_detail = response.text[:500] if response.text else f'HTTP {response.status_code}'
         print(f"[ULTRA TTS] Upload failed: {error_detail}")
         raise Exception(f'Failed to upload reference audio: {error_detail}')
+    
+    # Server may rename file (e.g., replace spaces with underscores)
+    result = response.json()
+    uploaded_files = result.get('uploaded_files', [])
+    if uploaded_files:
+        actual_filename = uploaded_files[0]
+        print(f"[ULTRA TTS] Successfully uploaded reference audio as: {actual_filename}")
+        return actual_filename
     
     print(f"[ULTRA TTS] Successfully uploaded reference audio: {filename}")
     return filename
@@ -2662,10 +2677,11 @@ def api_generate_premium():
                 if is_cloned_voice:
                     # Extract the voice name and get the reference audio filename
                     clone_name = chunk_voice.replace('clone:', '')
-                    reference_filename = CHATTERBOX_CLONED_VOICES.get(clone_name)
+                    reference_filename = CHATTERBOX_CLONED_VOICES.get(clone_name)  # Server filename (with underscores)
+                    local_filename = CLONED_VOICE_LOCAL_FILES.get(clone_name, reference_filename)  # Local filename (may have spaces)
                     if reference_filename:
                         # Ensure reference audio is uploaded to server
-                        local_path = os.path.join(app.static_folder, reference_filename)
+                        local_path = os.path.join(app.static_folder, local_filename)
                         upload_success = ensure_reference_audio_uploaded(local_path, reference_filename)
                         if not upload_success:
                             print(f"[PREMIUM TTS] Warning: Failed to upload cloned voice '{clone_name}', falling back to Emily")
@@ -2748,9 +2764,10 @@ def api_generate_premium():
                 reference_filename = None
                 if use_clone_for_segment:
                     clone_name = voice.replace('clone:', '')
-                    reference_filename = CHATTERBOX_CLONED_VOICES.get(clone_name)
+                    reference_filename = CHATTERBOX_CLONED_VOICES.get(clone_name)  # Server filename
+                    local_filename = CLONED_VOICE_LOCAL_FILES.get(clone_name, reference_filename)  # Local filename
                     if reference_filename:
-                        local_path = os.path.join(app.static_folder, reference_filename)
+                        local_path = os.path.join(app.static_folder, local_filename)
                         upload_success = ensure_reference_audio_uploaded(local_path, reference_filename)
                         if not upload_success:
                             print(f"[PREMIUM TTS] Warning: Failed to upload cloned voice '{clone_name}', falling back to Emily")
