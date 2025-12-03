@@ -958,8 +958,8 @@
 
         <!-- Style Presets -->
         <div class="form-section">
-          <div class="section-title">Style Preset</div>
-          <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px;">
+          <div class="section-title">Load Example Preset</div>
+          <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px;">
             <button type="button" class="preset-btn active" data-preset="standard" {% if not current_user.has_premium %}disabled{% endif %} style="padding: 8px 16px; border-radius: 20px; border: 2px solid #9333ea; background: linear-gradient(135deg, #9333ea, #ec4899); color: white; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.2s; {% if not current_user.has_premium %}opacity: 0.5; cursor: not-allowed;{% endif %}">
               🎙️ Standard Narration
             </button>
@@ -972,20 +972,47 @@
             <button type="button" class="preset-btn" data-preset="upbeat" {% if not current_user.has_premium %}disabled{% endif %} style="padding: 8px 16px; border-radius: 20px; border: 2px solid #9333ea; background: transparent; color: #9333ea; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.2s; {% if not current_user.has_premium %}opacity: 0.5; cursor: not-allowed;{% endif %}">
               📢 Upbeat Advertisement
             </button>
-            <button type="button" class="preset-btn" data-preset="calm" {% if not current_user.has_premium %}disabled{% endif %} style="padding: 8px 16px; border-radius: 20px; border: 2px solid #9333ea; background: transparent; color: #9333ea; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.2s; {% if not current_user.has_premium %}opacity: 0.5; cursor: not-allowed;{% endif %}">
-              🧘 Calm & Soothing
+            <button type="button" class="preset-btn" data-preset="thoughtful" {% if not current_user.has_premium %}disabled{% endif %} style="padding: 8px 16px; border-radius: 20px; border: 2px solid #9333ea; background: transparent; color: #9333ea; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.2s; {% if not current_user.has_premium %}opacity: 0.5; cursor: not-allowed;{% endif %}">
+              💭 Thoughtful Reflection
             </button>
-            <button type="button" class="preset-btn" data-preset="storytelling" {% if not current_user.has_premium %}disabled{% endif %} style="padding: 8px 16px; border-radius: 20px; border: 2px solid #9333ea; background: transparent; color: #9333ea; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.2s; {% if not current_user.has_premium %}opacity: 0.5; cursor: not-allowed;{% endif %}">
-              📖 Storytelling
+            <button type="button" class="preset-btn" data-preset="punctuation" {% if not current_user.has_premium %}disabled{% endif %} style="padding: 8px 16px; border-radius: 20px; border: 2px solid #9333ea; background: transparent; color: #9333ea; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.2s; {% if not current_user.has_premium %}opacity: 0.5; cursor: not-allowed;{% endif %}">
+              ✏️ Simple Punctuation
+            </button>
+            <button type="button" class="preset-btn" data-preset="longstory" {% if not current_user.has_premium %}disabled{% endif %} style="padding: 8px 16px; border-radius: 20px; border: 2px solid #9333ea; background: transparent; color: #9333ea; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.2s; {% if not current_user.has_premium %}opacity: 0.5; cursor: not-allowed;{% endif %}">
+              📖 Long Story Excerpt
             </button>
           </div>
-          <p id="presetDescription" style="font-size: 12px; color: #636E72; margin: 0;">Balanced settings for clear, natural narration.</p>
-          
-          <!-- Hidden inputs for preset values -->
-          <input type="hidden" id="premiumExaggeration" value="0.5">
-          <input type="hidden" id="premiumCfgWeight" value="0.5">
-          <input type="hidden" id="premiumTemperature" value="0.8">
-          <input type="hidden" id="premiumSpeed" value="1.0">
+        </div>
+
+        <!-- Generation Parameters (collapsible) -->
+        <div class="form-section">
+          <div class="section-title" style="cursor: pointer; display: flex; align-items: center; gap: 8px;" onclick="document.getElementById('generationParams').style.display = document.getElementById('generationParams').style.display === 'none' ? 'block' : 'none'; this.querySelector('.arrow').textContent = document.getElementById('generationParams').style.display === 'none' ? '▶' : '▼';">
+            Generation Parameters <span class="arrow">▼</span>
+          </div>
+          <div id="generationParams" style="display: block;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 12px;">
+              <!-- Temperature -->
+              <div class="input-group">
+                <label style="font-size: 13px; color: #2D3436;">Temperature (<span id="premiumTemperatureValue">0.8</span>)</label>
+                <input type="range" id="premiumTemperature" min="0.1" max="1.5" step="0.05" value="0.8" {% if not current_user.has_premium %}disabled{% endif %} style="width: 100%; {% if not current_user.has_premium %}opacity: 0.5;{% endif %}">
+              </div>
+              <!-- Exaggeration -->
+              <div class="input-group">
+                <label style="font-size: 13px; color: #2D3436;">Exaggeration (<span id="premiumExaggerationValue">0.4</span>)</label>
+                <input type="range" id="premiumExaggeration" min="0" max="2" step="0.1" value="0.4" {% if not current_user.has_premium %}disabled{% endif %} style="width: 100%; {% if not current_user.has_premium %}opacity: 0.5;{% endif %}">
+              </div>
+              <!-- CFG Weight -->
+              <div class="input-group">
+                <label style="font-size: 13px; color: #2D3436;">CFG Weight (<span id="premiumCfgWeightValue">0.5</span>)</label>
+                <input type="range" id="premiumCfgWeight" min="0" max="1" step="0.05" value="0.5" {% if not current_user.has_premium %}disabled{% endif %} style="width: 100%; {% if not current_user.has_premium %}opacity: 0.5;{% endif %}">
+              </div>
+              <!-- Speed Factor -->
+              <div class="input-group">
+                <label style="font-size: 13px; color: #2D3436;">Speed Factor (<span id="premiumSpeedValue">1</span>)</label>
+                <input type="range" id="premiumSpeed" min="0.5" max="2.0" step="0.1" value="1.0" {% if not current_user.has_premium %}disabled{% endif %} style="width: 100%; {% if not current_user.has_premium %}opacity: 0.5;{% endif %}">
+              </div>
+            </div>
+          </div>
         </div>
 
         <button type="submit" class="generate-btn" id="premiumGenerateBtn" {% if not current_user.has_premium %}disabled style="opacity: 0.5; cursor: not-allowed; background: linear-gradient(135deg, #9333ea, #ec4899);"{% else %}style="background: linear-gradient(135deg, #9333ea, #ec4899);"{% endif %}>
@@ -1141,57 +1168,71 @@
     }
   });
   
-  // Premium preset definitions matching Chatterbox
+  // EXACT Chatterbox preset definitions from ui/presets.yaml
   const premiumPresets = {
     standard: {
       name: 'Standard Narration',
-      description: 'Balanced settings for clear, natural narration.',
       temperature: 0.8,
-      exaggeration: 0.5,
+      exaggeration: 0.4,
       cfgWeight: 0.5,
       speed: 1.0
     },
     expressive: {
       name: 'Expressive Monologue',
-      description: 'High emotion and varied delivery for dramatic readings.',
-      temperature: 0.9,
-      exaggeration: 0.8,
-      cfgWeight: 0.4,
+      temperature: 0.75,
+      exaggeration: 1.1,
+      cfgWeight: 0.6,
       speed: 1.0
     },
     technical: {
       name: 'Technical Explanation',
-      description: 'Clear, consistent, and measured for educational content.',
-      temperature: 0.6,
-      exaggeration: 0.3,
-      cfgWeight: 0.7,
-      speed: 0.95
+      temperature: 0.85,
+      exaggeration: 0.4,
+      cfgWeight: 0.5,
+      speed: 1.0
     },
     upbeat: {
       name: 'Upbeat Advertisement',
-      description: 'Energetic and enthusiastic for promotional content.',
-      temperature: 0.85,
-      exaggeration: 1.0,
-      cfgWeight: 0.5,
-      speed: 1.1
-    },
-    calm: {
-      name: 'Calm & Soothing',
-      description: 'Relaxed and gentle for meditation or ASMR content.',
-      temperature: 0.7,
-      exaggeration: 0.2,
-      cfgWeight: 0.6,
-      speed: 0.9
-    },
-    storytelling: {
-      name: 'Storytelling',
-      description: 'Engaging and dynamic for audiobooks and stories.',
-      temperature: 0.85,
-      exaggeration: 0.7,
+      temperature: 0.8,
+      exaggeration: 1.3,
       cfgWeight: 0.45,
+      speed: 1.0
+    },
+    thoughtful: {
+      name: 'Thoughtful Reflection',
+      temperature: 0.7,
+      exaggeration: 0.4,
+      cfgWeight: 0.6,
+      speed: 1.0
+    },
+    punctuation: {
+      name: 'Simple Punctuation',
+      temperature: 0.8,
+      exaggeration: 0.5,
+      cfgWeight: 0.5,
+      speed: 1.0
+    },
+    longstory: {
+      name: 'Long Story Excerpt',
+      temperature: 0.78,
+      exaggeration: 1.1,
+      cfgWeight: 0.55,
       speed: 1.0
     }
   };
+
+  // Update slider display values
+  function updateSliderDisplays() {
+    document.getElementById('premiumTemperatureValue').textContent = document.getElementById('premiumTemperature').value;
+    document.getElementById('premiumExaggerationValue').textContent = document.getElementById('premiumExaggeration').value;
+    document.getElementById('premiumCfgWeightValue').textContent = document.getElementById('premiumCfgWeight').value;
+    document.getElementById('premiumSpeedValue').textContent = document.getElementById('premiumSpeed').value;
+  }
+
+  // Slider input handlers
+  ['premiumTemperature', 'premiumExaggeration', 'premiumCfgWeight', 'premiumSpeed'].forEach(id => {
+    document.getElementById(id)?.addEventListener('input', updateSliderDisplays);
+  });
 
   // Preset button click handler
   document.querySelectorAll('.preset-btn').forEach(btn => {
@@ -1200,14 +1241,14 @@
       const settings = premiumPresets[preset];
       if (!settings) return;
       
-      // Update hidden inputs
+      // Update sliders with preset values
       document.getElementById('premiumExaggeration').value = settings.exaggeration;
       document.getElementById('premiumCfgWeight').value = settings.cfgWeight;
       document.getElementById('premiumTemperature').value = settings.temperature;
       document.getElementById('premiumSpeed').value = settings.speed;
       
-      // Update description
-      document.getElementById('presetDescription').textContent = settings.description;
+      // Update display values
+      updateSliderDisplays();
       
       // Update button styles
       document.querySelectorAll('.preset-btn').forEach(b => {
