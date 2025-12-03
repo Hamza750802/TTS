@@ -597,16 +597,16 @@
     border-radius: 20px;
     padding: 24px 28px;
     overflow: hidden;
-    border: 1px solid rgba(147,51,234,0.3);
-    box-shadow: 0 8px 32px rgba(147,51,234,0.15);
+    border: 1px solid rgba(255,123,114,0.3);
+    box-shadow: 0 8px 32px rgba(255,123,114,0.15);
   ">
     <!-- Glow effect -->
     <div style="position: absolute; top: -50px; right: -50px; width: 200px; height: 200px; background: radial-gradient(circle, rgba(236,72,153,0.25), transparent 70%); pointer-events: none;"></div>
-    <div style="position: absolute; bottom: -30px; left: -30px; width: 150px; height: 150px; background: radial-gradient(circle, rgba(147,51,234,0.3), transparent 70%); pointer-events: none;"></div>
+    <div style="position: absolute; bottom: -30px; left: -30px; width: 150px; height: 150px; background: radial-gradient(circle, rgba(255,123,114,0.3), transparent 70%); pointer-events: none;"></div>
     
     <div style="position: relative; z-index: 1; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 20px;">
       <div style="flex: 1; min-width: 280px;">
-        <div style="display: inline-flex; align-items: center; gap: 8px; background: linear-gradient(135deg, #9333ea, #ec4899); color: white; font-size: 10px; font-weight: 700; letter-spacing: 1.2px; padding: 5px 12px; border-radius: 50px; margin-bottom: 12px; animation: pulse-badge 2s infinite;">
+        <div style="display: inline-flex; align-items: center; gap: 8px; background: linear-gradient(135deg, #FF7B72, #FF8E53); color: white; font-size: 10px; font-weight: 700; letter-spacing: 1.2px; padding: 5px 12px; border-radius: 50px; margin-bottom: 12px; animation: pulse-badge 2s infinite;">
           🚀 COMING SOON
         </div>
         <h3 style="color: white; font-size: 22px; font-weight: 700; margin: 0 0 8px 0; background: linear-gradient(135deg, #fff, #e0e7ff); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;">Premium Ultra-Realistic Voices</h3>
@@ -626,7 +626,7 @@
 
 <style>
   @keyframes pulse-badge {
-    0%, 100% { box-shadow: 0 0 12px rgba(147,51,234,0.5); }
+    0%, 100% { box-shadow: 0 0 12px rgba(255,123,114,0.5); }
     50% { box-shadow: 0 0 24px rgba(236,72,153,0.6); }
   }
   
@@ -669,15 +669,15 @@
     background: white;
   }
   .tts-tab.premium-tab {
-    background: linear-gradient(135deg, rgba(147,51,234,0.1), rgba(236,72,153,0.1));
-    border-color: rgba(147,51,234,0.2);
+    background: linear-gradient(135deg, rgba(255,123,114,0.1), rgba(236,72,153,0.1));
+    border-color: rgba(255,123,114,0.2);
   }
   .tts-tab.premium-tab:hover {
-    background: linear-gradient(135deg, rgba(147,51,234,0.15), rgba(236,72,153,0.15));
+    background: linear-gradient(135deg, rgba(255,123,114,0.15), rgba(236,72,153,0.15));
   }
   .tts-tab.premium-tab.active {
-    background: linear-gradient(135deg, rgba(147,51,234,0.1), rgba(236,72,153,0.1));
-    border-color: rgba(147,51,234,0.4);
+    background: linear-gradient(135deg, rgba(255,123,114,0.1), rgba(236,72,153,0.1));
+    border-color: rgba(255,123,114,0.4);
   }
   .tab-content {
     display: none;
@@ -686,7 +686,7 @@
     display: block;
   }
   .premium-badge-small {
-    background: linear-gradient(135deg, #9333ea, #ec4899);
+    background: linear-gradient(135deg, #FF7B72, #FF8E53);
     color: white;
     font-size: 10px;
     padding: 2px 6px;
@@ -705,7 +705,7 @@
     </button>
     <button type="button" class="tts-tab premium-tab" onclick="switchTab('premium')" id="tabPremium">
       ✨ Ultra Voices <span class="premium-badge-small">PREMIUM</span>
-      <div style="font-size: 11px; color: #9333ea; font-weight: 400; margin-top: 4px;">Ultra-realistic emotions & expressions</div>
+      <div style="font-size: 11px; color: #FF7B72; font-weight: 400; margin-top: 4px;">Ultra-realistic emotions & expressions</div>
     </button>
   </div>
 
@@ -880,8 +880,8 @@
     <form id="premiumTtsForm">
       <div class="form-card">
         <!-- Premium Header -->
-        <div style="background: linear-gradient(135deg, rgba(147,51,234,0.1), rgba(236,72,153,0.1)); border: 2px solid rgba(147,51,234,0.2); border-radius: 16px; padding: 20px; margin-bottom: 24px; text-align: center;">
-          <h3 style="margin: 0 0 8px 0; background: linear-gradient(135deg, #9333ea, #ec4899); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; font-size: 20px;">✨ Chatterbox Ultra Voices</h3>
+        <div style="background: linear-gradient(135deg, rgba(255,123,114,0.1), rgba(236,72,153,0.1)); border: 2px solid rgba(255,123,114,0.2); border-radius: 16px; padding: 20px; margin-bottom: 24px; text-align: center;">
+          <h3 style="margin: 0 0 8px 0; background: linear-gradient(135deg, #FF7B72, #FF8E53); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; font-size: 20px;">✨ Chatterbox Ultra Voices</h3>
           <p style="margin: 0; color: #636E72; font-size: 14px;">28 ultra-realistic AI voices with natural expression control</p>
         </div>
 
@@ -896,10 +896,10 @@
         </div>
         {% else %}
         <!-- Non-Premium User - Upgrade prompt -->
-        <div style="background: linear-gradient(135deg, rgba(147,51,234,0.1), rgba(236,72,153,0.1)); border: 2px solid rgba(147,51,234,0.3); border-radius: 16px; padding: 24px; margin-bottom: 24px; text-align: center;">
-          <h4 style="margin: 0 0 12px 0; color: #9333ea;">🔒 Premium Subscription Required</h4>
+        <div style="background: linear-gradient(135deg, rgba(255,123,114,0.1), rgba(236,72,153,0.1)); border: 2px solid rgba(255,123,114,0.3); border-radius: 16px; padding: 24px; margin-bottom: 24px; text-align: center;">
+          <h4 style="margin: 0 0 12px 0; color: #FF7B72;">🔒 Premium Subscription Required</h4>
           <p style="color: #636E72; margin: 0 0 16px 0; font-size: 14px;">Upgrade to access Chatterbox ultra-realistic AI voices with natural expression.</p>
-          <a href="/subscribe" style="display: inline-block; padding: 12px 32px; background: linear-gradient(135deg, #9333ea, #ec4899); color: white; text-decoration: none; border-radius: 12px; font-weight: 600; box-shadow: 0 4px 16px rgba(147,51,234,0.3);">Upgrade to Premium →</a>
+          <a href="/subscribe" style="display: inline-block; padding: 12px 32px; background: linear-gradient(135deg, #FF7B72, #FF8E53); color: white; text-decoration: none; border-radius: 12px; font-weight: 600; box-shadow: 0 4px 16px rgba(255,123,114,0.3);">Upgrade to Premium →</a>
         </div>
         {% endif %}
 
@@ -952,23 +952,23 @@
           <div class="input-group">
             <label for="premiumText">Enter text to convert</label>
             <textarea id="premiumText" placeholder="Type your text here...&#10;&#10;For multi-speaker dialogue, use voice names:&#10;[Emily]: Hello! How are you today?&#10;[Michael]: I'm doing great, thanks!&#10;[Emily]: That's wonderful to hear.&#10;&#10;Available voices: Emily, Michael, Olivia, Ryan, Taylor, Thomas, Jade, Alexander, and more!" {% if not current_user.has_premium %}disabled{% endif %} style="{% if not current_user.has_premium %}opacity: 0.5; cursor: not-allowed;{% endif %}"></textarea>
-            <p style="font-size: 12px; color: #9333ea; margin-top: 8px;">💡 Use [Emily]: [Michael]: etc. for multi-speaker dialogue. Click "Split into Chunks" to customize each segment!</p>
+            <p style="font-size: 12px; color: #FF7B72; margin-top: 8px;">💡 Use [Emily]: [Michael]: etc. for multi-speaker dialogue. Click "Split into Chunks" to customize each segment!</p>
           </div>
           
           <!-- Split into Chunks Button -->
           <div style="margin-top: 12px; display: flex; gap: 10px; align-items: center;">
-            <button type="button" id="splitChunksBtn" onclick="splitIntoChunks()" {% if not current_user.has_premium %}disabled{% endif %} style="padding: 10px 20px; border-radius: 12px; border: 2px solid #9333ea; background: transparent; color: #9333ea; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; {% if not current_user.has_premium %}opacity: 0.5; cursor: not-allowed;{% endif %}">
+            <button type="button" id="splitChunksBtn" onclick="splitIntoChunks()" {% if not current_user.has_premium %}disabled{% endif %} style="padding: 10px 20px; border-radius: 12px; border: 2px solid #FF7B72; background: transparent; color: #FF7B72; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; {% if not current_user.has_premium %}opacity: 0.5; cursor: not-allowed;{% endif %}">
               ✂️ Split into Chunks
             </button>
             <button type="button" id="clearChunksBtn" onclick="clearChunks()" style="display: none; padding: 10px 16px; border-radius: 12px; border: 2px solid #e74c3c; background: transparent; color: #e74c3c; font-size: 13px; font-weight: 500; cursor: pointer;">
               ✕ Back to Text
             </button>
-            <span id="chunkModeIndicator" style="display: none; font-size: 12px; color: #9333ea; font-weight: 500;">🎭 Per-chunk mode active</span>
+            <span id="chunkModeIndicator" style="display: none; font-size: 12px; color: #FF7B72; font-weight: 500;">🎭 Per-chunk mode active</span>
           </div>
           
           <!-- Chunk Editor Container (hidden by default) -->
           <div id="premiumChunkEditor" style="display: none; margin-top: 20px;">
-            <div style="background: linear-gradient(135deg, rgba(147,51,234,0.1), rgba(236,72,153,0.1)); border-radius: 12px; padding: 16px; margin-bottom: 16px;">
+            <div style="background: linear-gradient(135deg, rgba(255,123,114,0.1), rgba(236,72,153,0.1)); border-radius: 12px; padding: 16px; margin-bottom: 16px;">
               <p style="font-size: 13px; color: #2D3436; margin: 0;">🎭 <strong>Per-Chunk Settings:</strong> Each chunk can have its own Chatterbox preset and slider adjustments.</p>
             </div>
             <div id="premiumChunkList" style="display: flex; flex-direction: column; gap: 16px;"></div>
@@ -979,25 +979,25 @@
         <div class="form-section">
           <div class="section-title">Load Example Preset</div>
           <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px;">
-            <button type="button" class="preset-btn active" data-preset="standard" {% if not current_user.has_premium %}disabled{% endif %} style="padding: 8px 16px; border-radius: 20px; border: 2px solid #9333ea; background: linear-gradient(135deg, #9333ea, #ec4899); color: white; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.2s; {% if not current_user.has_premium %}opacity: 0.5; cursor: not-allowed;{% endif %}">
+            <button type="button" class="preset-btn active" data-preset="standard" {% if not current_user.has_premium %}disabled{% endif %} style="padding: 8px 16px; border-radius: 20px; border: 2px solid #FF7B72; background: linear-gradient(135deg, #FF7B72, #FF8E53); color: white; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.2s; {% if not current_user.has_premium %}opacity: 0.5; cursor: not-allowed;{% endif %}">
               🎙️ Standard Narration
             </button>
-            <button type="button" class="preset-btn" data-preset="expressive" {% if not current_user.has_premium %}disabled{% endif %} style="padding: 8px 16px; border-radius: 20px; border: 2px solid #9333ea; background: transparent; color: #9333ea; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.2s; {% if not current_user.has_premium %}opacity: 0.5; cursor: not-allowed;{% endif %}">
+            <button type="button" class="preset-btn" data-preset="expressive" {% if not current_user.has_premium %}disabled{% endif %} style="padding: 8px 16px; border-radius: 20px; border: 2px solid #FF7B72; background: transparent; color: #FF7B72; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.2s; {% if not current_user.has_premium %}opacity: 0.5; cursor: not-allowed;{% endif %}">
               🎭 Expressive Monologue
             </button>
-            <button type="button" class="preset-btn" data-preset="technical" {% if not current_user.has_premium %}disabled{% endif %} style="padding: 8px 16px; border-radius: 20px; border: 2px solid #9333ea; background: transparent; color: #9333ea; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.2s; {% if not current_user.has_premium %}opacity: 0.5; cursor: not-allowed;{% endif %}">
+            <button type="button" class="preset-btn" data-preset="technical" {% if not current_user.has_premium %}disabled{% endif %} style="padding: 8px 16px; border-radius: 20px; border: 2px solid #FF7B72; background: transparent; color: #FF7B72; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.2s; {% if not current_user.has_premium %}opacity: 0.5; cursor: not-allowed;{% endif %}">
               📚 Technical Explanation
             </button>
-            <button type="button" class="preset-btn" data-preset="upbeat" {% if not current_user.has_premium %}disabled{% endif %} style="padding: 8px 16px; border-radius: 20px; border: 2px solid #9333ea; background: transparent; color: #9333ea; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.2s; {% if not current_user.has_premium %}opacity: 0.5; cursor: not-allowed;{% endif %}">
+            <button type="button" class="preset-btn" data-preset="upbeat" {% if not current_user.has_premium %}disabled{% endif %} style="padding: 8px 16px; border-radius: 20px; border: 2px solid #FF7B72; background: transparent; color: #FF7B72; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.2s; {% if not current_user.has_premium %}opacity: 0.5; cursor: not-allowed;{% endif %}">
               📢 Upbeat Advertisement
             </button>
-            <button type="button" class="preset-btn" data-preset="thoughtful" {% if not current_user.has_premium %}disabled{% endif %} style="padding: 8px 16px; border-radius: 20px; border: 2px solid #9333ea; background: transparent; color: #9333ea; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.2s; {% if not current_user.has_premium %}opacity: 0.5; cursor: not-allowed;{% endif %}">
+            <button type="button" class="preset-btn" data-preset="thoughtful" {% if not current_user.has_premium %}disabled{% endif %} style="padding: 8px 16px; border-radius: 20px; border: 2px solid #FF7B72; background: transparent; color: #FF7B72; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.2s; {% if not current_user.has_premium %}opacity: 0.5; cursor: not-allowed;{% endif %}">
               💭 Thoughtful Reflection
             </button>
-            <button type="button" class="preset-btn" data-preset="punctuation" {% if not current_user.has_premium %}disabled{% endif %} style="padding: 8px 16px; border-radius: 20px; border: 2px solid #9333ea; background: transparent; color: #9333ea; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.2s; {% if not current_user.has_premium %}opacity: 0.5; cursor: not-allowed;{% endif %}">
+            <button type="button" class="preset-btn" data-preset="punctuation" {% if not current_user.has_premium %}disabled{% endif %} style="padding: 8px 16px; border-radius: 20px; border: 2px solid #FF7B72; background: transparent; color: #FF7B72; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.2s; {% if not current_user.has_premium %}opacity: 0.5; cursor: not-allowed;{% endif %}">
               ✏️ Simple Punctuation
             </button>
-            <button type="button" class="preset-btn" data-preset="longstory" {% if not current_user.has_premium %}disabled{% endif %} style="padding: 8px 16px; border-radius: 20px; border: 2px solid #9333ea; background: transparent; color: #9333ea; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.2s; {% if not current_user.has_premium %}opacity: 0.5; cursor: not-allowed;{% endif %}">
+            <button type="button" class="preset-btn" data-preset="longstory" {% if not current_user.has_premium %}disabled{% endif %} style="padding: 8px 16px; border-radius: 20px; border: 2px solid #FF7B72; background: transparent; color: #FF7B72; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.2s; {% if not current_user.has_premium %}opacity: 0.5; cursor: not-allowed;{% endif %}">
               📖 Long Story Excerpt
             </button>
           </div>
@@ -1034,7 +1034,7 @@
           </div>
         </div>
 
-        <button type="submit" class="generate-btn" id="premiumGenerateBtn" {% if not current_user.has_premium %}disabled style="opacity: 0.5; cursor: not-allowed; background: linear-gradient(135deg, #9333ea, #ec4899);"{% else %}style="background: linear-gradient(135deg, #9333ea, #ec4899);"{% endif %}>
+        <button type="submit" class="generate-btn" id="premiumGenerateBtn" {% if not current_user.has_premium %}disabled style="opacity: 0.5; cursor: not-allowed; background: linear-gradient(135deg, #FF7B72, #FF8E53);"{% else %}style="background: linear-gradient(135deg, #FF7B72, #FF8E53);"{% endif %}>
           ✨ Generate Ultra Voice
         </button>
         
@@ -1045,9 +1045,9 @@
 
       <div class="loading" id="premiumLoading">
         <p id="premiumLoadingText">✨ Generating with Chatterbox...</p>
-        <p style="font-size: 12px; color: #9333ea; margin-top: 8px;" id="premiumLoadingHint">GPU-powered generation - usually takes 5-15 seconds.</p>
-        <div style="margin-top: 12px; height: 4px; background: rgba(147,51,234,0.2); border-radius: 2px; overflow: hidden;">
-          <div id="premiumProgressBar" style="height: 100%; width: 0%; background: linear-gradient(90deg, #9333ea, #ec4899); border-radius: 2px; transition: width 0.5s ease;"></div>
+        <p style="font-size: 12px; color: #FF7B72; margin-top: 8px;" id="premiumLoadingHint">GPU-powered generation - usually takes 5-15 seconds.</p>
+        <div style="margin-top: 12px; height: 4px; background: rgba(255,123,114,0.2); border-radius: 2px; overflow: hidden;">
+          <div id="premiumProgressBar" style="height: 100%; width: 0%; background: linear-gradient(90deg, #FF7B72, #FF8E53); border-radius: 2px; transition: width 0.5s ease;"></div>
         </div>
       </div>
       <div class="error" id="premiumError"></div>
@@ -1055,7 +1055,7 @@
         <strong>✨ Premium audio ready!</strong>
         <audio id="premiumAudioElement" controls></audio>
         <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-          <a id="premiumDownloadLink" class="download-btn" download="premium_speech.wav" style="background: linear-gradient(135deg, #9333ea, #ec4899); color: white; border-color: transparent;">⬇️ Download WAV</a>
+          <a id="premiumDownloadLink" class="download-btn" download="premium_speech.wav" style="background: linear-gradient(135deg, #FF7B72, #FF8E53); color: white; border-color: transparent;">⬇️ Download WAV</a>
         </div>
       </div>
     </form>
@@ -1183,7 +1183,7 @@
     container.innerHTML = premiumChunks.map((chunk, idx) => `
       <div class="chunk-card" data-chunk-id="${chunk.id}" style="background: white; border: 2px solid #e9ecef; border-radius: 16px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-          <span style="font-weight: 700; color: #9333ea; font-size: 14px;">Chunk ${idx + 1}</span>
+          <span style="font-weight: 700; color: #FF7B72; font-size: 14px;">Chunk ${idx + 1}</span>
           <div style="display: flex; gap: 8px; align-items: center;">
             <select onchange="updateChunkVoice(${chunk.id}, this.value)" style="padding: 6px 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 12px;">
               ${chatterboxVoices.map(v => `<option value="${v}" ${chunk.voice === v ? 'selected' : ''}>${v}</option>`).join('')}
@@ -1206,8 +1206,8 @@
           <div style="display: flex; flex-wrap: wrap; gap: 6px;">
             ${['standard', 'expressive', 'technical', 'upbeat', 'thoughtful', 'longstory'].map(p => `
               <button type="button" onclick="applyChunkPreset(${chunk.id}, '${p}')" 
-                style="padding: 5px 10px; border-radius: 12px; border: 1px solid ${chunk.preset === p ? '#9333ea' : '#ddd'}; 
-                background: ${chunk.preset === p ? 'linear-gradient(135deg, #9333ea, #ec4899)' : 'white'}; 
+                style="padding: 5px 10px; border-radius: 12px; border: 1px solid ${chunk.preset === p ? '#FF7B72' : '#ddd'}; 
+                background: ${chunk.preset === p ? 'linear-gradient(135deg, #FF7B72, #FF8E53)' : 'white'}; 
                 color: ${chunk.preset === p ? 'white' : '#636E72'}; font-size: 11px; cursor: pointer;">
                 ${p === 'standard' ? '🎙️ Standard' : p === 'expressive' ? '🎭 Expressive' : p === 'technical' ? '📚 Technical' : p === 'upbeat' ? '📢 Upbeat' : p === 'thoughtful' ? '💭 Thoughtful' : '📖 Story'}
               </button>
@@ -1432,7 +1432,7 @@
         error.classList.add('visible');
         
         if (data.premium_required) {
-          error.innerHTML = data.error + ' <a href="/subscribe" style="color: #9333ea; font-weight: 600;">Upgrade Now →</a>';
+          error.innerHTML = data.error + ' <a href="/subscribe" style="color: #FF7B72; font-weight: 600;">Upgrade Now →</a>';
         }
       }
     } catch (err) {
@@ -1532,10 +1532,10 @@
       document.querySelectorAll('.preset-btn').forEach(b => {
         b.classList.remove('active');
         b.style.background = 'transparent';
-        b.style.color = '#9333ea';
+        b.style.color = '#FF7B72';
       });
       this.classList.add('active');
-      this.style.background = 'linear-gradient(135deg, #9333ea, #ec4899)';
+      this.style.background = 'linear-gradient(135deg, #FF7B72, #FF8E53)';
       this.style.color = 'white';
     });
   });
