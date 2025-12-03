@@ -138,6 +138,14 @@ CHATTERBOX_VOICES = [
     'Julian.wav', 'Layla.wav', 'Leonardo.wav', 'Miles.wav'
 ]
 
+# Custom cloned voices (voice cloning using reference audio files)
+# Format: display_name -> reference_audio_filename
+# These are uploaded to the Chatterbox server's reference_audio/ folder
+CHATTERBOX_CLONED_VOICES = {
+    'Luna': 'Sample Audio.wav',  # Unique female voice from our samples
+    # Add more cloned voices here as: 'DisplayName': 'filename.wav'
+}
+
 # Predefined speaker voices for multi-speaker dialogue [S1]: [S2]: format
 # Maps speaker numbers to distinct Chatterbox voices for variety
 CHATTERBOX_SPEAKER_VOICES = {
@@ -2196,7 +2204,84 @@ def parse_speaker_segments(text):
     return segments
 
 
+def upload_reference_audio_to_chatterbox(file_path, filename=None):
+    """
+    Upload a reference audio file to the Chatterbox server for voice cloning.
+    
+    Parameters:
+    - file_path: Local path to the audio file
+    - filename: Optional filename to use on server (defaults to original filename)
+    
+    Returns:
+    - The filename on the server (for use in voice cloning)
+    """
+    if filename is None:
+        filename = os.path.basename(file_path)
+    
+    with open(file_path, 'rb') as f:
+        files = {'file': (filename, f, 'audio/wav')}
+        response = requests.post(
+            f'{CHATTERBOX_URL}/upload_reference',
+            files=files,
+            timeout=60
+        )
+    
+    if response.status_code != 200:
+        raise Exception(f'Failed to upload reference audio: {response.text}')
+    
+    print(f"[ULTRA TTS] Uploaded reference audio: {filename}")
+    return filename
+
+
+def get_chatterbox_reference_files():
+    """
+    Get list of reference audio files available on the Chatterbox server.
+    
+    Returns:
+    - List of filenames available for voice cloning
+    """
+    try:
+        response = requests.get(
+            f'{CHATTERBOX_URL}/get_reference_files',
+            timeout=30
+        )
+        if response.status_code == 200:
+            data = response.json()
+            return data.get('files', [])
+    except Exception as e:
+        print(f"[ULTRA TTS] Error getting reference files: {e}")
+    return []
+
+
+def ensure_reference_audio_uploaded(local_path, filename):
+    """
+    Ensure a reference audio file is uploaded to the Chatterbox server.
+    Checks if it already exists, uploads if not.
+    
+    Parameters:
+    - local_path: Local path to the audio file
+    - filename: Filename to use on the server
+    
+    Returns:
+    - True if file is available on server
+    """
+    # Check if file already exists on server
+    existing_files = get_chatterbox_reference_files()
+    if filename in existing_files:
+        print(f"[ULTRA TTS] Reference audio already on server: {filename}")
+        return True
+    
+    # Upload if not exists
+    try:
+        upload_reference_audio_to_chatterbox(local_path, filename)
+        return True
+    except Exception as e:
+        print(f"[ULTRA TTS] Failed to upload reference audio: {e}")
+        return False
+
+
 def generate_chatterbox_audio(text, voice_mode='predefined', predefined_voice_id='Emily', 
+                               reference_audio_filename=None, 
                                exaggeration=0.6, cfg_weight=0.3, temperature=0.4, 
                                speed_factor=1.0, split_text=True, chunk_size=180):
     """
@@ -2207,6 +2292,7 @@ def generate_chatterbox_audio(text, voice_mode='predefined', predefined_voice_id
     - text: The text to synthesize
     - voice_mode: 'predefined' or 'clone'
     - predefined_voice_id: Voice name (e.g., 'Emily', 'Michael', 'Olivia')
+    - reference_audio_filename: Filename of reference audio for voice cloning (when voice_mode='clone')
     - exaggeration: Emotion intensity (0.0-2.0, default 0.6 for natural speech)
     - cfg_weight: Classifier-free guidance (0.0-1.0, default 0.3 for slower pacing)
     - temperature: Randomness (0.1-1.5, default 0.4 for HF-quality)
@@ -2224,7 +2310,6 @@ def generate_chatterbox_audio(text, voice_mode='predefined', predefined_voice_id
     payload = {
         'text': processed_text,
         'voice_mode': voice_mode,
-        'predefined_voice_id': predefined_voice_id,
         'exaggeration': exaggeration,
         'cfg_weight': cfg_weight,
         'temperature': temperature,
@@ -2234,7 +2319,14 @@ def generate_chatterbox_audio(text, voice_mode='predefined', predefined_voice_id
         'output_format': 'wav'
     }
     
-    print(f"[ULTRA TTS] Generating: temp={temperature}, exag={exaggeration}, cfg={cfg_weight}, text_len={len(processed_text)}")
+    # Add voice-specific parameters
+    if voice_mode == 'clone' and reference_audio_filename:
+        payload['reference_audio_filename'] = reference_audio_filename
+        print(f"[ULTRA TTS] Using cloned voice: {reference_audio_filename}")
+    else:
+        payload['predefined_voice_id'] = predefined_voice_id
+    
+    print(f"[ULTRA TTS] Generating: mode={voice_mode}, temp={temperature}, exag={exaggeration}, cfg={cfg_weight}, text_len={len(processed_text)}")
     
     response = requests.post(
         f'{CHATTERBOX_URL}/tts',
@@ -2482,9 +2574,13 @@ def api_generate_premium():
         
         allow_overage = data.get('allow_overage', True)
         
+        # Detect if using cloned voice format (clone:VoiceName)
+        is_cloned_voice_main = str(voice).startswith('clone:')
+        
         # Validation
         if not use_chunks_mode:
-            if voice not in CHATTERBOX_VOICES:
+            # Accept predefined voices OR cloned voice format
+            if not is_cloned_voice_main and voice not in CHATTERBOX_VOICES:
                 voice = 'Emily'
             if not text:
                 return jsonify({'success': False, 'error': 'No text provided'}), 400
@@ -2540,20 +2636,52 @@ def api_generate_premium():
                 if not chunk_text:
                     continue
                 
-                print(f"[PREMIUM TTS] Chunk {idx+1}/{len(chunks)}: Voice={chunk_voice}, Exag={chunk_exag}, {len(chunk_text)} chars")
+                # Detect if using cloned voice (format: "clone:VoiceName")
+                is_cloned_voice = str(chunk_voice).startswith('clone:')
+                if is_cloned_voice:
+                    # Extract the voice name and get the reference audio filename
+                    clone_name = chunk_voice.replace('clone:', '')
+                    reference_filename = CHATTERBOX_CLONED_VOICES.get(clone_name)
+                    if reference_filename:
+                        # Ensure reference audio is uploaded to server
+                        local_path = os.path.join(app.static_folder, reference_filename)
+                        if os.path.exists(local_path):
+                            ensure_reference_audio_uploaded(local_path, reference_filename)
+                        print(f"[PREMIUM TTS] Chunk {idx+1}/{len(chunks)}: CLONED Voice={clone_name} (ref={reference_filename}), Exag={chunk_exag}, {len(chunk_text)} chars")
+                    else:
+                        print(f"[PREMIUM TTS] Warning: Unknown cloned voice '{clone_name}', falling back to Emily")
+                        is_cloned_voice = False
+                        chunk_voice = 'Emily.wav'
+                else:
+                    print(f"[PREMIUM TTS] Chunk {idx+1}/{len(chunks)}: Voice={chunk_voice}, Exag={chunk_exag}, {len(chunk_text)} chars")
                 
                 try:
-                    audio_data = generate_chatterbox_audio(
-                        text=chunk_text,
-                        voice_mode='predefined',
-                        predefined_voice_id=chunk_voice,
-                        exaggeration=chunk_exag,
-                        cfg_weight=chunk_cfg,
-                        temperature=chunk_temp,
-                        speed_factor=chunk_speed,
-                        split_text=True,
-                        chunk_size=200
-                    )
+                    if is_cloned_voice and reference_filename:
+                        # Use voice cloning mode
+                        audio_data = generate_chatterbox_audio(
+                            text=chunk_text,
+                            voice_mode='clone',
+                            reference_audio_filename=reference_filename,
+                            exaggeration=chunk_exag,
+                            cfg_weight=chunk_cfg,
+                            temperature=chunk_temp,
+                            speed_factor=chunk_speed,
+                            split_text=True,
+                            chunk_size=200
+                        )
+                    else:
+                        # Use predefined voice mode
+                        audio_data = generate_chatterbox_audio(
+                            text=chunk_text,
+                            voice_mode='predefined',
+                            predefined_voice_id=chunk_voice,
+                            exaggeration=chunk_exag,
+                            cfg_weight=chunk_cfg,
+                            temperature=chunk_temp,
+                            speed_factor=chunk_speed,
+                            split_text=True,
+                            chunk_size=200
+                        )
                     audio_chunks.append(audio_data)
                     segment_stats.append({
                         'voice': chunk_voice,
@@ -2586,27 +2714,58 @@ def api_generate_premium():
                         voice_name = speaker_id  # Direct voice name from [Emily]: format
                     else:
                         voice_name = CHATTERBOX_SPEAKER_VOICES.get(speaker_id, 'Emily')  # Mapped from [S1]: format
+                    use_clone_for_segment = False
                 else:
                     voice_name = voice
+                    use_clone_for_segment = is_cloned_voice_main
                 
-                print(f"[PREMIUM TTS] Segment {idx+1}/{len(segments)}: Speaker {speaker_id} ({voice_name}), {len(segment_text)} chars")
+                # Handle cloned voice for single-speaker mode
+                if use_clone_for_segment:
+                    clone_name = voice.replace('clone:', '')
+                    reference_filename = CHATTERBOX_CLONED_VOICES.get(clone_name)
+                    if reference_filename:
+                        local_path = os.path.join(app.static_folder, reference_filename)
+                        if os.path.exists(local_path):
+                            ensure_reference_audio_uploaded(local_path, reference_filename)
+                        print(f"[PREMIUM TTS] Segment {idx+1}/{len(segments)}: CLONED Voice={clone_name}, {len(segment_text)} chars")
+                    else:
+                        print(f"[PREMIUM TTS] Warning: Unknown cloned voice '{clone_name}', falling back to Emily")
+                        use_clone_for_segment = False
+                        voice_name = 'Emily'
+                else:
+                    print(f"[PREMIUM TTS] Segment {idx+1}/{len(segments)}: Speaker {speaker_id} ({voice_name}), {len(segment_text)} chars")
                 
                 try:
-                    audio_data = generate_chatterbox_audio(
-                        text=segment_text,
-                        voice_mode='predefined',
-                        predefined_voice_id=voice_name,
-                        exaggeration=exaggeration,
-                        cfg_weight=cfg_weight,
-                        temperature=temperature,
-                        speed_factor=speed_factor,
-                        split_text=True,
-                        chunk_size=200
-                    )
+                    if use_clone_for_segment and reference_filename:
+                        # Use voice cloning mode
+                        audio_data = generate_chatterbox_audio(
+                            text=segment_text,
+                            voice_mode='clone',
+                            reference_audio_filename=reference_filename,
+                            exaggeration=exaggeration,
+                            cfg_weight=cfg_weight,
+                            temperature=temperature,
+                            speed_factor=speed_factor,
+                            split_text=True,
+                            chunk_size=200
+                        )
+                    else:
+                        # Use predefined voice mode
+                        audio_data = generate_chatterbox_audio(
+                            text=segment_text,
+                            voice_mode='predefined',
+                            predefined_voice_id=voice_name,
+                            exaggeration=exaggeration,
+                            cfg_weight=cfg_weight,
+                            temperature=temperature,
+                            speed_factor=speed_factor,
+                            split_text=True,
+                            chunk_size=200
+                        )
                     audio_chunks.append(audio_data)
                     segment_stats.append({
                         'speaker': speaker_id,
-                        'voice': voice_name,
+                        'voice': voice_name if not use_clone_for_segment else f"clone:{clone_name}",
                         'chars': len(segment_text),
                         'audio_size': len(audio_data)
                     })
