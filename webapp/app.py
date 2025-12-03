@@ -2041,10 +2041,35 @@ def api_generate_pro():
 
 def parse_speaker_segments(text):
     """
-    Parse text with [S1]: [S2]: speaker tags into segments.
-    Returns list of (speaker_id, text) tuples.
+    Parse text with speaker tags into segments.
+    Supports both formats:
+    - [S1]: [S2]: speaker number tags
+    - [Emily]: [Michael]: direct voice name tags
+    Returns list of (speaker_id_or_name, text) tuples.
     """
     import re
+    
+    # First try voice name format [VoiceName]:
+    voice_pattern = r'\[([A-Za-z]+)\]:\s*'
+    voice_parts = re.split(voice_pattern, text)
+    
+    if len(voice_parts) > 1:
+        # Voice name tags found
+        segments = []
+        # First part before any tag (if exists)
+        if voice_parts[0].strip():
+            segments.append(('Emily', voice_parts[0].strip()))  # Default voice
+        
+        # Process voice:text pairs
+        for i in range(1, len(voice_parts), 2):
+            voice_name = voice_parts[i]
+            if i + 1 < len(voice_parts):
+                seg_text = voice_parts[i + 1].strip()
+                if seg_text:
+                    segments.append((voice_name, seg_text))
+        return segments
+    
+    # Try speaker number format [S1]: [S2]:
     pattern = r'\[S(\d+)\]:\s*'
     parts = re.split(pattern, text, flags=re.IGNORECASE)
     
@@ -2194,7 +2219,9 @@ def api_chatterbox_voices():
 def api_generate_premium():
     """
     Generate premium audio using Chatterbox TTS (devnen/Chatterbox-TTS-Server).
-    Supports multi-speaker dialogue with [S1]: [S2]: format.
+    Supports:
+    - Multi-speaker dialogue with [Emily]: [Michael]: format
+    - Per-chunk settings via chunks[] array
     Requires premium subscription tier.
     """
     import re
@@ -2208,27 +2235,40 @@ def api_generate_premium():
             }), 503
         
         data = request.get_json(silent=True) or {}
-        text = (data.get('text', '') or '').strip()
-        exaggeration = float(data.get('exaggeration', 0.5))
-        cfg_weight = float(data.get('cfg_weight', 0.5))
-        temperature = float(data.get('temperature', 0.8))
-        speed_factor = float(data.get('speed_factor', 1.0))
-        voice = data.get('voice', 'Emily')  # Selected voice from dropdown
+        
+        # Check if using chunks mode (per-segment settings) or text mode
+        chunks = data.get('chunks', None)
+        use_chunks_mode = chunks is not None and len(chunks) > 0
+        
+        if use_chunks_mode:
+            # Chunks mode - each chunk has its own voice and settings
+            voice = data.get('voice', 'Emily.wav')  # fallback
+        else:
+            # Standard text mode
+            text = (data.get('text', '') or '').strip()
+            exaggeration = float(data.get('exaggeration', 0.5))
+            cfg_weight = float(data.get('cfg_weight', 0.5))
+            temperature = float(data.get('temperature', 0.8))
+            speed_factor = float(data.get('speed_factor', 1.0))
+            voice = data.get('voice', 'Emily')
+        
         allow_overage = data.get('allow_overage', True)
         
-        # Validate voice selection
-        if voice not in CHATTERBOX_VOICES:
-            voice = 'Emily'  # Default to Emily if invalid
+        # Validation
+        if not use_chunks_mode:
+            if voice not in CHATTERBOX_VOICES:
+                voice = 'Emily'
+            if not text:
+                return jsonify({'success': False, 'error': 'No text provided'}), 400
+            if len(text) > 100000:
+                return jsonify({'success': False, 'error': 'Text too long (max 100,000 chars)'}), 400
         
-        if not text:
-            return jsonify({'success': False, 'error': 'No text provided'}), 400
-        
-        if len(text) > 100000:
-            return jsonify({'success': False, 'error': 'Text too long (max 100,000 chars)'}), 400
-        
-        # Calculate character count (strip speaker tags for char count)
-        plain_text = re.sub(r'\[S\d+\]:\s*', '', text, flags=re.IGNORECASE)
-        char_count = len(plain_text)
+        # Calculate character count
+        if use_chunks_mode:
+            char_count = sum(len(chunk.get('text', '')) for chunk in chunks)
+        else:
+            plain_text = re.sub(r'\[S\d+\]:\s*', '', text, flags=re.IGNORECASE)
+            char_count = len(plain_text)
         
         # Check premium subscription and usage
         if not current_user.has_premium:
@@ -2254,55 +2294,104 @@ def api_generate_premium():
         
         db.session.commit()
         
-        # Parse multi-speaker segments
-        segments = parse_speaker_segments(text)
-        has_multiple_speakers = len(set(s[0] for s in segments)) > 1
-        
-        print(f"[PREMIUM TTS] {len(segments)} segments, multi-speaker={has_multiple_speakers}, voice={voice}")
-        
         audio_chunks = []
         segment_stats = []
         
-        for idx, (speaker_id, segment_text) in enumerate(segments):
-            # For multi-speaker, use mapped voices; for single speaker, use selected voice
-            if has_multiple_speakers:
-                voice_name = CHATTERBOX_SPEAKER_VOICES.get(speaker_id, 'Emily')
-            else:
-                voice_name = voice  # Use the user's selected voice
+        if use_chunks_mode:
+            # ===== CHUNKS MODE: Per-segment Chatterbox settings =====
+            print(f"[PREMIUM TTS] CHUNKS MODE: {len(chunks)} chunks with per-segment settings")
             
-            print(f"[PREMIUM TTS] Segment {idx+1}/{len(segments)}: Speaker {speaker_id} ({voice_name}), {len(segment_text)} chars")
-            
-            try:
-                audio_data = generate_chatterbox_audio(
-                    text=segment_text,
-                    voice_mode='predefined',
-                    predefined_voice_id=voice_name,
-                    exaggeration=exaggeration,
-                    cfg_weight=cfg_weight,
-                    temperature=temperature,
-                    speed_factor=speed_factor,
-                    split_text=True,
-                    chunk_size=200
-                )
-                audio_chunks.append(audio_data)
-                segment_stats.append({
-                    'speaker': speaker_id,
-                    'voice': voice_name,
-                    'chars': len(segment_text),
-                    'audio_size': len(audio_data)
-                })
-            except Exception as e:
-                print(f"[PREMIUM TTS] Segment {idx+1} failed: {e}")
-                # Refund characters on failure
-                current_user.premium_chars_used = max(0, (current_user.premium_chars_used or 0) - char_count)
-                if is_overage:
-                    current_user.premium_overage_cents = max(0, (current_user.premium_overage_cents or 0) - overage_cents)
-                db.session.commit()
+            for idx, chunk in enumerate(chunks):
+                chunk_text = chunk.get('text', '').strip()
+                chunk_voice = chunk.get('voice', 'Emily.wav')
+                chunk_temp = float(chunk.get('temperature', 0.8))
+                chunk_exag = float(chunk.get('exaggeration', 0.4))
+                chunk_cfg = float(chunk.get('cfg_weight', 0.5))
+                chunk_speed = float(chunk.get('speed_factor', 1.0))
                 
-                return jsonify({
-                    'success': False,
-                    'error': f'Failed to generate segment {idx+1}: {str(e)}'
-                }), 500
+                if not chunk_text:
+                    continue
+                
+                print(f"[PREMIUM TTS] Chunk {idx+1}/{len(chunks)}: Voice={chunk_voice}, Exag={chunk_exag}, {len(chunk_text)} chars")
+                
+                try:
+                    audio_data = generate_chatterbox_audio(
+                        text=chunk_text,
+                        voice_mode='predefined',
+                        predefined_voice_id=chunk_voice,
+                        exaggeration=chunk_exag,
+                        cfg_weight=chunk_cfg,
+                        temperature=chunk_temp,
+                        speed_factor=chunk_speed,
+                        split_text=True,
+                        chunk_size=200
+                    )
+                    audio_chunks.append(audio_data)
+                    segment_stats.append({
+                        'voice': chunk_voice,
+                        'chars': len(chunk_text),
+                        'audio_size': len(audio_data)
+                    })
+                except Exception as e:
+                    print(f"[PREMIUM TTS] Chunk {idx+1} failed: {e}")
+                    current_user.premium_chars_used = max(0, (current_user.premium_chars_used or 0) - char_count)
+                    if is_overage:
+                        current_user.premium_overage_cents = max(0, (current_user.premium_overage_cents or 0) - overage_cents)
+                    db.session.commit()
+                    return jsonify({
+                        'success': False,
+                        'error': f'Failed to generate chunk {idx+1}: {str(e)}'
+                    }), 500
+            
+            has_multiple_speakers = len(set(chunk.get('voice', '') for chunk in chunks)) > 1
+        else:
+            # ===== STANDARD MODE: Parse multi-speaker segments =====
+            segments = parse_speaker_segments(text)
+            has_multiple_speakers = len(set(s[0] for s in segments)) > 1
+            
+            print(f"[PREMIUM TTS] STANDARD MODE: {len(segments)} segments, multi-speaker={has_multiple_speakers}, voice={voice}")
+            
+            for idx, (speaker_id, segment_text) in enumerate(segments):
+                if has_multiple_speakers:
+                    # Check if speaker_id is a voice name (e.g., "Emily") or a number
+                    if speaker_id in CHATTERBOX_VOICES:
+                        voice_name = speaker_id  # Direct voice name from [Emily]: format
+                    else:
+                        voice_name = CHATTERBOX_SPEAKER_VOICES.get(speaker_id, 'Emily')  # Mapped from [S1]: format
+                else:
+                    voice_name = voice
+                
+                print(f"[PREMIUM TTS] Segment {idx+1}/{len(segments)}: Speaker {speaker_id} ({voice_name}), {len(segment_text)} chars")
+                
+                try:
+                    audio_data = generate_chatterbox_audio(
+                        text=segment_text,
+                        voice_mode='predefined',
+                        predefined_voice_id=voice_name,
+                        exaggeration=exaggeration,
+                        cfg_weight=cfg_weight,
+                        temperature=temperature,
+                        speed_factor=speed_factor,
+                        split_text=True,
+                        chunk_size=200
+                    )
+                    audio_chunks.append(audio_data)
+                    segment_stats.append({
+                        'speaker': speaker_id,
+                        'voice': voice_name,
+                        'chars': len(segment_text),
+                        'audio_size': len(audio_data)
+                    })
+                except Exception as e:
+                    print(f"[PREMIUM TTS] Segment {idx+1} failed: {e}")
+                    current_user.premium_chars_used = max(0, (current_user.premium_chars_used or 0) - char_count)
+                    if is_overage:
+                        current_user.premium_overage_cents = max(0, (current_user.premium_overage_cents or 0) - overage_cents)
+                    db.session.commit()
+                    return jsonify({
+                        'success': False,
+                        'error': f'Failed to generate segment {idx+1}: {str(e)}'
+                    }), 500
         
         # Concatenate all audio chunks
         if len(audio_chunks) > 1:
@@ -2318,7 +2407,10 @@ def api_generate_premium():
             }), 500
         
         # Save the audio file
-        file_hash = hashlib.md5(f"{text[:50]}:{exaggeration}:{time.time()}".encode()).hexdigest()[:12]
+        if use_chunks_mode:
+            file_hash = hashlib.md5(f"chunks:{len(chunks)}:{time.time()}".encode()).hexdigest()[:12]
+        else:
+            file_hash = hashlib.md5(f"{text[:50]}:{exaggeration}:{time.time()}".encode()).hexdigest()[:12]
         output_file = OUTPUT_DIR / f"premium_{file_hash}.wav"
         
         with open(output_file, 'wb') as f:
@@ -2331,7 +2423,7 @@ def api_generate_premium():
             'audioUrl': f'/api/audio/{output_file.name}',
             'stats': {
                 'total_chars': char_count,
-                'segments': len(segments),
+                'segments': len(chunks) if use_chunks_mode else len(segments),
                 'multi_speaker': has_multiple_speakers,
                 'segment_details': segment_stats,
                 'audio_size': len(final_audio)
@@ -2352,6 +2444,77 @@ def api_generate_premium():
         print(f"[PREMIUM TTS ERROR] {e}")
         import traceback
         traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/preview-chunk', methods=['POST'])
+@login_required
+@csrf.exempt
+def api_preview_chunk():
+    """
+    Preview a single chunk with Chatterbox TTS.
+    This is a free preview (doesn't count against usage) for short samples.
+    Max 100 characters.
+    """
+    try:
+        if not CHATTERBOX_URL:
+            return jsonify({
+                'success': False,
+                'error': 'Premium TTS service is not configured.'
+            }), 503
+        
+        data = request.get_json(silent=True) or {}
+        
+        text = (data.get('text', '') or '').strip()
+        voice = data.get('voice', 'Emily.wav')
+        temperature = float(data.get('temperature', 0.8))
+        exaggeration = float(data.get('exaggeration', 0.4))
+        cfg_weight = float(data.get('cfg_weight', 0.5))
+        speed_factor = float(data.get('speed_factor', 1.0))
+        
+        if not text:
+            return jsonify({'success': False, 'error': 'No text provided'}), 400
+        
+        # Limit preview to 100 characters
+        if len(text) > 100:
+            text = text[:100]
+        
+        print(f"[PREVIEW CHUNK] Voice={voice}, Exag={exaggeration}, Text: {text[:30]}...")
+        
+        try:
+            audio_data = generate_chatterbox_audio(
+                text=text,
+                voice_mode='predefined',
+                predefined_voice_id=voice,
+                exaggeration=exaggeration,
+                cfg_weight=cfg_weight,
+                temperature=temperature,
+                speed_factor=speed_factor,
+                split_text=False,
+                chunk_size=200
+            )
+            
+            # Save preview file
+            file_hash = hashlib.md5(f"preview:{text[:20]}:{time.time()}".encode()).hexdigest()[:12]
+            output_file = OUTPUT_DIR / f"preview_{file_hash}.wav"
+            
+            with open(output_file, 'wb') as f:
+                f.write(audio_data)
+            
+            return jsonify({
+                'success': True,
+                'audioUrl': f'/api/audio/{output_file.name}'
+            })
+            
+        except Exception as e:
+            print(f"[PREVIEW CHUNK ERROR] {e}")
+            return jsonify({
+                'success': False,
+                'error': f'Preview failed: {str(e)}'
+            }), 500
+            
+    except Exception as e:
+        print(f"[PREVIEW CHUNK ERROR] {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 

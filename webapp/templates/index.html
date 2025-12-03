@@ -951,8 +951,27 @@
           <div class="section-title">Your Text</div>
           <div class="input-group">
             <label for="premiumText">Enter text to convert</label>
-            <textarea id="premiumText" placeholder="Type your text here...&#10;&#10;For multi-speaker dialogue, use:&#10;[S1]: Hello! How are you today?&#10;[S2]: I'm doing great, thanks!&#10;&#10;Speaker mapping:&#10;S1=Emily, S2=Michael, S3=Olivia, S4=Ryan, S5=Taylor, S6=Thomas, S7=Jade, S8=Alexander" {% if not current_user.has_premium %}disabled{% endif %} style="{% if not current_user.has_premium %}opacity: 0.5; cursor: not-allowed;{% endif %}"></textarea>
-            <p style="font-size: 12px; color: #9333ea; margin-top: 8px;">💡 Use [S1]: [S2]: tags for multi-speaker dialogue with auto-assigned voices.</p>
+            <textarea id="premiumText" placeholder="Type your text here...&#10;&#10;For multi-speaker dialogue, use voice names:&#10;[Emily]: Hello! How are you today?&#10;[Michael]: I'm doing great, thanks!&#10;[Emily]: That's wonderful to hear.&#10;&#10;Available voices: Emily, Michael, Olivia, Ryan, Taylor, Thomas, Jade, Alexander, and more!" {% if not current_user.has_premium %}disabled{% endif %} style="{% if not current_user.has_premium %}opacity: 0.5; cursor: not-allowed;{% endif %}"></textarea>
+            <p style="font-size: 12px; color: #9333ea; margin-top: 8px;">💡 Use [Emily]: [Michael]: etc. for multi-speaker dialogue. Click "Split into Chunks" to customize each segment!</p>
+          </div>
+          
+          <!-- Split into Chunks Button -->
+          <div style="margin-top: 12px; display: flex; gap: 10px; align-items: center;">
+            <button type="button" id="splitChunksBtn" onclick="splitIntoChunks()" {% if not current_user.has_premium %}disabled{% endif %} style="padding: 10px 20px; border-radius: 12px; border: 2px solid #9333ea; background: transparent; color: #9333ea; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; {% if not current_user.has_premium %}opacity: 0.5; cursor: not-allowed;{% endif %}">
+              ✂️ Split into Chunks
+            </button>
+            <button type="button" id="clearChunksBtn" onclick="clearChunks()" style="display: none; padding: 10px 16px; border-radius: 12px; border: 2px solid #e74c3c; background: transparent; color: #e74c3c; font-size: 13px; font-weight: 500; cursor: pointer;">
+              ✕ Back to Text
+            </button>
+            <span id="chunkModeIndicator" style="display: none; font-size: 12px; color: #9333ea; font-weight: 500;">🎭 Per-chunk mode active</span>
+          </div>
+          
+          <!-- Chunk Editor Container (hidden by default) -->
+          <div id="premiumChunkEditor" style="display: none; margin-top: 20px;">
+            <div style="background: linear-gradient(135deg, rgba(147,51,234,0.1), rgba(236,72,153,0.1)); border-radius: 12px; padding: 16px; margin-bottom: 16px;">
+              <p style="font-size: 13px; color: #2D3436; margin: 0;">🎭 <strong>Per-Chunk Settings:</strong> Each chunk can have its own Chatterbox preset and slider adjustments.</p>
+            </div>
+            <div id="premiumChunkList" style="display: flex; flex-direction: column; gap: 16px;"></div>
           </div>
         </div>
 
@@ -1070,6 +1089,256 @@
     document.getElementById('premiumTab').classList.toggle('active', tab === 'premium');
   }
 
+  // ===== CHUNK EDITOR MANAGEMENT =====
+  let premiumChunks = [];
+  let chunkEditorActive = false;
+
+  // Available Chatterbox voices
+  const chatterboxVoices = [
+    'Emily', 'Michael', 'Olivia', 'Ryan', 'Taylor', 'Thomas',
+    'Abigail', 'Adrian', 'Alexander', 'Alice', 'Austin', 'Axel',
+    'Connor', 'Cora', 'Elena', 'Eli', 'Everett', 'Gabriel',
+    'Gianna', 'Henry', 'Ian', 'Jade', 'Jeremiah', 'Jordan',
+    'Julian', 'Layla', 'Leonardo', 'Miles'
+  ];
+
+  // Parse text into speaker segments
+  function parseTextIntoSegments(text) {
+    const voicePattern = chatterboxVoices.join('|');
+    const regex = new RegExp(`\\[(${voicePattern}|S\\d+)\\]:\\s*`, 'gi');
+    const parts = text.split(regex);
+    
+    if (parts.length === 1) {
+      return [{ voice: null, text: text.trim() }];
+    }
+    
+    const segments = [];
+    if (parts[0].trim()) {
+      segments.push({ voice: null, text: parts[0].trim() });
+    }
+    
+    for (let i = 1; i < parts.length; i += 2) {
+      const speaker = parts[i];
+      const segText = parts[i + 1]?.trim();
+      if (segText) {
+        let voiceName = 'Emily';
+        if (speaker.toUpperCase().startsWith('S') && /^\d+$/.test(speaker.slice(1))) {
+          const speakerMap = { '1': 'Emily', '2': 'Michael', '3': 'Olivia', '4': 'Ryan', '5': 'Taylor', '6': 'Thomas', '7': 'Jade', '8': 'Alexander' };
+          voiceName = speakerMap[speaker.slice(1)] || 'Emily';
+        } else {
+          const match = chatterboxVoices.find(v => v.toLowerCase() === speaker.toLowerCase());
+          voiceName = match || 'Emily';
+        }
+        segments.push({ voice: voiceName, text: segText });
+      }
+    }
+    return segments;
+  }
+
+  // Split text into chunks and show editor
+  function splitIntoChunks() {
+    const text = document.getElementById('premiumText').value.trim();
+    if (!text) {
+      alert('Please enter some text first.');
+      return;
+    }
+    
+    const segments = parseTextIntoSegments(text);
+    const defaultVoice = document.getElementById('premiumVoice').value.replace('.wav', '');
+    
+    premiumChunks = segments.map((seg, idx) => ({
+      id: idx,
+      text: seg.text,
+      voice: seg.voice || defaultVoice,
+      preset: 'standard',
+      temperature: 0.8,
+      exaggeration: 0.4,
+      cfgWeight: 0.5,
+      speed: 1.0
+    }));
+    
+    renderChunkEditor();
+    chunkEditorActive = true;
+    document.getElementById('premiumChunkEditor').style.display = 'block';
+    document.getElementById('clearChunksBtn').style.display = 'inline-block';
+    document.getElementById('chunkModeIndicator').style.display = 'inline';
+    document.getElementById('premiumText').style.display = 'none';
+    document.querySelector('.form-section .input-group > p').style.display = 'none';
+  }
+
+  // Clear chunks and go back to textarea
+  function clearChunks() {
+    premiumChunks = [];
+    chunkEditorActive = false;
+    document.getElementById('premiumChunkEditor').style.display = 'none';
+    document.getElementById('clearChunksBtn').style.display = 'none';
+    document.getElementById('chunkModeIndicator').style.display = 'none';
+    document.getElementById('premiumText').style.display = 'block';
+    document.querySelector('.form-section .input-group > p').style.display = 'block';
+  }
+
+  // Render chunk editor cards
+  function renderChunkEditor() {
+    const container = document.getElementById('premiumChunkList');
+    container.innerHTML = premiumChunks.map((chunk, idx) => `
+      <div class="chunk-card" data-chunk-id="${chunk.id}" style="background: white; border: 2px solid #e9ecef; border-radius: 16px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <span style="font-weight: 700; color: #9333ea; font-size: 14px;">Chunk ${idx + 1}</span>
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <select onchange="updateChunkVoice(${chunk.id}, this.value)" style="padding: 6px 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 12px;">
+              ${chatterboxVoices.map(v => `<option value="${v}" ${chunk.voice === v ? 'selected' : ''}>${v}</option>`).join('')}
+            </select>
+            <button type="button" onclick="previewChunk(${chunk.id})" id="previewBtn_${chunk.id}" style="background: linear-gradient(135deg, #3498db, #2980b9); border: none; color: white; cursor: pointer; font-size: 12px; padding: 5px 10px; border-radius: 8px;" title="Preview this chunk">▶️ Preview</button>
+            <button type="button" onclick="deleteChunk(${chunk.id})" style="background: none; border: none; color: #e74c3c; cursor: pointer; font-size: 14px;" title="Delete">🗑️</button>
+          </div>
+        </div>
+        
+        <!-- Mini audio player for preview -->
+        <div id="chunkPreview_${chunk.id}" style="display: none; margin-bottom: 12px; padding: 8px; background: #f0f4ff; border-radius: 10px;">
+          <audio id="chunkAudio_${chunk.id}" controls style="width: 100%; height: 32px;"></audio>
+        </div>
+        
+        <textarea onchange="updateChunkText(${chunk.id}, this.value)" style="width: 100%; min-height: 60px; padding: 12px; border: 1px solid #ddd; border-radius: 10px; font-size: 14px; resize: vertical; margin-bottom: 12px;">${chunk.text}</textarea>
+        
+        <!-- Chatterbox Presets for this chunk -->
+        <div style="margin-bottom: 12px;">
+          <label style="font-size: 11px; color: #636E72; display: block; margin-bottom: 6px;">🎙️ Style Preset</label>
+          <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+            ${['standard', 'expressive', 'technical', 'upbeat', 'thoughtful', 'longstory'].map(p => `
+              <button type="button" onclick="applyChunkPreset(${chunk.id}, '${p}')" 
+                style="padding: 5px 10px; border-radius: 12px; border: 1px solid ${chunk.preset === p ? '#9333ea' : '#ddd'}; 
+                background: ${chunk.preset === p ? 'linear-gradient(135deg, #9333ea, #ec4899)' : 'white'}; 
+                color: ${chunk.preset === p ? 'white' : '#636E72'}; font-size: 11px; cursor: pointer;">
+                ${p === 'standard' ? '🎙️ Standard' : p === 'expressive' ? '🎭 Expressive' : p === 'technical' ? '📚 Technical' : p === 'upbeat' ? '📢 Upbeat' : p === 'thoughtful' ? '💭 Thoughtful' : '📖 Story'}
+              </button>
+            `).join('')}
+          </div>
+        </div>
+        
+        <!-- Chatterbox Sliders for this chunk -->
+        <details style="margin-top: 8px;">
+          <summary style="cursor: pointer; font-size: 12px; color: #636E72; margin-bottom: 8px;">⚙️ Fine-tune parameters</summary>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 12px; background: #f8f9fa; border-radius: 10px;">
+            <div>
+              <label style="font-size: 11px; color: #636E72;">Temperature: <span id="chunkTemp_${chunk.id}">${chunk.temperature}</span></label>
+              <input type="range" min="0.1" max="1.5" step="0.05" value="${chunk.temperature}" 
+                onchange="updateChunkParam(${chunk.id}, 'temperature', this.value); document.getElementById('chunkTemp_${chunk.id}').textContent=this.value" style="width: 100%;">
+            </div>
+            <div>
+              <label style="font-size: 11px; color: #636E72;">Exaggeration: <span id="chunkExag_${chunk.id}">${chunk.exaggeration}</span></label>
+              <input type="range" min="0" max="2" step="0.1" value="${chunk.exaggeration}" 
+                onchange="updateChunkParam(${chunk.id}, 'exaggeration', this.value); document.getElementById('chunkExag_${chunk.id}').textContent=this.value" style="width: 100%;">
+            </div>
+            <div>
+              <label style="font-size: 11px; color: #636E72;">CFG Weight: <span id="chunkCfg_${chunk.id}">${chunk.cfgWeight}</span></label>
+              <input type="range" min="0" max="1" step="0.05" value="${chunk.cfgWeight}" 
+                onchange="updateChunkParam(${chunk.id}, 'cfgWeight', this.value); document.getElementById('chunkCfg_${chunk.id}').textContent=this.value" style="width: 100%;">
+            </div>
+            <div>
+              <label style="font-size: 11px; color: #636E72;">Speed: <span id="chunkSpeed_${chunk.id}">${chunk.speed}</span></label>
+              <input type="range" min="0.5" max="2" step="0.1" value="${chunk.speed}" 
+                onchange="updateChunkParam(${chunk.id}, 'speed', this.value); document.getElementById('chunkSpeed_${chunk.id}').textContent=this.value" style="width: 100%;">
+            </div>
+          </div>
+        </details>
+      </div>
+    `).join('');
+  }
+
+  // Preview a single chunk (limited to 100 chars, free)
+  async function previewChunk(id) {
+    const chunk = premiumChunks.find(c => c.id === id);
+    if (!chunk) return;
+    
+    const btn = document.getElementById(`previewBtn_${id}`);
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '⏳ Loading...';
+    btn.disabled = true;
+    
+    try {
+      const response = await fetch('/api/preview-chunk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: chunk.text.substring(0, 100),  // Max 100 chars for preview
+          voice: chunk.voice + '.wav',
+          temperature: chunk.temperature,
+          exaggeration: chunk.exaggeration,
+          cfg_weight: chunk.cfgWeight,
+          speed_factor: chunk.speed
+        })
+      });
+      
+      const data = await response.json();
+      if (data.success) {
+        const previewDiv = document.getElementById(`chunkPreview_${id}`);
+        const audio = document.getElementById(`chunkAudio_${id}`);
+        audio.src = data.audioUrl;
+        previewDiv.style.display = 'block';
+        audio.play();
+      } else {
+        alert('Preview failed: ' + (data.error || 'Unknown error'));
+      }
+    } catch (err) {
+      alert('Preview error: ' + err.message);
+    } finally {
+      btn.innerHTML = originalText;
+      btn.disabled = false;
+    }
+  }
+
+  function updateChunkText(id, text) {
+    const chunk = premiumChunks.find(c => c.id === id);
+    if (chunk) chunk.text = text;
+  }
+
+  function updateChunkVoice(id, voice) {
+    const chunk = premiumChunks.find(c => c.id === id);
+    if (chunk) chunk.voice = voice;
+  }
+
+  function updateChunkParam(id, param, value) {
+    const chunk = premiumChunks.find(c => c.id === id);
+    if (chunk) chunk[param] = parseFloat(value);
+  }
+
+  function applyChunkPreset(id, presetKey) {
+    const chunk = premiumChunks.find(c => c.id === id);
+    if (!chunk) return;
+    
+    const preset = premiumPresets[presetKey];
+    if (!preset) return;
+    
+    chunk.preset = presetKey;
+    chunk.temperature = preset.temperature;
+    chunk.exaggeration = preset.exaggeration;
+    chunk.cfgWeight = preset.cfgWeight;
+    chunk.speed = preset.speed;
+    
+    renderChunkEditor();
+  }
+
+  function deleteChunk(id) {
+    premiumChunks = premiumChunks.filter(c => c.id !== id);
+    if (premiumChunks.length === 0) {
+      clearChunks();
+    } else {
+      renderChunkEditor();
+    }
+  }
+
+  // Collect chunks for submission
+  function collectChunksForSubmission() {
+    return premiumChunks.map(chunk => ({
+      text: chunk.text,
+      voice: chunk.voice + '.wav',
+      temperature: chunk.temperature,
+      exaggeration: chunk.exaggeration,
+      cfg_weight: chunk.cfgWeight,
+      speed_factor: chunk.speed
+    }));
+  }
+
   // Premium TTS Form Handler
   document.getElementById('premiumTtsForm')?.addEventListener('submit', async function(e) {
     e.preventDefault();
@@ -1087,7 +1356,10 @@
     const progressBar = document.getElementById('premiumProgressBar');
     const loadingText = document.getElementById('premiumLoadingText');
     
-    if (!text) {
+    // Check if using chunk editor
+    const useChunks = chunkEditorActive && premiumChunks.length > 0;
+    
+    if (!useChunks && !text) {
       error.textContent = 'Please enter some text.';
       error.classList.add('visible');
       return;
@@ -1120,19 +1392,25 @@
     }, 500);
     
     try {
+      // Build request - either chunks mode or text mode
+      const requestBody = useChunks ? {
+        chunks: collectChunksForSubmission(),
+        voice: voice  // fallback
+      } : {
+        text: text,
+        voice: voice,
+        exaggeration: exaggeration,
+        cfg_weight: cfgWeight,
+        temperature: temperature,
+        speed_factor: speedFactor
+      };
+      
       const response = await fetch('/api/generate-premium', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          text: text,
-          voice: voice,
-          exaggeration: exaggeration,
-          cfg_weight: cfgWeight,
-          temperature: temperature,
-          speed_factor: speedFactor
-        })
+        body: JSON.stringify(requestBody)
       });
       
       clearInterval(progressInterval);
