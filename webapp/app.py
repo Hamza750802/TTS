@@ -2037,7 +2037,110 @@ def api_generate_pro():
     }), 501
 
 
-# -------- Premium Chatterbox TTS Endpoints --------
+# -------- Premium Ultra TTS Endpoints --------
+
+# ===== TEXT PREPROCESSING FOR BETTER TTS QUALITY =====
+def preprocess_text_for_tts(text):
+    """
+    Preprocess text to match HuggingFace Chatterbox quality.
+    - Expands contractions
+    - Normalizes numbers
+    - Adds natural pauses via punctuation
+    - Cleans up whitespace
+    """
+    import re
+    
+    # Expand common contractions for clearer speech
+    contractions = {
+        "don't": "do not", "doesn't": "does not", "didn't": "did not",
+        "won't": "will not", "wouldn't": "would not", "couldn't": "could not",
+        "shouldn't": "should not", "can't": "cannot", "isn't": "is not",
+        "aren't": "are not", "wasn't": "was not", "weren't": "were not",
+        "haven't": "have not", "hasn't": "has not", "hadn't": "had not",
+        "I'm": "I am", "you're": "you are", "we're": "we are", "they're": "they are",
+        "he's": "he is", "she's": "she is", "it's": "it is", "that's": "that is",
+        "what's": "what is", "who's": "who is", "there's": "there is",
+        "I've": "I have", "you've": "you have", "we've": "we have", "they've": "they have",
+        "I'll": "I will", "you'll": "you will", "we'll": "we will", "they'll": "they will",
+        "he'll": "he will", "she'll": "she will", "it'll": "it will",
+        "I'd": "I would", "you'd": "you would", "we'd": "we would", "they'd": "they would",
+        "he'd": "he would", "she'd": "she would", "it'd": "it would",
+        "let's": "let us", "that'll": "that will", "who'll": "who will",
+    }
+    
+    for contraction, expansion in contractions.items():
+        # Case-insensitive replacement
+        text = re.sub(re.escape(contraction), expansion, text, flags=re.IGNORECASE)
+    
+    # Convert common number patterns to words (basic)
+    number_words = {
+        '0': 'zero', '1': 'one', '2': 'two', '3': 'three', '4': 'four',
+        '5': 'five', '6': 'six', '7': 'seven', '8': 'eight', '9': 'nine',
+        '10': 'ten', '11': 'eleven', '12': 'twelve', '100': 'one hundred',
+        '1000': 'one thousand', '2024': 'twenty twenty four', '2025': 'twenty twenty five',
+    }
+    for num, word in number_words.items():
+        text = re.sub(r'\b' + num + r'\b', word, text)
+    
+    # Normalize whitespace
+    text = re.sub(r'\s+', ' ', text)
+    text = text.strip()
+    
+    # Ensure sentences end with proper punctuation for natural pauses
+    # Add period if text doesn't end with punctuation
+    if text and text[-1] not in '.!?':
+        text += '.'
+    
+    # Add slight pause markers (extra space) after major punctuation
+    # This helps the model understand pause points
+    text = re.sub(r'\.(\s)', '.  \\1', text)  # Period: longer pause
+    text = re.sub(r'\!(\s)', '!  \\1', text)  # Exclamation: longer pause
+    text = re.sub(r'\?(\s)', '?  \\1', text)  # Question: longer pause
+    
+    # Remove emojis (they can confuse TTS)
+    text = re.sub(r'[\U0001F600-\U0001F64F\U0001F300-\U0001F5FF\U0001F680-\U0001F6FF\U0001F1E0-\U0001F1FF]', '', text)
+    
+    return text.strip()
+
+
+def split_into_sentences(text, max_chars=180):
+    """
+    Split text into semantic chunks at sentence boundaries.
+    Better than arbitrary character splits for natural speech.
+    """
+    import re
+    
+    # Split on sentence boundaries
+    sentences = re.split(r'(?<=[.!?])\s+', text)
+    
+    chunks = []
+    current_chunk = ""
+    
+    for sentence in sentences:
+        sentence = sentence.strip()
+        if not sentence:
+            continue
+            
+        # If adding this sentence exceeds max, save current and start new
+        if len(current_chunk) + len(sentence) + 1 > max_chars and current_chunk:
+            chunks.append(current_chunk.strip())
+            current_chunk = sentence
+        else:
+            if current_chunk:
+                current_chunk += " " + sentence
+            else:
+                current_chunk = sentence
+    
+    # Don't forget the last chunk
+    if current_chunk.strip():
+        chunks.append(current_chunk.strip())
+    
+    # If no chunks created, return original as single chunk
+    if not chunks:
+        chunks = [text]
+    
+    return chunks
+
 
 def parse_speaker_segments(text):
     """
@@ -2094,8 +2197,8 @@ def parse_speaker_segments(text):
 
 
 def generate_chatterbox_audio(text, voice_mode='predefined', predefined_voice_id='Emily', 
-                               exaggeration=0.5, cfg_weight=0.5, temperature=0.8, 
-                               speed_factor=1.0, split_text=True, chunk_size=200):
+                               exaggeration=0.6, cfg_weight=0.3, temperature=0.4, 
+                               speed_factor=1.0, split_text=True, chunk_size=180):
     """
     Call the devnen/Chatterbox-TTS-Server /tts endpoint.
     Returns audio bytes (WAV) or raises exception.
@@ -2104,15 +2207,22 @@ def generate_chatterbox_audio(text, voice_mode='predefined', predefined_voice_id
     - text: The text to synthesize
     - voice_mode: 'predefined' or 'clone'
     - predefined_voice_id: Voice name (e.g., 'Emily', 'Michael', 'Olivia')
-    - exaggeration: Emotion intensity (0.0-1.0, default 0.5)
-    - cfg_weight: Classifier-free guidance weight (0.0-1.0, default 0.5)
-    - temperature: Randomness/creativity (0.1-1.5, default 0.8)
+    - exaggeration: Emotion intensity (0.0-2.0, default 0.6 for natural speech)
+    - cfg_weight: Classifier-free guidance (0.0-1.0, default 0.3 for slower pacing)
+    - temperature: Randomness (0.1-1.5, default 0.4 for HF-quality)
     - speed_factor: Speech speed (0.5-2.0, default 1.0)
     - split_text: Whether to split long text into chunks
-    - chunk_size: Characters per chunk when splitting
+    - chunk_size: Characters per chunk when splitting (default 180 for semantic chunks)
+    
+    NOTE: Defaults tuned to match HuggingFace demo quality.
+    Lower temperature (0.35-0.45) = more stable, natural speech
+    Lower cfg_weight (0.3) = slower, more deliberate pacing
     """
+    # Preprocess text for better TTS quality
+    processed_text = preprocess_text_for_tts(text)
+    
     payload = {
-        'text': text,
+        'text': processed_text,
         'voice_mode': voice_mode,
         'predefined_voice_id': predefined_voice_id,
         'exaggeration': exaggeration,
@@ -2123,6 +2233,8 @@ def generate_chatterbox_audio(text, voice_mode='predefined', predefined_voice_id
         'chunk_size': chunk_size,
         'output_format': 'wav'
     }
+    
+    print(f"[ULTRA TTS] Generating: temp={temperature}, exag={exaggeration}, cfg={cfg_weight}, text_len={len(processed_text)}")
     
     response = requests.post(
         f'{CHATTERBOX_URL}/tts',
@@ -2141,6 +2253,122 @@ def generate_chatterbox_audio(text, voice_mode='predefined', predefined_voice_id
     
     # Response is streaming audio
     return response.content
+
+
+def concatenate_wav_files_with_crossfade(audio_chunks, crossfade_ms=30, silence_ms=200):
+    """
+    Concatenate WAV audio chunks with crossfade for smooth transitions.
+    Uses HuggingFace-style merging to avoid robotic stitching.
+    
+    Parameters:
+    - audio_chunks: List of WAV bytes
+    - crossfade_ms: Crossfade duration in milliseconds (20-40ms recommended)
+    - silence_ms: Additional silence between chunks (for speaker changes)
+    """
+    import io
+    import wave
+    import struct
+    import array
+    
+    if not audio_chunks:
+        raise ValueError("No audio chunks to concatenate")
+    
+    if len(audio_chunks) == 1:
+        return audio_chunks[0]
+    
+    # Parse all WAV files into sample arrays
+    all_samples = []
+    params = None
+    sample_rate = None
+    sample_width = None
+    n_channels = None
+    
+    for i, chunk in enumerate(audio_chunks):
+        wav_io = io.BytesIO(chunk)
+        try:
+            with wave.open(wav_io, 'rb') as w:
+                if params is None:
+                    params = w.getparams()
+                    sample_rate = w.getframerate()
+                    sample_width = w.getsampwidth()
+                    n_channels = w.getnchannels()
+                
+                frames = w.readframes(w.getnframes())
+                
+                # Convert bytes to samples based on sample width
+                if sample_width == 2:  # 16-bit
+                    samples = array.array('h', frames)
+                elif sample_width == 1:  # 8-bit
+                    samples = array.array('b', frames)
+                else:
+                    # Fallback: treat as raw bytes
+                    samples = list(frames)
+                
+                all_samples.append(samples)
+        except Exception as e:
+            print(f"[CROSSFADE] Error reading chunk {i}: {e}")
+            continue
+    
+    if not all_samples:
+        raise ValueError("No valid audio chunks")
+    
+    # Calculate crossfade and silence in samples
+    crossfade_samples = int(sample_rate * crossfade_ms / 1000) * n_channels
+    silence_samples = int(sample_rate * silence_ms / 1000) * n_channels
+    
+    # Create silence array
+    silence = array.array('h', [0] * silence_samples) if sample_width == 2 else array.array('b', [0] * silence_samples)
+    
+    # Merge with crossfade
+    result = array.array('h') if sample_width == 2 else array.array('b')
+    
+    for i, samples in enumerate(all_samples):
+        if i == 0:
+            # First chunk: add all samples
+            result.extend(samples)
+        else:
+            # Apply crossfade between end of result and start of new chunk
+            if len(result) >= crossfade_samples and len(samples) >= crossfade_samples:
+                # Crossfade region
+                for j in range(crossfade_samples):
+                    # Linear crossfade: fade out old, fade in new
+                    fade_out = 1.0 - (j / crossfade_samples)
+                    fade_in = j / crossfade_samples
+                    
+                    old_idx = len(result) - crossfade_samples + j
+                    old_sample = result[old_idx]
+                    new_sample = samples[j]
+                    
+                    # Blend samples
+                    blended = int(old_sample * fade_out + new_sample * fade_in)
+                    
+                    # Clamp to prevent overflow
+                    if sample_width == 2:
+                        blended = max(-32768, min(32767, blended))
+                    else:
+                        blended = max(-128, min(127, blended))
+                    
+                    result[old_idx] = blended
+                
+                # Add remaining samples after crossfade region
+                result.extend(samples[crossfade_samples:])
+            else:
+                # Chunks too short for crossfade, just add silence and append
+                result.extend(silence)
+                result.extend(samples)
+        
+        # Add small silence between chunks (not after last)
+        if i < len(all_samples) - 1:
+            result.extend(silence)
+    
+    # Write combined WAV
+    output = io.BytesIO()
+    with wave.open(output, 'wb') as w:
+        w.setparams(params)
+        w.writeframes(result.tobytes())
+    
+    return output.getvalue()
+
 
 def concatenate_wav_files(audio_chunks, silence_ms=300):
     """
@@ -2393,10 +2621,14 @@ def api_generate_premium():
                         'error': f'Failed to generate segment {idx+1}: {str(e)}'
                     }), 500
         
-        # Concatenate all audio chunks
+        # Concatenate all audio chunks with crossfade for smooth transitions
         if len(audio_chunks) > 1:
-            print(f"[PREMIUM TTS] Concatenating {len(audio_chunks)} audio chunks...")
-            final_audio = concatenate_wav_files(audio_chunks, silence_ms=400)
+            print(f"[PREMIUM TTS] Concatenating {len(audio_chunks)} audio chunks with crossfade...")
+            # Use crossfade for same-speaker, silence for speaker changes
+            if has_multiple_speakers:
+                final_audio = concatenate_wav_files_with_crossfade(audio_chunks, crossfade_ms=30, silence_ms=300)
+            else:
+                final_audio = concatenate_wav_files_with_crossfade(audio_chunks, crossfade_ms=40, silence_ms=100)
         else:
             final_audio = audio_chunks[0] if audio_chunks else b''
         
