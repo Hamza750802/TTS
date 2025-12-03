@@ -128,27 +128,27 @@ STRIPE_PREMIUM_PRO_PRICE_ID = os.environ.get('STRIPE_PREMIUM_PRO_PRICE_ID', '') 
 # Can be Vast.ai instance, RunPod Pod URL or any hosted instance
 CHATTERBOX_URL = os.environ.get('CHATTERBOX_URL', 'http://localhost:8004')
 
-# All available Chatterbox predefined voices
+# All available Chatterbox predefined voices (with .wav extension required by server)
 # These are the actual voice names from the Chatterbox server
 CHATTERBOX_VOICES = [
-    'Emily', 'Michael', 'Olivia', 'Ryan', 'Taylor', 'Thomas',
-    'Abigail', 'Adrian', 'Alexander', 'Alice', 'Austin', 'Axel',
-    'Connor', 'Cora', 'Elena', 'Eli', 'Everett', 'Gabriel',
-    'Gianna', 'Henry', 'Ian', 'Jade', 'Jeremiah', 'Jordan',
-    'Julian', 'Layla', 'Leonardo', 'Miles'
+    'Emily.wav', 'Michael.wav', 'Olivia.wav', 'Ryan.wav', 'Taylor.wav', 'Thomas.wav',
+    'Abigail.wav', 'Adrian.wav', 'Alexander.wav', 'Alice.wav', 'Austin.wav', 'Axel.wav',
+    'Connor.wav', 'Cora.wav', 'Elena.wav', 'Eli.wav', 'Everett.wav', 'Gabriel.wav',
+    'Gianna.wav', 'Henry.wav', 'Ian.wav', 'Jade.wav', 'Jeremiah.wav', 'Jordan.wav',
+    'Julian.wav', 'Layla.wav', 'Leonardo.wav', 'Miles.wav'
 ]
 
 # Predefined speaker voices for multi-speaker dialogue [S1]: [S2]: format
 # Maps speaker numbers to distinct Chatterbox voices for variety
 CHATTERBOX_SPEAKER_VOICES = {
-    '1': 'Emily',      # Female voice
-    '2': 'Michael',    # Male voice
-    '3': 'Olivia',     # Female voice
-    '4': 'Ryan',       # Male voice
-    '5': 'Taylor',     # Female voice
-    '6': 'Thomas',     # Male voice
-    '7': 'Jade',       # Female voice
-    '8': 'Alexander',  # Male voice
+    '1': 'Emily.wav',      # Female voice
+    '2': 'Michael.wav',    # Male voice
+    '3': 'Olivia.wav',     # Female voice
+    '4': 'Ryan.wav',       # Male voice
+    '5': 'Taylor.wav',     # Female voice
+    '6': 'Thomas.wav',     # Male voice
+    '7': 'Jade.wav',       # Female voice
+    '8': 'Alexander.wav',  # Male voice
 }
 
 # Password reset + email settings
