@@ -881,8 +881,8 @@
       <div class="form-card">
         <!-- Premium Header -->
         <div style="background: linear-gradient(135deg, rgba(147,51,234,0.1), rgba(236,72,153,0.1)); border: 2px solid rgba(147,51,234,0.2); border-radius: 16px; padding: 20px; margin-bottom: 24px; text-align: center;">
-          <h3 style="margin: 0 0 8px 0; background: linear-gradient(135deg, #9333ea, #ec4899); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; font-size: 20px;">✨ Ultra-Realistic AI Voices</h3>
-          <p style="margin: 0; color: #636E72; font-size: 14px;">Natural emotions, laughter, sighs, and human-like speech</p>
+          <h3 style="margin: 0 0 8px 0; background: linear-gradient(135deg, #9333ea, #ec4899); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; font-size: 20px;">✨ Chatterbox Ultra Voices</h3>
+          <p style="margin: 0; color: #636E72; font-size: 14px;">28 ultra-realistic AI voices with natural expression control</p>
         </div>
 
         {% if current_user.has_premium %}
@@ -898,73 +898,121 @@
         <!-- Non-Premium User - Upgrade prompt -->
         <div style="background: linear-gradient(135deg, rgba(147,51,234,0.1), rgba(236,72,153,0.1)); border: 2px solid rgba(147,51,234,0.3); border-radius: 16px; padding: 24px; margin-bottom: 24px; text-align: center;">
           <h4 style="margin: 0 0 12px 0; color: #9333ea;">🔒 Premium Subscription Required</h4>
-          <p style="color: #636E72; margin: 0 0 16px 0; font-size: 14px;">Upgrade to access ultra-realistic AI voices with emotions, laughter, and natural speech.</p>
+          <p style="color: #636E72; margin: 0 0 16px 0; font-size: 14px;">Upgrade to access Chatterbox ultra-realistic AI voices with natural expression.</p>
           <a href="/subscribe" style="display: inline-block; padding: 12px 32px; background: linear-gradient(135deg, #9333ea, #ec4899); color: white; text-decoration: none; border-radius: 12px; font-weight: 600; box-shadow: 0 4px 16px rgba(147,51,234,0.3);">Upgrade to Premium →</a>
         </div>
         {% endif %}
-
-        <!-- Text Input -->
-        <div class="form-section">
-          <div class="section-title">Your Text</div>
-          <div class="input-group">
-            <label for="premiumText">Enter text to convert with Ultra Voices</label>
-            <textarea id="premiumText" placeholder="Type your text here... You can use [laughter], [sighs], [music], [gasps] for effects!" {% if not current_user.has_premium %}disabled{% endif %} style="{% if not current_user.has_premium %}opacity: 0.5; cursor: not-allowed;{% endif %}"></textarea>
-            <p style="font-size: 12px; color: #9333ea; margin-top: 8px;">💡 Tip: Add [laughter], [sighs], [clears throat], ♪ for music, or CAPITALS for emphasis!</p>
-          </div>
-        </div>
 
         <!-- Voice Selection -->
         <div class="form-section">
           <div class="section-title">Voice Selection</div>
           <div class="input-group">
-            <label for="premiumVoice">Choose Speaker</label>
-            <select id="premiumVoice" {% if not current_user.has_premium %}disabled{% endif %} style="{% if not current_user.has_premium %}opacity: 0.5; cursor: not-allowed;{% endif %}">
-              <optgroup label="🇺🇸 English Speakers">
-                <option value="v2/en_speaker_0">Speaker 0 (Male, Deep)</option>
-                <option value="v2/en_speaker_1">Speaker 1 (Male, Warm)</option>
-                <option value="v2/en_speaker_2">Speaker 2 (Male, Clear)</option>
-                <option value="v2/en_speaker_3">Speaker 3 (Male, Energetic)</option>
-                <option value="v2/en_speaker_4">Speaker 4 (Male, Calm)</option>
-                <option value="v2/en_speaker_5">Speaker 5 (Female, Soft)</option>
-                <option value="v2/en_speaker_6" selected>Speaker 6 (Female, Natural)</option>
-                <option value="v2/en_speaker_7">Speaker 7 (Female, Bright)</option>
-                <option value="v2/en_speaker_8">Speaker 8 (Female, Mature)</option>
-                <option value="v2/en_speaker_9">Speaker 9 (Female, Young)</option>
+            <label for="premiumVoice">Choose a voice</label>
+            <select id="premiumVoice" {% if not current_user.has_premium %}disabled{% endif %} style="width: 100%; padding: 12px 16px; border: 2px solid #DFE6E9; border-radius: 12px; font-size: 15px; background: white; cursor: pointer; {% if not current_user.has_premium %}opacity: 0.5; cursor: not-allowed;{% endif %}">
+              <optgroup label="👩 Female Voices">
+                <option value="Emily" selected>Emily</option>
+                <option value="Olivia">Olivia</option>
+                <option value="Taylor">Taylor</option>
+                <option value="Abigail">Abigail</option>
+                <option value="Alice">Alice</option>
+                <option value="Cora">Cora</option>
+                <option value="Elena">Elena</option>
+                <option value="Gianna">Gianna</option>
+                <option value="Jade">Jade</option>
+                <option value="Layla">Layla</option>
               </optgroup>
-              <optgroup label="🇩🇪 German Speakers">
-                <option value="v2/de_speaker_0">German Speaker 0</option>
-                <option value="v2/de_speaker_1">German Speaker 1</option>
-                <option value="v2/de_speaker_2">German Speaker 2</option>
-              </optgroup>
-              <optgroup label="🇪🇸 Spanish Speakers">
-                <option value="v2/es_speaker_0">Spanish Speaker 0</option>
-                <option value="v2/es_speaker_1">Spanish Speaker 1</option>
-                <option value="v2/es_speaker_2">Spanish Speaker 2</option>
-              </optgroup>
-              <optgroup label="🇫🇷 French Speakers">
-                <option value="v2/fr_speaker_0">French Speaker 0</option>
-                <option value="v2/fr_speaker_1">French Speaker 1</option>
-              </optgroup>
-              <optgroup label="🇯🇵 Japanese Speakers">
-                <option value="v2/ja_speaker_0">Japanese Speaker 0</option>
-                <option value="v2/ja_speaker_1">Japanese Speaker 1</option>
-              </optgroup>
-              <optgroup label="🇨🇳 Chinese Speakers">
-                <option value="v2/zh_speaker_0">Chinese Speaker 0</option>
-                <option value="v2/zh_speaker_1">Chinese Speaker 1</option>
+              <optgroup label="👨 Male Voices">
+                <option value="Michael">Michael</option>
+                <option value="Ryan">Ryan</option>
+                <option value="Thomas">Thomas</option>
+                <option value="Adrian">Adrian</option>
+                <option value="Alexander">Alexander</option>
+                <option value="Austin">Austin</option>
+                <option value="Axel">Axel</option>
+                <option value="Connor">Connor</option>
+                <option value="Eli">Eli</option>
+                <option value="Everett">Everett</option>
+                <option value="Gabriel">Gabriel</option>
+                <option value="Henry">Henry</option>
+                <option value="Ian">Ian</option>
+                <option value="Jeremiah">Jeremiah</option>
+                <option value="Jordan">Jordan</option>
+                <option value="Julian">Julian</option>
+                <option value="Leonardo">Leonardo</option>
+                <option value="Miles">Miles</option>
               </optgroup>
             </select>
+            <p style="font-size: 12px; color: #636E72; margin-top: 8px;">For multi-speaker dialogue, this voice is ignored and auto-assigned voices are used.</p>
+          </div>
+        </div>
+
+        <!-- Text Input -->
+        <div class="form-section">
+          <div class="section-title">Your Text</div>
+          <div class="input-group">
+            <label for="premiumText">Enter text to convert</label>
+            <textarea id="premiumText" placeholder="Type your text here...&#10;&#10;For multi-speaker dialogue, use:&#10;[S1]: Hello! How are you today?&#10;[S2]: I'm doing great, thanks!&#10;&#10;Speaker mapping:&#10;S1=Emily, S2=Michael, S3=Olivia, S4=Ryan, S5=Taylor, S6=Thomas, S7=Jade, S8=Alexander" {% if not current_user.has_premium %}disabled{% endif %} style="{% if not current_user.has_premium %}opacity: 0.5; cursor: not-allowed;{% endif %}"></textarea>
+            <p style="font-size: 12px; color: #9333ea; margin-top: 8px;">💡 Use [S1]: [S2]: tags for multi-speaker dialogue with auto-assigned voices.</p>
+          </div>
+        </div>
+
+        <!-- Voice Controls -->
+        <div class="form-section">
+          <div class="section-title">Voice Controls</div>
+          
+          <!-- Exaggeration (Emotion Intensity) -->
+          <div class="input-group" style="margin-bottom: 16px;">
+            <label for="premiumExaggeration">Emotion Intensity</label>
+            <div style="display: flex; align-items: center; gap: 16px;">
+              <input type="range" id="premiumExaggeration" min="0" max="1" step="0.05" value="0.5" {% if not current_user.has_premium %}disabled{% endif %} style="flex: 1; {% if not current_user.has_premium %}opacity: 0.5;{% endif %}">
+              <span id="premiumExaggerationValue" style="min-width: 40px; text-align: center; font-weight: 600; color: #9333ea;">0.5</span>
+            </div>
+            <p style="font-size: 11px; color: #636E72; margin-top: 4px;">0 = flat/calm, 0.5 = natural, 1.0 = very expressive</p>
+          </div>
+
+          <!-- CFG Weight -->
+          <div class="input-group" style="margin-bottom: 16px;">
+            <label for="premiumCfgWeight">Voice Consistency</label>
+            <div style="display: flex; align-items: center; gap: 16px;">
+              <input type="range" id="premiumCfgWeight" min="0" max="1" step="0.05" value="0.5" {% if not current_user.has_premium %}disabled{% endif %} style="flex: 1; {% if not current_user.has_premium %}opacity: 0.5;{% endif %}">
+              <span id="premiumCfgWeightValue" style="min-width: 40px; text-align: center; font-weight: 600; color: #9333ea;">0.5</span>
+            </div>
+            <p style="font-size: 11px; color: #636E72; margin-top: 4px;">0 = creative, 0.5 = balanced, 1.0 = strict adherence to voice</p>
+          </div>
+
+          <!-- Temperature -->
+          <div class="input-group" style="margin-bottom: 16px;">
+            <label for="premiumTemperature">Variability</label>
+            <div style="display: flex; align-items: center; gap: 16px;">
+              <input type="range" id="premiumTemperature" min="0.1" max="1.5" step="0.05" value="0.8" {% if not current_user.has_premium %}disabled{% endif %} style="flex: 1; {% if not current_user.has_premium %}opacity: 0.5;{% endif %}">
+              <span id="premiumTemperatureValue" style="min-width: 40px; text-align: center; font-weight: 600; color: #9333ea;">0.8</span>
+            </div>
+            <p style="font-size: 11px; color: #636E72; margin-top: 4px;">Low = consistent, High = varied/creative delivery</p>
+          </div>
+
+          <!-- Speed Factor -->
+          <div class="input-group">
+            <label for="premiumSpeed">Speed</label>
+            <div style="display: flex; align-items: center; gap: 16px;">
+              <input type="range" id="premiumSpeed" min="0.5" max="2.0" step="0.1" value="1.0" {% if not current_user.has_premium %}disabled{% endif %} style="flex: 1; {% if not current_user.has_premium %}opacity: 0.5;{% endif %}">
+              <span id="premiumSpeedValue" style="min-width: 40px; text-align: center; font-weight: 600; color: #9333ea;">1.0x</span>
+            </div>
+            <p style="font-size: 11px; color: #636E72; margin-top: 4px;">0.5x = slow, 1.0x = normal, 2.0x = fast</p>
           </div>
         </div>
 
         <button type="submit" class="generate-btn" id="premiumGenerateBtn" {% if not current_user.has_premium %}disabled style="opacity: 0.5; cursor: not-allowed; background: linear-gradient(135deg, #9333ea, #ec4899);"{% else %}style="background: linear-gradient(135deg, #9333ea, #ec4899);"{% endif %}>
           ✨ Generate Ultra Voice
         </button>
+        
+        <p style="text-align: center; font-size: 12px; color: #636E72; margin-top: 12px;">
+          ⚡ GPU-accelerated generation (typically 5-15 seconds)
+        </p>
       </div>
 
       <div class="loading" id="premiumLoading">
-        <p id="premiumLoadingText">✨ Generating ultra-realistic voice...</p>
-        <p style="font-size: 12px; color: #9333ea; margin-top: 8px;" id="premiumLoadingHint">First generation may take 1-2 minutes (loading AI models). Subsequent requests are faster!</p>
+        <p id="premiumLoadingText">✨ Generating with Chatterbox...</p>
+        <p style="font-size: 12px; color: #9333ea; margin-top: 8px;" id="premiumLoadingHint">GPU-powered generation - usually takes 5-15 seconds.</p>
         <div style="margin-top: 12px; height: 4px; background: rgba(147,51,234,0.2); border-radius: 2px; overflow: hidden;">
           <div id="premiumProgressBar" style="height: 100%; width: 0%; background: linear-gradient(90deg, #9333ea, #ec4899); border-radius: 2px; transition: width 0.5s ease;"></div>
         </div>
@@ -1014,6 +1062,10 @@
     
     const text = document.getElementById('premiumText').value.trim();
     const voice = document.getElementById('premiumVoice').value;
+    const exaggeration = parseFloat(document.getElementById('premiumExaggeration').value);
+    const cfgWeight = parseFloat(document.getElementById('premiumCfgWeight').value);
+    const temperature = parseFloat(document.getElementById('premiumTemperature').value);
+    const speedFactor = parseFloat(document.getElementById('premiumSpeed').value);
     const generateBtn = document.getElementById('premiumGenerateBtn');
     const loading = document.getElementById('premiumLoading');
     const error = document.getElementById('premiumError');
@@ -1033,21 +1085,21 @@
     error.classList.remove('visible');
     audioPlayer.style.display = 'none';
     
-    // Animate progress bar (fake progress to show activity)
+    // Animate progress bar for GPU mode (faster)
     let progress = 0;
     progressBar.style.width = '0%';
     const progressInterval = setInterval(() => {
-      if (progress < 90) {
-        progress += Math.random() * 8;
-        if (progress > 90) progress = 90;
+      if (progress < 95) {
+        progress += Math.random() * 8; // Faster progress for GPU mode
+        if (progress > 95) progress = 95;
         progressBar.style.width = progress + '%';
         
         // Update loading text based on progress
-        if (progress > 20 && progress < 50) {
-          loadingText.textContent = '🚀 Warming up AI models...';
-        } else if (progress > 50 && progress < 80) {
-          loadingText.textContent = '🎤 Generating speech...';
-        } else if (progress > 80) {
+        if (progress > 10 && progress < 40) {
+          loadingText.textContent = '🎤 Generating with Chatterbox...';
+        } else if (progress > 40 && progress < 70) {
+          loadingText.textContent = '🔊 Processing audio...';
+        } else if (progress > 70) {
           loadingText.textContent = '✨ Almost ready...';
         }
       }
@@ -1061,7 +1113,11 @@
         },
         body: JSON.stringify({
           text: text,
-          voice: voice
+          voice: voice,
+          exaggeration: exaggeration,
+          cfg_weight: cfgWeight,
+          temperature: temperature,
+          speed_factor: speedFactor
         })
       });
       
@@ -1096,6 +1152,20 @@
       generateBtn.disabled = false;
       loading.classList.remove('visible');
     }
+  });
+  
+  // Premium slider value displays
+  document.getElementById('premiumExaggeration')?.addEventListener('input', function() {
+    document.getElementById('premiumExaggerationValue').textContent = this.value;
+  });
+  document.getElementById('premiumCfgWeight')?.addEventListener('input', function() {
+    document.getElementById('premiumCfgWeightValue').textContent = this.value;
+  });
+  document.getElementById('premiumTemperature')?.addEventListener('input', function() {
+    document.getElementById('premiumTemperatureValue').textContent = this.value;
+  });
+  document.getElementById('premiumSpeed')?.addEventListener('input', function() {
+    document.getElementById('premiumSpeedValue').textContent = this.value + 'x';
   });
 
   async function loadVoices() {

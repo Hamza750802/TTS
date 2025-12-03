@@ -118,17 +118,38 @@ STRIPE_LIFETIME_PRICE_ID = 'price_1SYORtLz6FHVmZlME0DueU5x'  # $99 lifetime web 
 STRIPE_API_STARTER_PRICE_ID = 'price_1SYThPLz6FHVmZlMFskDh4bS'  # $5/mo API Starter (100k chars)
 STRIPE_API_PRO_PRICE_ID = 'price_1SYTheLz6FHVmZlMH2wwGQ6q'  # $19/mo API Pro (500k chars)
 
-# Premium Bark TTS Stripe Price IDs (to be created in Stripe dashboard)
+# Premium Chatterbox TTS Stripe Price IDs (to be created in Stripe dashboard)
 STRIPE_PREMIUM_PRICE_ID = os.environ.get('STRIPE_PREMIUM_PRICE_ID', '')  # $19.99/mo (100K chars)
 STRIPE_PREMIUM_PLUS_PRICE_ID = os.environ.get('STRIPE_PREMIUM_PLUS_PRICE_ID', '')  # $29.99/mo (200K chars)
 STRIPE_PREMIUM_PRO_PRICE_ID = os.environ.get('STRIPE_PREMIUM_PRO_PRICE_ID', '')  # $39.99/mo (300K chars)
 
-# RunPod Configuration (for Premium Bark TTS)
-RUNPOD_API_KEY = os.environ.get('RUNPOD_API_KEY', '')
-RUNPOD_ENDPOINT_ID = os.environ.get('RUNPOD_ENDPOINT_ID', '')  # Legacy serverless endpoint (unused)
-# RunPod Pod URL - direct HTTP to the Bark API server
-RUNPOD_POD_URL = os.environ.get('RUNPOD_POD_URL', 'https://oc89d5sxshunb3-8888.proxy.runpod.net')
-RUNPOD_ENDPOINT_URL = RUNPOD_POD_URL  # Use Pod URL for premium TTS
+# Chatterbox TTS Configuration (for Ultra Voices premium tier)
+# Uses devnen/Chatterbox-TTS-Server as backend
+# Can be Vast.ai instance, RunPod Pod URL or any hosted instance
+CHATTERBOX_URL = os.environ.get('CHATTERBOX_URL', 'http://localhost:8004')
+
+# All available Chatterbox predefined voices
+# These are the actual voice names from the Chatterbox server
+CHATTERBOX_VOICES = [
+    'Emily', 'Michael', 'Olivia', 'Ryan', 'Taylor', 'Thomas',
+    'Abigail', 'Adrian', 'Alexander', 'Alice', 'Austin', 'Axel',
+    'Connor', 'Cora', 'Elena', 'Eli', 'Everett', 'Gabriel',
+    'Gianna', 'Henry', 'Ian', 'Jade', 'Jeremiah', 'Jordan',
+    'Julian', 'Layla', 'Leonardo', 'Miles'
+]
+
+# Predefined speaker voices for multi-speaker dialogue [S1]: [S2]: format
+# Maps speaker numbers to distinct Chatterbox voices for variety
+CHATTERBOX_SPEAKER_VOICES = {
+    '1': 'Emily',      # Female voice
+    '2': 'Michael',    # Male voice
+    '3': 'Olivia',     # Female voice
+    '4': 'Ryan',       # Male voice
+    '5': 'Taylor',     # Female voice
+    '6': 'Thomas',     # Male voice
+    '7': 'Jade',       # Female voice
+    '8': 'Alexander',  # Male voice
+}
 
 # Password reset + email settings
 try:
@@ -369,7 +390,7 @@ class User(db.Model, UserMixin):
         self.chars_used = current_used + char_count
         return (True, None)
     
-    # --- Premium Bark TTS (Premium tier) ---
+    # --- Premium Chatterbox TTS (Premium tier) ---
     # Premium tiers: 'none' | 'premium' (100K) | 'premium_plus' (200K) | 'premium_pro' (300K)
     premium_tier = db.Column(db.String(32), default='none')
     premium_chars_used = db.Column(db.Integer, default=0)
@@ -387,7 +408,7 @@ class User(db.Model, UserMixin):
     
     @property
     def has_premium(self) -> bool:
-        """Check if user has any premium Bark access"""
+        """Check if user has any premium Chatterbox access"""
         return self.premium_tier in ('premium', 'premium_plus', 'premium_pro')
     
     @property
@@ -417,13 +438,13 @@ class User(db.Model, UserMixin):
     
     def use_premium_chars(self, char_count: int, allow_overage: bool = True) -> tuple:
         """
-        Track premium Bark character usage.
+        Track premium Chatterbox character usage.
         Returns (success: bool, is_overage: bool, overage_cost_cents: int, error_message: str or None)
         
         Overage rate: $0.40 per 1K chars = 0.04 cents per char
         """
         if not self.has_premium:
-            return (False, False, 0, "Premium subscription required for Bark TTS.")
+            return (False, False, 0, "Premium subscription required for Ultra Voices.")
         
         self.check_and_reset_premium_usage()
         
@@ -675,7 +696,7 @@ with app.app_context():
         if 'chars_reset_at' not in existing_columns:
             conn.execute(text("ALTER TABLE \"user\" ADD COLUMN chars_reset_at TIMESTAMP"))
             print("[MIGRATION] Added chars_reset_at column to user table")
-        # Premium Bark TTS tier columns
+        # Premium Chatterbox TTS tier columns
         if 'premium_tier' not in existing_columns:
             conn.execute(text("ALTER TABLE \"user\" ADD COLUMN premium_tier VARCHAR(32) DEFAULT 'none'"))
             print("[MIGRATION] Added premium_tier column to user table")
@@ -2016,21 +2037,171 @@ def api_generate_pro():
     }), 501
 
 
-# -------- Premium Bark TTS Endpoints --------
+# -------- Premium Chatterbox TTS Endpoints --------
+
+def parse_speaker_segments(text):
+    """
+    Parse text with [S1]: [S2]: speaker tags into segments.
+    Returns list of (speaker_id, text) tuples.
+    """
+    import re
+    pattern = r'\[S(\d+)\]:\s*'
+    parts = re.split(pattern, text, flags=re.IGNORECASE)
+    
+    if len(parts) == 1:
+        # No speaker tags - single speaker
+        return [('1', text.strip())]
+    
+    segments = []
+    # First part before any tag (if exists)
+    if parts[0].strip():
+        segments.append(('1', parts[0].strip()))
+    
+    # Process speaker:text pairs
+    for i in range(1, len(parts), 2):
+        speaker_id = parts[i]
+        if i + 1 < len(parts):
+            seg_text = parts[i + 1].strip()
+            if seg_text:
+                segments.append((speaker_id, seg_text))
+    
+    return segments
+
+
+def generate_chatterbox_audio(text, voice_mode='predefined', predefined_voice_id='Emily', 
+                               exaggeration=0.5, cfg_weight=0.5, temperature=0.8, 
+                               speed_factor=1.0, split_text=True, chunk_size=200):
+    """
+    Call the devnen/Chatterbox-TTS-Server /tts endpoint.
+    Returns audio bytes (WAV) or raises exception.
+    
+    Parameters:
+    - text: The text to synthesize
+    - voice_mode: 'predefined' or 'clone'
+    - predefined_voice_id: Voice name (e.g., 'Emily', 'Michael', 'Olivia')
+    - exaggeration: Emotion intensity (0.0-1.0, default 0.5)
+    - cfg_weight: Classifier-free guidance weight (0.0-1.0, default 0.5)
+    - temperature: Randomness/creativity (0.1-1.5, default 0.8)
+    - speed_factor: Speech speed (0.5-2.0, default 1.0)
+    - split_text: Whether to split long text into chunks
+    - chunk_size: Characters per chunk when splitting
+    """
+    payload = {
+        'text': text,
+        'voice_mode': voice_mode,
+        'predefined_voice_id': predefined_voice_id,
+        'exaggeration': exaggeration,
+        'cfg_weight': cfg_weight,
+        'temperature': temperature,
+        'speed_factor': speed_factor,
+        'split_text': split_text,
+        'chunk_size': chunk_size,
+        'output_format': 'wav'
+    }
+    
+    response = requests.post(
+        f'{CHATTERBOX_URL}/tts',
+        json=payload,
+        timeout=600,  # 10 min for long texts
+        stream=True
+    )
+    
+    if response.status_code != 200:
+        error_msg = 'Unknown error'
+        try:
+            error_msg = response.json().get('detail', response.text[:200])
+        except:
+            error_msg = response.text[:200] if response.text else f'HTTP {response.status_code}'
+        raise Exception(f'Chatterbox error: {error_msg}')
+    
+    # Response is streaming audio
+    return response.content
+
+def concatenate_wav_files(audio_chunks, silence_ms=300):
+    """
+    Concatenate multiple WAV audio chunks with silence between them.
+    Returns combined WAV bytes.
+    """
+    import io
+    import wave
+    import struct
+    
+    if not audio_chunks:
+        raise ValueError("No audio chunks to concatenate")
+    
+    if len(audio_chunks) == 1:
+        return audio_chunks[0]
+    
+    # Parse first WAV to get format
+    first_wav = io.BytesIO(audio_chunks[0])
+    with wave.open(first_wav, 'rb') as w:
+        params = w.getparams()
+        sample_rate = w.getframerate()
+        sample_width = w.getsampwidth()
+        n_channels = w.getnchannels()
+    
+    # Generate silence
+    silence_samples = int(sample_rate * silence_ms / 1000)
+    silence_bytes = b'\x00' * (silence_samples * sample_width * n_channels)
+    
+    # Collect all audio frames
+    all_frames = []
+    for i, chunk in enumerate(audio_chunks):
+        wav_io = io.BytesIO(chunk)
+        try:
+            with wave.open(wav_io, 'rb') as w:
+                frames = w.readframes(w.getnframes())
+                all_frames.append(frames)
+                # Add silence between chunks (not after last)
+                if i < len(audio_chunks) - 1:
+                    all_frames.append(silence_bytes)
+        except Exception as e:
+            print(f"[CONCAT] Error reading chunk {i}: {e}")
+            continue
+    
+    # Write combined WAV
+    output = io.BytesIO()
+    with wave.open(output, 'wb') as w:
+        w.setparams(params)
+        for frames in all_frames:
+            w.writeframes(frames)
+    
+    return output.getvalue()
+
+
+@app.route('/api/chatterbox-voices', methods=['GET'])
+@login_required
+def api_chatterbox_voices():
+    """
+    Return available Chatterbox voices for the Premium TTS dropdown.
+    """
+    # Return our predefined list of voices
+    # Categorize by typical gender for better UX
+    voices_data = {
+        'voices': CHATTERBOX_VOICES,
+        'speaker_mapping': CHATTERBOX_SPEAKER_VOICES,
+        'categories': {
+            'female': ['Emily', 'Olivia', 'Taylor', 'Abigail', 'Alice', 'Cora', 'Elena', 'Gianna', 'Jade', 'Layla'],
+            'male': ['Michael', 'Ryan', 'Thomas', 'Adrian', 'Alexander', 'Austin', 'Axel', 'Connor', 'Eli', 'Everett', 'Gabriel', 'Henry', 'Ian', 'Jeremiah', 'Jordan', 'Julian', 'Leonardo', 'Miles']
+        }
+    }
+    return jsonify(voices_data)
+
 
 @app.route('/api/generate-premium', methods=['POST'])
 @login_required
 @csrf.exempt
 def api_generate_premium():
     """
-    Generate premium audio using Bark TTS via RunPod Pod.
+    Generate premium audio using Chatterbox TTS (devnen/Chatterbox-TTS-Server).
+    Supports multi-speaker dialogue with [S1]: [S2]: format.
     Requires premium subscription tier.
     """
     import re
     
     try:
-        # Check if RunPod Pod is configured
-        if not RUNPOD_POD_URL:
+        # Check if Chatterbox is configured
+        if not CHATTERBOX_URL:
             return jsonify({
                 'success': False,
                 'error': 'Premium TTS service is not configured. Please contact support.'
@@ -2038,15 +2209,25 @@ def api_generate_premium():
         
         data = request.get_json(silent=True) or {}
         text = (data.get('text', '') or '').strip()
-        voice = data.get('voice', 'v2/en_speaker_6')
-        silence_padding_ms = data.get('silence_padding_ms', 200)
+        exaggeration = float(data.get('exaggeration', 0.5))
+        cfg_weight = float(data.get('cfg_weight', 0.5))
+        temperature = float(data.get('temperature', 0.8))
+        speed_factor = float(data.get('speed_factor', 1.0))
+        voice = data.get('voice', 'Emily')  # Selected voice from dropdown
         allow_overage = data.get('allow_overage', True)
+        
+        # Validate voice selection
+        if voice not in CHATTERBOX_VOICES:
+            voice = 'Emily'  # Default to Emily if invalid
         
         if not text:
             return jsonify({'success': False, 'error': 'No text provided'}), 400
         
-        # Calculate character count (strip any markup)
-        plain_text = re.sub(r'\[[^\]]+\]', '', text)  # Remove [laughter] etc for char count
+        if len(text) > 100000:
+            return jsonify({'success': False, 'error': 'Text too long (max 100,000 chars)'}), 400
+        
+        # Calculate character count (strip speaker tags for char count)
+        plain_text = re.sub(r'\[S\d+\]:\s*', '', text, flags=re.IGNORECASE)
         char_count = len(plain_text)
         
         # Check premium subscription and usage
@@ -2073,82 +2254,88 @@ def api_generate_premium():
         
         db.session.commit()
         
-        # Call RunPod Pod API directly
-        headers = {
-            'Content-Type': 'application/json'
-        }
+        # Parse multi-speaker segments
+        segments = parse_speaker_segments(text)
+        has_multiple_speakers = len(set(s[0] for s in segments)) > 1
         
-        payload = {
-            'text': text,
-            'voice': voice,
-            'silence_padding_ms': silence_padding_ms
-        }
+        print(f"[PREMIUM TTS] {len(segments)} segments, multi-speaker={has_multiple_speakers}, voice={voice}")
         
-        # Call the Pod's /api/tts endpoint
-        response = requests.post(
-            f'{RUNPOD_POD_URL}/api/tts',
-            headers=headers,
-            json=payload,
-            timeout=300  # 5 minute timeout for long generations
-        )
+        audio_chunks = []
+        segment_stats = []
         
-        if response.status_code != 200:
-            # Refund the characters on failure
-            current_user.premium_chars_used = max(0, (current_user.premium_chars_used or 0) - char_count)
-            if is_overage:
-                current_user.premium_overage_cents = max(0, (current_user.premium_overage_cents or 0) - overage_cents)
-            db.session.commit()
+        for idx, (speaker_id, segment_text) in enumerate(segments):
+            # For multi-speaker, use mapped voices; for single speaker, use selected voice
+            if has_multiple_speakers:
+                voice_name = CHATTERBOX_SPEAKER_VOICES.get(speaker_id, 'Emily')
+            else:
+                voice_name = voice  # Use the user's selected voice
             
-            error_detail = ''
+            print(f"[PREMIUM TTS] Segment {idx+1}/{len(segments)}: Speaker {speaker_id} ({voice_name}), {len(segment_text)} chars")
+            
             try:
-                error_detail = response.json().get('error', '')
-            except:
-                pass
-            
+                audio_data = generate_chatterbox_audio(
+                    text=segment_text,
+                    voice_mode='predefined',
+                    predefined_voice_id=voice_name,
+                    exaggeration=exaggeration,
+                    cfg_weight=cfg_weight,
+                    temperature=temperature,
+                    speed_factor=speed_factor,
+                    split_text=True,
+                    chunk_size=200
+                )
+                audio_chunks.append(audio_data)
+                segment_stats.append({
+                    'speaker': speaker_id,
+                    'voice': voice_name,
+                    'chars': len(segment_text),
+                    'audio_size': len(audio_data)
+                })
+            except Exception as e:
+                print(f"[PREMIUM TTS] Segment {idx+1} failed: {e}")
+                # Refund characters on failure
+                current_user.premium_chars_used = max(0, (current_user.premium_chars_used or 0) - char_count)
+                if is_overage:
+                    current_user.premium_overage_cents = max(0, (current_user.premium_overage_cents or 0) - overage_cents)
+                db.session.commit()
+                
+                return jsonify({
+                    'success': False,
+                    'error': f'Failed to generate segment {idx+1}: {str(e)}'
+                }), 500
+        
+        # Concatenate all audio chunks
+        if len(audio_chunks) > 1:
+            print(f"[PREMIUM TTS] Concatenating {len(audio_chunks)} audio chunks...")
+            final_audio = concatenate_wav_files(audio_chunks, silence_ms=400)
+        else:
+            final_audio = audio_chunks[0] if audio_chunks else b''
+        
+        if not final_audio:
             return jsonify({
                 'success': False,
-                'error': f'Premium TTS service error: {response.status_code} {error_detail}'
-            }), 502
-        
-        result = response.json()
-        
-        if not result.get('success') or 'error' in result:
-            # Refund characters on failure
-            current_user.premium_chars_used = max(0, (current_user.premium_chars_used or 0) - char_count)
-            if is_overage:
-                current_user.premium_overage_cents = max(0, (current_user.premium_overage_cents or 0) - overage_cents)
-            db.session.commit()
-            
-            error_msg = result.get('error', 'Unknown error')
-            return jsonify({
-                'success': False,
-                'error': f'Premium TTS generation failed: {error_msg}'
+                'error': 'No audio data generated'
             }), 500
         
-        # Get the audio data from Pod response
-        audio_base64 = result.get('audio_base64')
-        stats = result.get('stats', {})
-        
-        if not audio_base64:
-            return jsonify({
-                'success': False,
-                'error': 'No audio data received from premium service'
-            }), 500
-        
-        # Decode and save the audio file
-        audio_data = base64.b64decode(audio_base64)
-        
-        # Generate unique filename
-        file_hash = hashlib.md5(f"{text[:50]}:{voice}:{time.time()}".encode()).hexdigest()[:12]
+        # Save the audio file
+        file_hash = hashlib.md5(f"{text[:50]}:{exaggeration}:{time.time()}".encode()).hexdigest()[:12]
         output_file = OUTPUT_DIR / f"premium_{file_hash}.wav"
         
         with open(output_file, 'wb') as f:
-            f.write(audio_data)
+            f.write(final_audio)
+        
+        print(f"[PREMIUM TTS] Saved {output_file.name}, {len(final_audio)} bytes")
         
         return jsonify({
             'success': True,
             'audioUrl': f'/api/audio/{output_file.name}',
-            'stats': stats,
+            'stats': {
+                'total_chars': char_count,
+                'segments': len(segments),
+                'multi_speaker': has_multiple_speakers,
+                'segment_details': segment_stats,
+                'audio_size': len(final_audio)
+            },
             'is_overage': is_overage,
             'overage_cents': overage_cents if is_overage else 0,
             'premium_chars_used': current_user.premium_chars_used or 0,
@@ -2162,6 +2349,9 @@ def api_generate_premium():
             'error': 'Premium TTS generation timed out. Please try with shorter text.'
         }), 504
     except Exception as e:
+        print(f"[PREMIUM TTS ERROR] {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -2170,224 +2360,53 @@ def api_generate_premium():
 @csrf.exempt
 def api_generate_premium_async():
     """
-    Start an async premium generation job. Returns job_id for polling.
-    Use this for longer texts to avoid timeout.
+    Async endpoint - not needed for Chatterbox.
+    Chatterbox handles requests synchronously. For long texts, use the regular endpoint
+    which has a 10-minute timeout for CPU mode.
     """
-    import re
-    
-    try:
-        if not RUNPOD_API_KEY or not RUNPOD_ENDPOINT_ID:
-            return jsonify({
-                'success': False,
-                'error': 'Premium TTS service is not configured.'
-            }), 503
-        
-        data = request.get_json(silent=True) or {}
-        text = (data.get('text', '') or '').strip()
-        voice = data.get('voice', 'v2/en_speaker_6')
-        silence_padding_ms = data.get('silence_padding_ms', 200)
-        allow_overage = data.get('allow_overage', True)
-        
-        if not text:
-            return jsonify({'success': False, 'error': 'No text provided'}), 400
-        
-        # Calculate character count
-        plain_text = re.sub(r'\[[^\]]+\]', '', text)
-        char_count = len(plain_text)
-        
-        # Estimate generation time (~10 sec per 13 sec of audio, ~750 chars per minute)
-        estimated_chunks = max(1, char_count // 200)
-        estimated_seconds = estimated_chunks * 10
-        
-        # Check premium subscription
-        if not current_user.has_premium:
-            return jsonify({
-                'success': False,
-                'error': 'Premium subscription required for Bark TTS.',
-                'upgrade_url': '/subscribe',
-                'premium_required': True
-            }), 402
-        
-        # Check and track usage
-        success, is_overage, overage_cents, error_msg = current_user.use_premium_chars(char_count, allow_overage)
-        if not success:
-            return jsonify({
-                'success': False,
-                'error': error_msg,
-                'limit_reached': True
-            }), 402
-        
-        db.session.commit()
-        
-        # Start async job on RunPod
-        headers = {
-            'Authorization': f'Bearer {RUNPOD_API_KEY}',
-            'Content-Type': 'application/json'
-        }
-        
-        payload = {
-            'input': {
-                'text': text,
-                'voice': voice,
-                'silence_padding_ms': silence_padding_ms
-            }
-        }
-        
-        response = requests.post(
-            f'{RUNPOD_ENDPOINT_URL}/run',
-            headers=headers,
-            json=payload,
-            timeout=30
-        )
-        
-        if response.status_code != 200:
-            # Refund on failure
-            current_user.premium_chars_used = max(0, (current_user.premium_chars_used or 0) - char_count)
-            db.session.commit()
-            return jsonify({
-                'success': False,
-                'error': f'Failed to start premium job: {response.status_code}'
-            }), 502
-        
-        result = response.json()
-        job_id = result.get('id')
-        
-        return jsonify({
-            'success': True,
-            'job_id': job_id,
-            'estimated_seconds': estimated_seconds,
-            'char_count': char_count,
-            'is_overage': is_overage,
-            'overage_cents': overage_cents if is_overage else 0
-        })
-        
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
+    return jsonify({
+        'success': False,
+        'error': 'Async mode not available. Use /api/generate-premium for all requests. CPU mode may take 30-60 seconds.'
+    }), 501
 
 
 @app.route('/api/premium-status/<job_id>')
 @login_required
 def api_premium_status(job_id):
-    """Poll for async premium job status"""
-    try:
-        if not RUNPOD_API_KEY or not RUNPOD_ENDPOINT_ID:
-            return jsonify({'success': False, 'error': 'Service not configured'}), 503
-        
-        headers = {
-            'Authorization': f'Bearer {RUNPOD_API_KEY}'
-        }
-        
-        response = requests.get(
-            f'{RUNPOD_ENDPOINT_URL}/status/{job_id}',
-            headers=headers,
-            timeout=10
-        )
-        
-        if response.status_code != 200:
-            return jsonify({
-                'success': False,
-                'error': f'Failed to get job status: {response.status_code}'
-            }), 502
-        
-        result = response.json()
-        status = result.get('status', 'UNKNOWN')
-        
-        if status == 'COMPLETED':
-            output = result.get('output', {})
-            audio_base64 = output.get('audio_base64')
-            stats = output.get('stats', {})
-            
-            if audio_base64:
-                # Decode and save
-                audio_data = base64.b64decode(audio_base64)
-                file_hash = hashlib.md5(f"{job_id}:{time.time()}".encode()).hexdigest()[:12]
-                output_file = OUTPUT_DIR / f"premium_{file_hash}.wav"
-                
-                with open(output_file, 'wb') as f:
-                    f.write(audio_data)
-                
-                return jsonify({
-                    'success': True,
-                    'status': 'COMPLETED',
-                    'audioUrl': f'/api/audio/{output_file.name}',
-                    'stats': stats,
-                    'premium_chars_used': current_user.premium_chars_used or 0,
-                    'premium_chars_remaining': current_user.premium_chars_remaining
-                })
-            else:
-                return jsonify({
-                    'success': False,
-                    'status': 'FAILED',
-                    'error': 'No audio data in completed job'
-                })
-        
-        elif status == 'FAILED':
-            error_msg = result.get('output', {}).get('error', 'Unknown error')
-            return jsonify({
-                'success': False,
-                'status': 'FAILED',
-                'error': error_msg
-            })
-        
-        else:
-            # IN_QUEUE or IN_PROGRESS
-            return jsonify({
-                'success': True,
-                'status': status,
-                'message': 'Job is still processing...'
-            })
-        
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
+    """Job status - not needed for Chatterbox (sync only)"""
+    return jsonify({
+        'success': False,
+        'error': 'Job status not available. Chatterbox processes requests synchronously.'
+    }), 501
 
 
 @app.route('/api/premium-voices')
 def api_premium_voices():
-    """Get list of available Bark voice presets"""
-    voices = []
-    
-    # English voices
-    for i in range(10):
-        voices.append({
-            'id': f'v2/en_speaker_{i}',
-            'name': f'English Speaker {i+1}',
-            'language': 'en',
-            'language_name': 'English'
-        })
-    
-    # Other languages
-    languages = [
-        ('de', 'German'), ('es', 'Spanish'), ('fr', 'French'),
-        ('hi', 'Hindi'), ('it', 'Italian'), ('ja', 'Japanese'),
-        ('ko', 'Korean'), ('pl', 'Polish'), ('pt', 'Portuguese'),
-        ('ru', 'Russian'), ('tr', 'Turkish'), ('zh', 'Chinese')
+    """Get available speaker presets for Chatterbox Ultra Voices"""
+    voices = [
+        {'id': '1', 'name': 'Speaker 1 (Calm)', 'exaggeration': 0.3, 'description': 'Calm, neutral tone'},
+        {'id': '2', 'name': 'Speaker 2 (Moderate)', 'exaggeration': 0.5, 'description': 'Balanced expression'},
+        {'id': '3', 'name': 'Speaker 3 (Expressive)', 'exaggeration': 0.7, 'description': 'More emotional range'},
+        {'id': '4', 'name': 'Speaker 4', 'exaggeration': 0.4, 'description': 'Slightly expressive'},
+        {'id': '5', 'name': 'Speaker 5', 'exaggeration': 0.6, 'description': 'Expressive'},
+        {'id': '6', 'name': 'Speaker 6', 'exaggeration': 0.35, 'description': 'Calm'},
+        {'id': '7', 'name': 'Speaker 7', 'exaggeration': 0.55, 'description': 'Moderate'},
+        {'id': '8', 'name': 'Speaker 8', 'exaggeration': 0.65, 'description': 'Expressive'},
     ]
-    
-    for lang_code, lang_name in languages:
-        for i in range(10):
-            voices.append({
-                'id': f'v2/{lang_code}_speaker_{i}',
-                'name': f'{lang_name} Speaker {i+1}',
-                'language': lang_code,
-                'language_name': lang_name
-            })
     
     return jsonify({
         'success': True,
         'voices': voices,
-        'special_effects': [
-            {'tag': '[laughter]', 'description': 'Adds laughter'},
-            {'tag': '[laughs]', 'description': 'Adds laughing sound'},
-            {'tag': '[sighs]', 'description': 'Adds sighing sound'},
-            {'tag': '[gasps]', 'description': 'Adds gasping sound'},
-            {'tag': '[clears throat]', 'description': 'Clears throat'},
-            {'tag': '[music]', 'description': 'Adds background music'},
-            {'tag': '♪', 'description': 'Wrap lyrics for singing'},
-            {'tag': '...', 'description': 'Adds hesitation/pause'},
-            {'tag': '—', 'description': 'Adds dramatic pause'},
-            {'tag': '[MAN]', 'description': 'Bias toward male voice'},
-            {'tag': '[WOMAN]', 'description': 'Bias toward female voice'}
-        ]
+        'multi_speaker_format': {
+            'description': 'Use [S1]: [S2]: tags for multi-speaker dialogue',
+            'example': '[S1]: Hello! How are you? [S2]: I am doing great, thanks for asking!',
+            'supported_speakers': ['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7', 'S8']
+        },
+        'exaggeration': {
+            'description': 'Controls emotional expressiveness (0.0 = flat, 1.0 = very expressive)',
+            'default': 0.5,
+            'range': [0.0, 1.0]
+        }
     })
 
 
