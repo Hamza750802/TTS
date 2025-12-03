@@ -26,8 +26,8 @@ class _HomeScreenState extends State<HomeScreen> {
   List<Voice> _voices = [];
   bool _isLoading = false;
   bool _isLoadingVoices = true;
-  double _rate = 0;
-  double _pitch = 0;
+  final double _rate = 0;
+  final double _pitch = 0;
   String? _selectedStyle;
   double _styleDegree = 1.0;
   bool _chunkMode = false;

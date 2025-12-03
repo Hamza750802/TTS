@@ -138,19 +138,10 @@ CHATTERBOX_VOICES = [
     'Julian.wav', 'Layla.wav', 'Leonardo.wav', 'Miles.wav'
 ]
 
-# Custom cloned voices (voice cloning using reference audio files)
-# Format: display_name -> reference_audio_filename
-# These are uploaded to the Chatterbox server's reference_audio/ folder
-# Note: Server replaces spaces with underscores in filenames
-CHATTERBOX_CLONED_VOICES = {
-    'Luna': 'Sample_Audio.wav',  # Unique female voice from our samples (uploaded as Sample_Audio.wav)
-    # Add more cloned voices here as: 'DisplayName': 'filename.wav'
-}
-
-# Local filenames (with spaces) that map to server filenames (with underscores)
-CLONED_VOICE_LOCAL_FILES = {
-    'Luna': 'Sample Audio.wav',  # Local file in static folder
-}
+# Voice cloning disabled for now - use predefined voices
+# Can be re-enabled later with proper reference audio setup
+CHATTERBOX_CLONED_VOICES = {}
+CLONED_VOICE_LOCAL_FILES = {}
 
 # Predefined speaker voices for multi-speaker dialogue [S1]: [S2]: format
 # Maps speaker numbers to distinct Chatterbox voices for variety
@@ -1145,6 +1136,12 @@ def index():
 def about():
     """Serve the About page"""
     return render_template('about.html')
+
+
+@app.route('/storytelling')
+def storytelling():
+    """Showcase page for Ultra Voices storytelling/audiobook capabilities"""
+    return render_template('storytelling.html')
 
 
 @app.route('/dashboard')

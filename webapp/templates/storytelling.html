@@ -1,0 +1,465 @@
+{% extends "base.html" %}
+
+{% block title %}Ultra Voices - AI Storytelling & Audiobook Narration{% endblock %}
+
+{% block head %}
+<style>
+  .showcase-hero {
+    text-align: center;
+    padding: 50px 20px;
+    background: linear-gradient(135deg, #FFF8F3 0%, #FFE8E0 100%);
+    border-radius: 24px;
+    margin-bottom: 32px;
+  }
+  
+  .showcase-hero h1 {
+    font-size: 42px;
+    margin-bottom: 16px;
+    background: var(--gradient-primary);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  
+  .showcase-hero p {
+    font-size: 18px;
+    color: var(--text-medium);
+    max-width: 600px;
+    margin: 0 auto;
+  }
+  
+  .feature-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 24px;
+    margin-bottom: 40px;
+  }
+  
+  .feature-card {
+    background: var(--bg-soft);
+    border-radius: 20px;
+    padding: 28px;
+    border: 1px solid var(--border-light);
+    transition: all 0.3s;
+  }
+  
+  .feature-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-medium);
+  }
+  
+  .feature-card .icon {
+    font-size: 40px;
+    margin-bottom: 16px;
+  }
+  
+  .feature-card h3 {
+    font-size: 18px;
+    margin-bottom: 10px;
+    color: var(--text-dark);
+  }
+  
+  .feature-card p {
+    color: var(--text-medium);
+    font-size: 14px;
+    line-height: 1.6;
+  }
+  
+  .sample-section {
+    background: var(--bg-white);
+    border-radius: 20px;
+    padding: 32px;
+    margin-bottom: 32px;
+    border: 1px solid var(--border-light);
+  }
+  
+  .sample-section h2 {
+    font-size: 24px;
+    margin-bottom: 20px;
+    text-align: center;
+  }
+  
+  .sample-section h2 span {
+    background: var(--gradient-secondary);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  
+  .sample-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+  }
+  
+  .sample-card {
+    background: var(--bg-cream);
+    border-radius: 16px;
+    padding: 24px;
+    border: 1px solid var(--border-light);
+  }
+  
+  .sample-card h4 {
+    font-size: 16px;
+    margin-bottom: 8px;
+    color: var(--text-dark);
+  }
+  
+  .sample-card .category {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 20px;
+    background: linear-gradient(135deg, rgba(255,154,139,0.15) 0%, rgba(255,142,83,0.15) 100%);
+    color: var(--accent-coral);
+    font-size: 11px;
+    font-weight: 600;
+    margin-bottom: 12px;
+  }
+  
+  .sample-card p {
+    color: var(--text-medium);
+    font-size: 13px;
+    margin-bottom: 16px;
+    line-height: 1.6;
+  }
+  
+  .sample-card audio {
+    width: 100%;
+    border-radius: 8px;
+  }
+  
+  .comparison-box {
+    background: linear-gradient(135deg, #f0fdf4, #dcfce7);
+    border-radius: 20px;
+    padding: 32px;
+    margin-bottom: 32px;
+    border: 2px solid #86efac;
+  }
+  
+  .comparison-box h2 {
+    font-size: 22px;
+    margin-bottom: 20px;
+    color: #166534;
+    text-align: center;
+  }
+  
+  .comparison-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  
+  .comparison-table th,
+  .comparison-table td {
+    padding: 14px 16px;
+    text-align: left;
+    border-bottom: 1px solid #e5e7eb;
+  }
+  
+  .comparison-table th {
+    background: #f9fafb;
+    font-weight: 600;
+    color: var(--text-dark);
+  }
+  
+  .comparison-table td {
+    color: var(--text-medium);
+    font-size: 14px;
+  }
+  
+  .comparison-table tr:last-child td {
+    border-bottom: none;
+  }
+  
+  .check { color: #22c55e; font-weight: 700; }
+  .cross { color: #ef4444; }
+  
+  .use-case-section {
+    margin-bottom: 32px;
+  }
+  
+  .use-case-section h2 {
+    font-size: 24px;
+    margin-bottom: 20px;
+    text-align: center;
+  }
+  
+  .use-case-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+  }
+  
+  .use-case-item {
+    background: var(--bg-soft);
+    border-radius: 14px;
+    padding: 20px;
+    text-align: center;
+    border: 1px solid var(--border-light);
+  }
+  
+  .use-case-item .emoji {
+    font-size: 32px;
+    margin-bottom: 10px;
+  }
+  
+  .use-case-item h4 {
+    font-size: 14px;
+    color: var(--text-dark);
+    margin-bottom: 6px;
+  }
+  
+  .use-case-item p {
+    color: var(--text-medium);
+    font-size: 12px;
+  }
+  
+  .cta-section {
+    text-align: center;
+    padding: 40px 20px;
+    background: linear-gradient(135deg, #FFF0EB 0%, #FFE4DB 100%);
+    border-radius: 24px;
+    margin-bottom: 20px;
+  }
+  
+  .cta-section h2 {
+    font-size: 28px;
+    margin-bottom: 16px;
+  }
+  
+  .cta-section p {
+    color: var(--text-medium);
+    margin-bottom: 24px;
+    font-size: 16px;
+  }
+  
+  .cta-buttons {
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  
+  .coming-soon-badge {
+    display: inline-block;
+    background: linear-gradient(135deg, #B794F6, #9F7AEA);
+    color: white;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    margin-left: 8px;
+    vertical-align: middle;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="showcase-hero">
+  <h1>📖 Ultra Voices for Storytelling</h1>
+  <p>Create captivating audiobooks, narrations, and long-form stories with our advanced AI voice technology. Perfect for authors, content creators, and storytellers.</p>
+</div>
+
+<!-- Why Ultra Voices for Storytelling -->
+<div class="feature-grid">
+  <div class="feature-card">
+    <div class="icon">🎭</div>
+    <h3>Emotional Expression</h3>
+    <p>Advanced neural voice synthesis captures subtle emotions - from whispered secrets to triumphant declarations. Your stories come alive.</p>
+  </div>
+  
+  <div class="feature-card">
+    <div class="icon">📚</div>
+    <h3>Long-Form Optimized</h3>
+    <p>Designed for extended content. Generate hours of consistent, natural-sounding narration without fatigue or quality degradation.</p>
+  </div>
+  
+  <div class="feature-card">
+    <div class="icon">🎚️</div>
+    <h3>Fine-Tuned Control</h3>
+    <p>Adjust exaggeration, pacing, and tone for each section. Create the perfect dramatic pause or exciting climax.</p>
+  </div>
+  
+  <div class="feature-card">
+    <div class="icon">👥</div>
+    <h3>Multi-Character Support</h3>
+    <p>Assign different voices to characters using [Emily]: [Michael]: format. Perfect for dialogue-heavy narratives.</p>
+  </div>
+  
+  <div class="feature-card">
+    <div class="icon">⚡</div>
+    <h3>Chunk-by-Chunk Editing</h3>
+    <p>Break your story into sections and fine-tune each one separately. Preview chunks before generating the full audio.</p>
+  </div>
+  
+  <div class="feature-card">
+    <div class="icon">🎧</div>
+    <h3>Broadcast Quality</h3>
+    <p>High-fidelity audio output suitable for podcasts, YouTube, Audible, and professional distribution.</p>
+  </div>
+</div>
+
+<!-- Audio Samples -->
+<div class="sample-section">
+  <h2>🎧 Hear The <span>Difference</span></h2>
+  <div class="sample-grid">
+    <div class="sample-card">
+      <span class="category">📖 Audiobook Sample</span>
+      <h4>5-Minute Story Demo</h4>
+      <p>A complete narration showcasing emotional range, pacing, and natural voice flow.</p>
+      <audio controls preload="metadata">
+        <source src="{{ url_for('static', filename='5 Min Audio.mp3') }}" type="audio/mpeg">
+        Your browser does not support audio.
+      </audio>
+    </div>
+    
+    <div class="sample-card">
+      <span class="category">🎭 Emotional Range</span>
+      <h4>Coming Soon</h4>
+      <p>Demonstration of different emotional presets: dramatic, cheerful, suspenseful, and more.</p>
+      <div style="background: #f3f4f6; padding: 24px; border-radius: 10px; text-align: center; color: var(--text-light);">
+        <span style="font-size: 24px;">🎙️</span><br>
+        <span style="font-size: 12px;">Sample coming soon</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Perfect For -->
+<div class="use-case-section">
+  <h2>Perfect For</h2>
+  <div class="use-case-grid">
+    <div class="use-case-item">
+      <div class="emoji">📖</div>
+      <h4>Audiobooks</h4>
+      <p>Full-length book narration</p>
+    </div>
+    <div class="use-case-item">
+      <div class="emoji">🎙️</div>
+      <h4>Podcasts</h4>
+      <p>Scripted show narration</p>
+    </div>
+    <div class="use-case-item">
+      <div class="emoji">📺</div>
+      <h4>YouTube</h4>
+      <p>Documentary voiceovers</p>
+    </div>
+    <div class="use-case-item">
+      <div class="emoji">📝</div>
+      <h4>Blog to Audio</h4>
+      <p>Convert articles to audio</p>
+    </div>
+    <div class="use-case-item">
+      <div class="emoji">🎮</div>
+      <h4>Game Narration</h4>
+      <p>Story-driven game audio</p>
+    </div>
+    <div class="use-case-item">
+      <div class="emoji">🎓</div>
+      <h4>Educational</h4>
+      <p>Course narration</p>
+    </div>
+  </div>
+</div>
+
+<!-- Comparison -->
+<div class="comparison-box">
+  <h2>✅ Why Ultra Voices for Narration?</h2>
+  <table class="comparison-table">
+    <thead>
+      <tr>
+        <th>Feature</th>
+        <th>Ultra Voices</th>
+        <th>Edge TTS</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Voice Quality</td>
+        <td><span class="check">✓</span> Studio-grade neural voices</td>
+        <td>Good quality voices</td>
+      </tr>
+      <tr>
+        <td>Emotional Control</td>
+        <td><span class="check">✓</span> Fine-tuned exaggeration & tone</td>
+        <td>Limited style presets</td>
+      </tr>
+      <tr>
+        <td>Long-Form Content</td>
+        <td><span class="check">✓</span> Optimized for hours of audio</td>
+        <td>Character limits apply</td>
+      </tr>
+      <tr>
+        <td>Consistency</td>
+        <td><span class="check">✓</span> Same voice quality throughout</td>
+        <td>May vary in long content</td>
+      </tr>
+      <tr>
+        <td>Per-Chunk Control</td>
+        <td><span class="check">✓</span> Edit each section individually</td>
+        <td><span class="cross">✗</span> No chunk editing</td>
+      </tr>
+      <tr>
+        <td>Best For</td>
+        <td><strong>Audiobooks, Stories, Narration</strong></td>
+        <td>Quick TTS, Multi-language</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- Coming Soon: Multi-Speaker Dialogue -->
+<div class="sample-section" style="background: linear-gradient(135deg, #EDE9FE, #DDD6FE); border-color: #A78BFA;">
+  <h2 style="color: #7C3AED;">🎬 Coming Soon: HiggsAudio <span class="coming-soon-badge">PREMIUM</span></h2>
+  <p style="text-align: center; color: #6D28D9; max-width: 600px; margin: 0 auto 24px;">
+    For creators who need <strong>premium multi-speaker dialogue</strong> with distinct character voices, we're adding HiggsAudio - the ultimate solution for podcasts, interviews, and dramatic productions.
+  </p>
+  <div class="use-case-grid">
+    <div class="use-case-item" style="background: white;">
+      <div class="emoji">🎭</div>
+      <h4>Dramatic Dialogues</h4>
+      <p>Distinct character voices</p>
+    </div>
+    <div class="use-case-item" style="background: white;">
+      <div class="emoji">🎙️</div>
+      <h4>Podcast Conversations</h4>
+      <p>Natural back-and-forth</p>
+    </div>
+    <div class="use-case-item" style="background: white;">
+      <div class="emoji">📻</div>
+      <h4>Radio Plays</h4>
+      <p>Full cast productions</p>
+    </div>
+    <div class="use-case-item" style="background: white;">
+      <div class="emoji">🎬</div>
+      <h4>Video Scripts</h4>
+      <p>Multiple narrator voices</p>
+    </div>
+  </div>
+</div>
+
+<!-- CTA -->
+<div class="cta-section">
+  <h2>Ready to Create Your Audiobook?</h2>
+  <p>Start generating professional-quality narration today.</p>
+  <div class="cta-buttons">
+    {% if current_user.is_authenticated %}
+      {% if current_user.has_premium %}
+        <a href="{{ url_for('dashboard') }}" class="btn primary" style="padding: 16px 32px; font-size: 16px;">🎙️ Open Ultra Voices</a>
+      {% else %}
+        <a href="{{ url_for('subscribe') }}" class="btn primary" style="padding: 16px 32px; font-size: 16px;">✨ Upgrade to Premium</a>
+        <a href="{{ url_for('dashboard') }}" class="btn" style="padding: 16px 32px; font-size: 16px;">Try Edge TTS Free</a>
+      {% endif %}
+    {% else %}
+      <a href="{{ url_for('signup') }}" class="btn primary" style="padding: 16px 32px; font-size: 16px;">🚀 Get Started</a>
+      <a href="{{ url_for('login') }}" class="btn" style="padding: 16px 32px; font-size: 16px;">Sign In</a>
+    {% endif %}
+  </div>
+</div>
+
+<div style="text-align: center; padding-top: 10px;">
+  <a href="{{ url_for('dashboard') }}" style="color: var(--text-medium); font-size: 14px;">← Back to Dashboard</a>
+</div>
+{% endblock %}
