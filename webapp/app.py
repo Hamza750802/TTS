@@ -4823,6 +4823,7 @@ def admin_grant_access(email):
         stripe: 'true' to simulate Stripe customer
         password: Custom password to set
         api_tier: 'starter' | 'pro' | 'enterprise' to grant API access
+        indextts: 'indextts' | 'indextts_plus' | 'indextts_pro' to grant IndexTTS access
     """
     # Security check - only accessible with admin password
     admin_pass = request.args.get('key')
@@ -4834,6 +4835,7 @@ def admin_grant_access(email):
         simulate_stripe = request.args.get('stripe', '').lower() == 'true'
         custom_password = request.args.get('password', None)
         api_tier = request.args.get('api_tier', None)  # Grant API access
+        indextts_tier = request.args.get('indextts', None)  # Grant IndexTTS access
         
         user = User.query.filter_by(email=email).first()
         if not user:
@@ -4844,6 +4846,9 @@ def admin_grant_access(email):
                 user.stripe_customer_id = 'cus_test_' + email.split('@')[0]
             if api_tier in ('starter', 'pro', 'enterprise'):
                 user.api_tier = api_tier
+            if indextts_tier in ('indextts', 'indextts_plus', 'indextts_pro'):
+                user.indextts_tier = indextts_tier
+                user.indextts_chars_used = 0
             # Set password
             import secrets
             password = custom_password if custom_password else secrets.token_urlsafe(16)
@@ -4853,12 +4858,13 @@ def admin_grant_access(email):
             
             return jsonify({
                 'success': True, 
-                'message': f'User created and unlimited access granted to {email}' + (' (with Stripe simulation)' if simulate_stripe else '') + (f' (API: {api_tier})' if api_tier else ''),
+                'message': f'User created and unlimited access granted to {email}' + (' (with Stripe simulation)' if simulate_stripe else '') + (f' (API: {api_tier})' if api_tier else '') + (f' (IndexTTS: {indextts_tier})' if indextts_tier else ''),
                 'user': {
                     'email': user.email,
                     'password': password if custom_password else 'Random password set - use forgot password to reset',
                     'subscription_status': user.subscription_status,
                     'api_tier': user.api_tier,
+                    'indextts_tier': user.indextts_tier,
                     'stripe_customer_id': user.stripe_customer_id,
                     'created_at': user.created_at.isoformat()
                 }
@@ -4870,18 +4876,22 @@ def admin_grant_access(email):
             user.stripe_customer_id = 'cus_test_' + email.split('@')[0]
         if api_tier in ('starter', 'pro', 'enterprise'):
             user.api_tier = api_tier
+        if indextts_tier in ('indextts', 'indextts_plus', 'indextts_pro'):
+            user.indextts_tier = indextts_tier
+            user.indextts_chars_used = 0
         if custom_password:
             user.set_password(custom_password)
         db.session.commit()
         
         return jsonify({
             'success': True, 
-            'message': f'Unlimited access granted to {email}' + (' (with Stripe simulation)' if simulate_stripe else '') + (f' (API: {api_tier})' if api_tier else ''),
+            'message': f'Unlimited access granted to {email}' + (' (with Stripe simulation)' if simulate_stripe else '') + (f' (API: {api_tier})' if api_tier else '') + (f' (IndexTTS: {indextts_tier})' if indextts_tier else ''),
             'user': {
                 'email': user.email,
                 'password_updated': bool(custom_password),
                 'subscription_status': user.subscription_status,
                 'api_tier': user.api_tier,
+                'indextts_tier': user.indextts_tier,
                 'stripe_customer_id': user.stripe_customer_id,
                 'created_at': user.created_at.isoformat()
             }
