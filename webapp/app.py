@@ -3888,8 +3888,11 @@ def api_vibevoice_generate():
         
         print(f"[VibeVoice] Processing {len(segments)} segments, multi-speaker={has_multiple_speakers}")
         
-        # Use batch endpoint for multiple segments
-        if len(segments) > 1:
+        # Use sequential generation for reliability (batch can timeout on long dialogues)
+        # Only use batch for small requests (5 segments or less)
+        MAX_BATCH_SEGMENTS = 5
+        
+        if len(segments) > 1 and len(segments) <= MAX_BATCH_SEGMENTS:
             try:
                 print(f"[VibeVoice] Using batch generation for {len(segments)} segments")
                 
@@ -3909,6 +3912,8 @@ def api_vibevoice_generate():
                 print(f"[VibeVoice] Batch generation failed: {e}, falling back to sequential")
                 final_audio = None
         else:
+            if len(segments) > MAX_BATCH_SEGMENTS:
+                print(f"[VibeVoice] Too many segments ({len(segments)}) for batch, using sequential")
             final_audio = None
         
         # Sequential generation (single segment or batch fallback)

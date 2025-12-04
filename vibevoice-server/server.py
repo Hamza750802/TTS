@@ -260,16 +260,33 @@ def generate_audio(text: str, voice: str, cfg_scale: float = 1.5, inference_step
     # Get audio
     if outputs.speech_outputs and outputs.speech_outputs[0] is not None:
         audio = outputs.speech_outputs[0]
+        
+        # Debug: print the shape/type of audio
         if torch.is_tensor(audio):
+            print(f"[VibeVoice] Audio tensor shape: {audio.shape}, dtype: {audio.dtype}")
+            # Get sample count from last dimension (may be multi-dimensional)
+            audio_samples = audio.shape[-1] if len(audio.shape) > 0 else 0
             audio = audio.detach().cpu().to(torch.float32).numpy()
+            # Flatten if needed
+            if audio.ndim > 1:
+                audio = audio.reshape(-1)
+        else:
+            audio_samples = len(audio) if hasattr(audio, '__len__') else 0
+        
+        # Check if audio is valid (not empty)
+        if audio.size == 0 or audio_samples < 100:
+            print(f"[VibeVoice] WARNING: Generated empty/tiny audio ({audio_samples} samples)")
+            raise RuntimeError(f"Model generated empty audio for text: {text[:50]}...")
         
         audio_duration = len(audio) / SAMPLE_RATE
-        print(f"[VibeVoice] Generated {audio_duration:.2f}s audio in {gen_time:.2f}s (RTF: {gen_time/audio_duration:.2f}x)")
+        rtf = gen_time / audio_duration if audio_duration > 0 else 0
+        print(f"[VibeVoice] Generated {audio_duration:.2f}s audio ({len(audio)} samples) in {gen_time:.2f}s (RTF: {rtf:.2f}x)")
         
         # Convert to WAV
         wav_bytes = numpy_to_wav(audio, SAMPLE_RATE)
         return wav_bytes
     else:
+        print(f"[VibeVoice] ERROR: No speech_outputs returned for text: {text[:50]}...")
         raise RuntimeError("No audio generated")
 
 
