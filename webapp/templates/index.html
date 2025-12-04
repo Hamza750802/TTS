@@ -1118,31 +1118,101 @@
           </div>
         </div>
 
-        <!-- IndexTTS2 Native Controls -->
+        <!-- IndexTTS2 Settings -->
         <div class="form-section">
-          <div class="section-title">Voice Settings</div>
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-            <div class="input-group">
-              <label for="indexttsEmoAlpha">Emotion Intensity: <span id="indexttsEmoAlphaValue">0.6</span></label>
-              <input type="range" id="indexttsEmoAlpha" min="0" max="1" step="0.1" value="0.6" oninput="document.getElementById('indexttsEmoAlphaValue').textContent = this.value" style="width: 100%;">
-              <p style="font-size: 11px; color: #999; margin-top: 4px;">0 = neutral, 1 = maximum emotion</p>
-            </div>
-            <div class="input-group">
-              <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                <input type="checkbox" id="indexttsUseRandom" style="width: 18px; height: 18px;">
-                <span>Enable Variation</span>
+          <div class="section-title">Settings</div>
+          
+          <!-- Emotion Control Method -->
+          <div class="input-group">
+            <label>Emotion control method</label>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px;">
+              <label style="display: flex; align-items: center; gap: 6px; padding: 8px 14px; background: #f0f0f0; border-radius: 8px; cursor: pointer;">
+                <input type="radio" name="indexttsEmoMethod" value="voice" checked style="margin: 0;">
+                <span style="font-size: 13px;">Same as the voice reference</span>
               </label>
-              <p style="font-size: 11px; color: #999; margin-top: 4px;">Adds natural variation to speech</p>
+              <label style="display: flex; align-items: center; gap: 6px; padding: 8px 14px; background: #f0f0f0; border-radius: 8px; cursor: pointer;">
+                <input type="radio" name="indexttsEmoMethod" value="vectors" style="margin: 0;">
+                <span style="font-size: 13px;">Use emotion vectors</span>
+              </label>
             </div>
           </div>
+          
+          <!-- Randomize Emotion Sampling -->
           <div class="input-group" style="margin-top: 12px;">
             <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-              <input type="checkbox" id="indexttsUseEmoText" onchange="document.getElementById('indexttsEmoTextGroup').style.display = this.checked ? 'block' : 'none'" style="width: 18px; height: 18px;">
-              <span>Use Emotion Description</span>
+              <input type="checkbox" id="indexttsRandomize" style="width: 18px; height: 18px;">
+              <span>Randomize emotion sampling</span>
             </label>
-            <div id="indexttsEmoTextGroup" style="display: none; margin-top: 8px;">
-              <input type="text" id="indexttsEmoText" placeholder="e.g., excited and happy, calm and soothing, angry and frustrated" style="width: 100%; padding: 10px 14px; border: 2px solid #DFE6E9; border-radius: 10px; font-size: 14px;">
-              <p style="font-size: 11px; color: #999; margin-top: 4px;">Describe the emotion you want in the voice</p>
+          </div>
+        </div>
+        
+        <!-- Emotion Vectors (shown when "Use emotion vectors" is selected) -->
+        <div class="form-section" id="indexttsEmotionVectors" style="display: none;">
+          <div class="section-title">Emotion Vectors</div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+            <!-- Happy -->
+            <div class="input-group">
+              <label style="display: flex; justify-content: space-between;">
+                <span>Happy</span>
+                <span id="indexttsHappyVal">0</span>
+              </label>
+              <input type="range" id="indexttsHappy" min="0" max="1" step="0.1" value="0" oninput="document.getElementById('indexttsHappyVal').textContent = this.value" style="width: 100%;">
+            </div>
+            <!-- Disgusted -->
+            <div class="input-group">
+              <label style="display: flex; justify-content: space-between;">
+                <span>Disgusted</span>
+                <span id="indexttsDisgustedVal">0</span>
+              </label>
+              <input type="range" id="indexttsDisgusted" min="0" max="1" step="0.1" value="0" oninput="document.getElementById('indexttsDisgustedVal').textContent = this.value" style="width: 100%;">
+            </div>
+            <!-- Angry -->
+            <div class="input-group">
+              <label style="display: flex; justify-content: space-between;">
+                <span>Angry</span>
+                <span id="indexttsAngryVal">0</span>
+              </label>
+              <input type="range" id="indexttsAngry" min="0" max="1" step="0.1" value="0" oninput="document.getElementById('indexttsAngryVal').textContent = this.value" style="width: 100%;">
+            </div>
+            <!-- Melancholic -->
+            <div class="input-group">
+              <label style="display: flex; justify-content: space-between;">
+                <span>Melancholic</span>
+                <span id="indexttsMelancholicVal">0</span>
+              </label>
+              <input type="range" id="indexttsMelancholic" min="0" max="1" step="0.1" value="0" oninput="document.getElementById('indexttsMelancholicVal').textContent = this.value" style="width: 100%;">
+            </div>
+            <!-- Sad -->
+            <div class="input-group">
+              <label style="display: flex; justify-content: space-between;">
+                <span>Sad</span>
+                <span id="indexttsSadVal">0</span>
+              </label>
+              <input type="range" id="indexttsSad" min="0" max="1" step="0.1" value="0" oninput="document.getElementById('indexttsSadVal').textContent = this.value" style="width: 100%;">
+            </div>
+            <!-- Surprised -->
+            <div class="input-group">
+              <label style="display: flex; justify-content: space-between;">
+                <span>Surprised</span>
+                <span id="indexttsSurprisedVal">0</span>
+              </label>
+              <input type="range" id="indexttsSurprised" min="0" max="1" step="0.1" value="0" oninput="document.getElementById('indexttsSurprisedVal').textContent = this.value" style="width: 100%;">
+            </div>
+            <!-- Afraid -->
+            <div class="input-group">
+              <label style="display: flex; justify-content: space-between;">
+                <span>Afraid</span>
+                <span id="indexttsAfraidVal">0</span>
+              </label>
+              <input type="range" id="indexttsAfraid" min="0" max="1" step="0.1" value="0" oninput="document.getElementById('indexttsAfraidVal').textContent = this.value" style="width: 100%;">
+            </div>
+            <!-- Calm -->
+            <div class="input-group">
+              <label style="display: flex; justify-content: space-between;">
+                <span>Calm</span>
+                <span id="indexttsCalmVal">0</span>
+              </label>
+              <input type="range" id="indexttsCalm" min="0" max="1" step="0.1" value="0" oninput="document.getElementById('indexttsCalmVal').textContent = this.value" style="width: 100%;">
             </div>
           </div>
         </div>
@@ -1731,10 +1801,23 @@
     
     const text = document.getElementById('indexttsText').value.trim();
     const voice = document.getElementById('indexttsVoice').value;
-    const emoAlpha = parseFloat(document.getElementById('indexttsEmoAlpha')?.value || 0.6);
-    const useRandom = document.getElementById('indexttsUseRandom')?.checked || false;
-    const useEmoText = document.getElementById('indexttsUseEmoText')?.checked || false;
-    const emoText = document.getElementById('indexttsEmoText')?.value || '';
+    const emoMethod = document.querySelector('input[name="indexttsEmoMethod"]:checked')?.value || 'voice';
+    const useRandom = document.getElementById('indexttsRandomize')?.checked || false;
+    
+    // Build emotion vector if using emotion vectors method
+    let emoVector = null;
+    if (emoMethod === 'vectors') {
+      emoVector = [
+        parseFloat(document.getElementById('indexttsHappy')?.value || 0),
+        parseFloat(document.getElementById('indexttsAngry')?.value || 0),
+        parseFloat(document.getElementById('indexttsSad')?.value || 0),
+        parseFloat(document.getElementById('indexttsAfraid')?.value || 0),
+        parseFloat(document.getElementById('indexttsDisgusted')?.value || 0),
+        parseFloat(document.getElementById('indexttsMelancholic')?.value || 0),
+        parseFloat(document.getElementById('indexttsSurprised')?.value || 0),
+        parseFloat(document.getElementById('indexttsCalm')?.value || 0)
+      ];
+    }
     
     const generateBtn = document.getElementById('indexttsGenerateBtn');
     const status = document.getElementById('indexttsStatus');
@@ -1765,13 +1848,11 @@
       const requestBody = {
         text: text,
         voice: voice,
-        emo_alpha: emoAlpha,
         use_random: useRandom
       };
       
-      if (useEmoText && emoText) {
-        requestBody.use_emo_text = true;
-        requestBody.emo_text = emoText;
+      if (emoVector) {
+        requestBody.emo_vector = emoVector;
       }
       
       const response = await fetch('/api/indextts/generate', {
@@ -1814,6 +1895,16 @@
       generateBtn.disabled = false;
       generateBtn.textContent = '🎯 Generate Studio Audio';
     }
+  });
+  
+  // Toggle emotion vectors visibility based on selected method
+  document.querySelectorAll('input[name="indexttsEmoMethod"]').forEach(radio => {
+    radio.addEventListener('change', function() {
+      const vectorsSection = document.getElementById('indexttsEmotionVectors');
+      if (vectorsSection) {
+        vectorsSection.style.display = this.value === 'vectors' ? 'block' : 'none';
+      }
+    });
   });
   
   // Load IndexTTS2 voices when page loads
