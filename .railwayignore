@@ -1,0 +1,23 @@
+# Don't deploy these to Railway
+.git/
+.github/
+.venv/
+mobile/
+higgs-server/
+indextts-server/
+chatterbox-server/
+tests/
+examples/
+backups/
+*.md
+!webapp/README.md
+.env.example
+*.sh
+*.bat
+mypy.ini
+pylintrc
+setup.cfg
+setup.py
+.isort.cfg
+instance/
+New folder/
