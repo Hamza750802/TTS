@@ -2167,51 +2167,88 @@ Emotions: happy, angry, sad, afraid, disgusted, melancholic, surprised, calm"></
     const voiceSelect = document.getElementById('indexttsVoice');
     const voiceOptions = voiceSelect ? voiceSelect.innerHTML : '';
     
-    container.innerHTML = indexttsChunks.map((chunk, idx) => `
+    // Get primary emotion for each chunk
+    const getActiveEmotion = (emotions) => {
+      const emos = ['happy', 'angry', 'sad', 'afraid', 'disgusted', 'melancholic', 'surprised', 'calm'];
+      for (const e of emos) {
+        if (emotions[e] > 0) return { name: e, intensity: emotions[e] };
+      }
+      return { name: 'none', intensity: 0 };
+    };
+    
+    container.innerHTML = indexttsChunks.map((chunk, idx) => {
+      const activeEmo = getActiveEmotion(chunk.emotions);
+      return `
       <div class="chunk-item" style="background: white; border: 2px solid rgba(6,182,212,0.3); border-radius: 12px; padding: 16px; transition: all 0.2s;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
           <span style="font-weight: 600; color: #06b6d4;">📝 Chunk ${chunk.id}</span>
-          <div style="display: flex; gap: 8px;">
-            <button type="button" onclick="indextts_removeChunk(${idx})" style="background: #e74c3c; color: white; border: none; border-radius: 6px; padding: 4px 8px; cursor: pointer; font-size: 12px;">✕</button>
-          </div>
+          <button type="button" onclick="indextts_removeChunk(${idx})" style="background: #e74c3c; color: white; border: none; border-radius: 6px; padding: 4px 10px; cursor: pointer; font-size: 12px;">✕</button>
         </div>
         
         <!-- Text -->
         <textarea id="chunk_text_${idx}" rows="2" style="width: 100%; border: 1px solid #DFE6E9; border-radius: 8px; padding: 10px; font-size: 14px; margin-bottom: 12px; resize: vertical;">${chunk.text}</textarea>
         
-        <!-- Voice Selection -->
-        <div style="margin-bottom: 12px;">
-          <label style="font-size: 12px; color: #636E72; font-weight: 500;">Voice:</label>
-          <select id="chunk_voice_${idx}" style="width: 100%; padding: 8px; border: 1px solid #DFE6E9; border-radius: 8px; font-size: 13px;">
-            ${voiceOptions}
-          </select>
-        </div>
-        
-        <!-- Emotion Sliders (Compact) -->
-        <div style="background: rgba(6,182,212,0.05); border-radius: 8px; padding: 12px;">
-          <div style="font-size: 12px; color: #636E72; font-weight: 500; margin-bottom: 8px;">🎭 Emotions:</div>
-          <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;">
-            ${['happy', 'angry', 'sad', 'afraid', 'disgusted', 'melancholic', 'surprised', 'calm'].map(emo => `
-              <div>
-                <label style="font-size: 10px; color: #999; display: flex; justify-content: space-between;">
-                  <span>${emo.charAt(0).toUpperCase() + emo.slice(1)}</span>
-                  <span id="chunk_${emo}_val_${idx}">${chunk.emotions[emo]}</span>
-                </label>
-                <input type="range" id="chunk_${emo}_${idx}" min="0" max="1" step="0.1" value="${chunk.emotions[emo]}" 
-                       oninput="document.getElementById('chunk_${emo}_val_${idx}').textContent = this.value"
-                       style="width: 100%; height: 4px;">
-              </div>
-            `).join('')}
+        <!-- Voice + Emotion Row -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+          <!-- Voice -->
+          <div>
+            <label style="font-size: 11px; color: #636E72; font-weight: 500;">🎙️ Voice</label>
+            <select id="chunk_voice_${idx}" style="width: 100%; padding: 8px; border: 1px solid #DFE6E9; border-radius: 8px; font-size: 13px; margin-top: 4px;">
+              ${voiceOptions}
+            </select>
+          </div>
+          <!-- Emotion -->
+          <div>
+            <label style="font-size: 11px; color: #636E72; font-weight: 500;">🎭 Emotion</label>
+            <select id="chunk_emotion_${idx}" onchange="indextts_updateEmotionSlider(${idx})" style="width: 100%; padding: 8px; border: 1px solid #DFE6E9; border-radius: 8px; font-size: 13px; margin-top: 4px;">
+              <option value="none" ${activeEmo.name === 'none' ? 'selected' : ''}>None (Neutral)</option>
+              <option value="happy" ${activeEmo.name === 'happy' ? 'selected' : ''}>😊 Happy</option>
+              <option value="angry" ${activeEmo.name === 'angry' ? 'selected' : ''}>😠 Angry</option>
+              <option value="sad" ${activeEmo.name === 'sad' ? 'selected' : ''}>😢 Sad</option>
+              <option value="afraid" ${activeEmo.name === 'afraid' ? 'selected' : ''}>😨 Afraid</option>
+              <option value="disgusted" ${activeEmo.name === 'disgusted' ? 'selected' : ''}>🤢 Disgusted</option>
+              <option value="melancholic" ${activeEmo.name === 'melancholic' ? 'selected' : ''}>😔 Melancholic</option>
+              <option value="surprised" ${activeEmo.name === 'surprised' ? 'selected' : ''}>😲 Surprised</option>
+              <option value="calm" ${activeEmo.name === 'calm' ? 'selected' : ''}>😌 Calm</option>
+            </select>
           </div>
         </div>
+        
+        <!-- Intensity Slider (hidden if no emotion) -->
+        <div id="chunk_intensity_container_${idx}" style="display: ${activeEmo.name !== 'none' ? 'block' : 'none'}; background: rgba(6,182,212,0.05); border-radius: 8px; padding: 12px;">
+          <label style="font-size: 12px; color: #636E72; font-weight: 500; display: flex; justify-content: space-between;">
+            <span>Intensity</span>
+            <span id="chunk_intensity_val_${idx}">${activeEmo.intensity}</span>
+          </label>
+          <input type="range" id="chunk_intensity_${idx}" min="0" max="1" step="0.1" value="${activeEmo.intensity}" 
+                 oninput="document.getElementById('chunk_intensity_val_${idx}').textContent = this.value"
+                 style="width: 100%; margin-top: 6px;">
+        </div>
       </div>
-    `).join('');
+    `}).join('');
     
     // Set correct voice for each chunk
     indexttsChunks.forEach((chunk, idx) => {
       const voiceEl = document.getElementById(`chunk_voice_${idx}`);
       if (voiceEl) voiceEl.value = chunk.voice;
     });
+  }
+  
+  function indextts_updateEmotionSlider(idx) {
+    const emotionEl = document.getElementById(`chunk_emotion_${idx}`);
+    const containerEl = document.getElementById(`chunk_intensity_container_${idx}`);
+    const intensityEl = document.getElementById(`chunk_intensity_${idx}`);
+    
+    if (emotionEl.value === 'none') {
+      containerEl.style.display = 'none';
+      intensityEl.value = 0;
+    } else {
+      containerEl.style.display = 'block';
+      if (parseFloat(intensityEl.value) === 0) {
+        intensityEl.value = 0.8;
+        document.getElementById(`chunk_intensity_val_${idx}`).textContent = '0.8';
+      }
+    }
   }
   
   function indextts_removeChunk(idx) {
@@ -2237,15 +2274,20 @@ Emotions: happy, angry, sad, afraid, disgusted, melancholic, surprised, calm"></
     return indexttsChunks.map((chunk, idx) => {
       const text = document.getElementById(`chunk_text_${idx}`)?.value.trim() || chunk.text;
       const voice = document.getElementById(`chunk_voice_${idx}`)?.value || chunk.voice;
-      const emotions = {};
-      ['happy', 'angry', 'sad', 'afraid', 'disgusted', 'melancholic', 'surprised', 'calm'].forEach(emo => {
-        emotions[emo] = parseFloat(document.getElementById(`chunk_${emo}_${idx}`)?.value || 0);
-      });
+      const emotion = document.getElementById(`chunk_emotion_${idx}`)?.value || 'none';
+      const intensity = parseFloat(document.getElementById(`chunk_intensity_${idx}`)?.value || 0);
+      
+      // Build emotion vector [happy, angry, sad, afraid, disgusted, melancholic, surprised, calm]
+      const emoVector = [0, 0, 0, 0, 0, 0, 0, 0];
+      const emoIndex = { happy: 0, angry: 1, sad: 2, afraid: 3, disgusted: 4, melancholic: 5, surprised: 6, calm: 7 };
+      if (emotion !== 'none' && emoIndex[emotion] !== undefined) {
+        emoVector[emoIndex[emotion]] = intensity;
+      }
       
       return {
         text: text,
         voice: voice,
-        emo_vector: [emotions.happy, emotions.angry, emotions.sad, emotions.afraid, emotions.disgusted, emotions.melancholic, emotions.surprised, emotions.calm]
+        emo_vector: emoVector
       };
     }).filter(c => c.text);
   }
