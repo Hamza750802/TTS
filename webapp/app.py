@@ -3099,7 +3099,7 @@ def api_premium_voices():
 
 # ==================== IndexTTS2 API Endpoints ====================
 
-def generate_indextts_audio(text, voice, emo_alpha=0.6, use_emo_text=False, emo_text=None, emo_vector=None, use_random=False):
+def generate_indextts_audio(text, voice, emo_vector=None, use_random=False):
     """
     Call the IndexTTS2 server /generate endpoint.
     Returns audio bytes (WAV) or raises exception.
@@ -3107,26 +3107,19 @@ def generate_indextts_audio(text, voice, emo_alpha=0.6, use_emo_text=False, emo_
     Parameters:
     - text: The text to synthesize
     - voice: Voice name (e.g., 'Emily', 'Michael')
-    - emo_alpha: Emotion intensity (0.0-1.0, default 0.6)
-    - use_emo_text: Use text content to infer emotion
-    - emo_text: Separate emotion description
     - emo_vector: [happy, angry, sad, afraid, disgusted, melancholic, surprised, calm]
     - use_random: Enable stochastic sampling
     """
     payload = {
         'text': text,
         'voice': voice,
-        'emo_alpha': emo_alpha,
-        'use_emo_text': use_emo_text,
         'use_random': use_random
     }
     
-    if emo_text:
-        payload['emo_text'] = emo_text
     if emo_vector:
         payload['emo_vector'] = emo_vector
     
-    print(f"[IndexTTS2] Generating: voice={voice}, emo_alpha={emo_alpha}, text_len={len(text)}")
+    print(f"[IndexTTS2] Generating: voice={voice}, text_len={len(text)}, emo_vector={emo_vector is not None}")
     
     response = requests.post(
         f'{INDEXTTS_URL}/generate',
@@ -3209,21 +3202,25 @@ def api_indextts_generate():
         
         text = (data.get('text', '') or '').strip()
         voice = data.get('voice', 'Emily')
-        emo_alpha = float(data.get('emo_alpha', 0.6))
-        use_emo_text = bool(data.get('use_emo_text', False))
-        emo_text = data.get('emo_text')
-        emo_vector = data.get('emo_vector')
+        emo_vector = data.get('emo_vector')  # Global emotion vector (for non-chunked)
         use_random = bool(data.get('use_random', False))
         
-        if not text:
+        # Support for pre-chunked segments with per-chunk emotions
+        # Each segment: { voice, text, emo_vector (optional) }
+        pre_segments = data.get('segments')
+        
+        if not text and not pre_segments:
             return jsonify({'success': False, 'error': 'No text provided'}), 400
         
-        if len(text) > 100000:
-            return jsonify({'success': False, 'error': 'Text too long (max 100,000 chars)'}), 400
+        # Calculate character count
+        if pre_segments:
+            char_count = sum(len(s.get('text', '')) for s in pre_segments)
+        else:
+            plain_text = re.sub(r'\[([\w]+)\]:\s*', '', text)
+            char_count = len(plain_text)
         
-        # Calculate character count (strip speaker tags)
-        plain_text = re.sub(r'\[([\w]+)\]:\s*', '', text)
-        char_count = len(plain_text)
+        if char_count > 100000:
+            return jsonify({'success': False, 'error': 'Text too long (max 100,000 chars)'}), 400
         
         # Check IndexTTS2 subscription and usage
         if not current_user.has_indextts:
@@ -3249,45 +3246,69 @@ def api_indextts_generate():
         
         db.session.commit()
         
-        # Parse multi-speaker segments [Emily]: [Michael]: format
+        # Build segments list
         segments = []
-        speaker_pattern = r'\[(\w+)\]:\s*'
-        parts = re.split(speaker_pattern, text)
         
-        # First part before any tag
-        if parts[0].strip():
-            segments.append((voice, parts[0].strip()))
-        
-        # Process speaker:text pairs
-        for i in range(1, len(parts), 2):
-            speaker_voice = parts[i]
-            if i + 1 < len(parts):
-                seg_text = parts[i + 1].strip()
+        if pre_segments:
+            # Use pre-chunked segments with per-chunk emotions
+            for seg in pre_segments:
+                seg_voice = seg.get('voice', voice)
+                seg_text = (seg.get('text', '') or '').strip()
+                seg_emo_vector = seg.get('emo_vector')  # Per-chunk emotion
                 if seg_text:
-                    segments.append((speaker_voice, seg_text))
+                    segments.append({
+                        'voice': seg_voice,
+                        'text': seg_text,
+                        'emo_vector': seg_emo_vector
+                    })
+        else:
+            # Parse multi-speaker segments [Emily]: [Michael]: format
+            speaker_pattern = r'\[(\w+)\]:\s*'
+            parts = re.split(speaker_pattern, text)
+            
+            # First part before any tag
+            if parts[0].strip():
+                segments.append({
+                    'voice': voice,
+                    'text': parts[0].strip(),
+                    'emo_vector': emo_vector
+                })
+            
+            # Process speaker:text pairs
+            for i in range(1, len(parts), 2):
+                speaker_voice = parts[i]
+                if i + 1 < len(parts):
+                    seg_text = parts[i + 1].strip()
+                    if seg_text:
+                        segments.append({
+                            'voice': speaker_voice,
+                            'text': seg_text,
+                            'emo_vector': emo_vector
+                        })
         
         # If no segments parsed, treat as single-voice
         if not segments:
-            segments = [(voice, text)]
+            segments = [{'voice': voice, 'text': text, 'emo_vector': emo_vector}]
         
-        has_multiple_speakers = len(set(s[0] for s in segments)) > 1
+        has_multiple_speakers = len(set(s['voice'] for s in segments)) > 1
         
         print(f"[IndexTTS2] Processing {len(segments)} segments, multi-speaker={has_multiple_speakers}")
         
         audio_chunks = []
         segment_stats = []
         
-        for idx, (seg_voice, seg_text) in enumerate(segments):
+        for idx, seg in enumerate(segments):
+            seg_voice = seg['voice']
+            seg_text = seg['text']
+            seg_emo_vector = seg.get('emo_vector')
+            
             print(f"[IndexTTS2] Segment {idx+1}/{len(segments)}: Voice={seg_voice}, {len(seg_text)} chars")
             
             try:
                 audio_data = generate_indextts_audio(
                     text=seg_text,
                     voice=seg_voice,
-                    emo_alpha=emo_alpha,
-                    use_emo_text=use_emo_text,
-                    emo_text=emo_text,
-                    emo_vector=emo_vector,
+                    emo_vector=seg_emo_vector,
                     use_random=use_random
                 )
                 audio_chunks.append(audio_data)

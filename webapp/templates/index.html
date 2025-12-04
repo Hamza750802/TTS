@@ -1217,6 +1217,31 @@
           </div>
         </div>
 
+        <!-- Split into Chunks Button -->
+        <div class="form-section">
+          <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+            <button type="button" id="indexttsSplitBtn" onclick="indextts_splitIntoChunks()" style="padding: 10px 20px; border-radius: 12px; border: 2px solid #06b6d4; background: transparent; color: #06b6d4; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s;">
+              ✂️ Split into Chunks
+            </button>
+            <button type="button" id="indexttsClearChunksBtn" onclick="indextts_clearChunks()" style="display: none; padding: 10px 16px; border-radius: 12px; border: 2px solid #e74c3c; background: transparent; color: #e74c3c; font-size: 13px; font-weight: 500; cursor: pointer;">
+              ✕ Back to Text
+            </button>
+            <span id="indexttsChunkIndicator" style="display: none; font-size: 12px; color: #06b6d4; font-weight: 500;">🎭 Per-chunk emotions active</span>
+          </div>
+          <p style="font-size: 11px; color: #999; margin-top: 8px;">Split text to set different emotions for each segment</p>
+        </div>
+        
+        <!-- Chunk Editor (hidden by default) -->
+        <div id="indexttsChunkEditor" style="display: none; margin-top: 16px;">
+          <div style="background: linear-gradient(135deg, rgba(6,182,212,0.1), rgba(8,145,178,0.1)); border-radius: 12px; padding: 16px; margin-bottom: 16px;">
+            <p style="font-size: 13px; color: #2D3436; margin: 0;">🎭 <strong>Per-Chunk Emotions:</strong> Each chunk can have its own voice and emotion settings.</p>
+          </div>
+          <div id="indexttsChunkList" style="display: flex; flex-direction: column; gap: 16px;"></div>
+          <button type="button" onclick="indextts_addChunk()" style="width: 100%; margin-top: 12px; padding: 12px; border: 2px dashed rgba(6,182,212,0.4); background: transparent; color: #06b6d4; font-size: 14px; font-weight: 500; border-radius: 10px; cursor: pointer; transition: all 0.2s;">
+            ➕ Add New Chunk
+          </button>
+        </div>
+
         <!-- Generate Button -->
         <button type="submit" id="indexttsGenerateBtn" style="width: 100%; padding: 16px; font-size: 16px; background: linear-gradient(135deg, #06b6d4, #0891b2); color: white; border: none; border-radius: 12px; font-weight: 600; cursor: pointer; box-shadow: 0 4px 16px rgba(6,182,212,0.3); transition: all 0.2s;">
           🎯 Generate Studio Audio
@@ -1824,6 +1849,66 @@
     const error = document.getElementById('indexttsError');
     const audioPlayer = document.getElementById('indexttsAudioPlayer');
     
+    // Check if in chunk mode
+    if (indexttsChunkMode) {
+      const segments = indextts_getChunksData();
+      if (segments.length === 0) {
+        error.textContent = 'Please add at least one chunk with text.';
+        error.style.display = 'block';
+        return;
+      }
+      
+      // Show loading
+      generateBtn.disabled = true;
+      generateBtn.textContent = '⏳ Generating...';
+      status.style.display = 'block';
+      status.textContent = `⏳ Generating ${segments.length} chunks with per-segment emotions...`;
+      error.style.display = 'none';
+      audioPlayer.style.display = 'none';
+      
+      try {
+        const response = await fetch('/api/indextts/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ segments: segments })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          const usedEl = document.getElementById('indexttsCharsUsed');
+          if (usedEl && data.indextts_chars_used !== undefined) {
+            usedEl.textContent = data.indextts_chars_used;
+          }
+          
+          document.getElementById('indexttsAudioElement').src = data.audioUrl;
+          document.getElementById('indexttsDownloadLink').href = data.audioUrl;
+          audioPlayer.style.display = 'block';
+          status.textContent = `✅ ${segments.length} chunks generated successfully!`;
+          
+          setTimeout(() => { status.style.display = 'none'; }, 3000);
+        } else {
+          error.textContent = data.error || 'Failed to generate audio.';
+          error.style.display = 'block';
+          status.style.display = 'none';
+          
+          if (data.indextts_required) {
+            error.innerHTML = data.error + ' <a href="/subscribe" style="color: #06b6d4; font-weight: 600;">Subscribe Now →</a>';
+          }
+        }
+      } catch (err) {
+        console.error('IndexTTS2 chunks error:', err);
+        error.textContent = 'Network error. Please try again.';
+        error.style.display = 'block';
+        status.style.display = 'none';
+      } finally {
+        generateBtn.disabled = false;
+        generateBtn.textContent = '🎯 Generate Studio Audio';
+      }
+      return;
+    }
+    
+    // Normal single-text mode
     if (!text) {
       error.textContent = 'Please enter text to convert.';
       error.style.display = 'block';
@@ -1909,6 +1994,153 @@
   
   // Load IndexTTS2 voices when page loads
   loadIndexttsVoices();
+  
+  // ========== IndexTTS Chunk Management ==========
+  let indexttsChunks = [];
+  let indexttsChunkMode = false;
+  
+  function indextts_splitIntoChunks() {
+    const text = document.getElementById('indexttsText').value.trim();
+    if (!text) {
+      alert('Please enter some text first.');
+      return;
+    }
+    
+    // Split by double newlines, or single newlines if no double ones
+    let segments = text.split(/\n\n+/).filter(s => s.trim());
+    if (segments.length === 1) {
+      segments = text.split(/\n+/).filter(s => s.trim());
+    }
+    if (segments.length === 1) {
+      // Split by sentences
+      segments = text.match(/[^.!?]+[.!?]+|[^.!?]+$/g)?.filter(s => s.trim()) || [text];
+    }
+    
+    // Get current voice as default
+    const defaultVoice = document.getElementById('indexttsVoice').value;
+    
+    // Create chunks with default emotions
+    indexttsChunks = segments.map((seg, idx) => ({
+      id: idx + 1,
+      text: seg.trim(),
+      voice: defaultVoice,
+      emotions: { happy: 0, angry: 0, sad: 0, afraid: 0, disgusted: 0, melancholic: 0, surprised: 0, calm: 0 }
+    }));
+    
+    indexttsChunkMode = true;
+    indextts_renderChunks();
+    
+    // Show/hide elements
+    document.getElementById('indexttsChunkEditor').style.display = 'block';
+    document.getElementById('indexttsClearChunksBtn').style.display = 'inline-block';
+    document.getElementById('indexttsChunkIndicator').style.display = 'inline';
+    document.getElementById('indexttsText').style.display = 'none';
+    document.getElementById('indexttsSplitBtn').style.display = 'none';
+    
+    // Hide global emotion settings (will use per-chunk)
+    const globalEmotions = document.getElementById('indexttsEmotionVectors');
+    if (globalEmotions) globalEmotions.style.display = 'none';
+  }
+  
+  function indextts_clearChunks() {
+    indexttsChunks = [];
+    indexttsChunkMode = false;
+    
+    document.getElementById('indexttsChunkEditor').style.display = 'none';
+    document.getElementById('indexttsChunkList').innerHTML = '';
+    document.getElementById('indexttsClearChunksBtn').style.display = 'none';
+    document.getElementById('indexttsChunkIndicator').style.display = 'none';
+    document.getElementById('indexttsText').style.display = 'block';
+    document.getElementById('indexttsSplitBtn').style.display = 'inline-block';
+  }
+  
+  function indextts_renderChunks() {
+    const container = document.getElementById('indexttsChunkList');
+    const voiceSelect = document.getElementById('indexttsVoice');
+    const voiceOptions = voiceSelect ? voiceSelect.innerHTML : '';
+    
+    container.innerHTML = indexttsChunks.map((chunk, idx) => `
+      <div class="chunk-item" style="background: white; border: 2px solid rgba(6,182,212,0.3); border-radius: 12px; padding: 16px; transition: all 0.2s;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <span style="font-weight: 600; color: #06b6d4;">📝 Chunk ${chunk.id}</span>
+          <div style="display: flex; gap: 8px;">
+            <button type="button" onclick="indextts_removeChunk(${idx})" style="background: #e74c3c; color: white; border: none; border-radius: 6px; padding: 4px 8px; cursor: pointer; font-size: 12px;">✕</button>
+          </div>
+        </div>
+        
+        <!-- Text -->
+        <textarea id="chunk_text_${idx}" rows="2" style="width: 100%; border: 1px solid #DFE6E9; border-radius: 8px; padding: 10px; font-size: 14px; margin-bottom: 12px; resize: vertical;">${chunk.text}</textarea>
+        
+        <!-- Voice Selection -->
+        <div style="margin-bottom: 12px;">
+          <label style="font-size: 12px; color: #636E72; font-weight: 500;">Voice:</label>
+          <select id="chunk_voice_${idx}" style="width: 100%; padding: 8px; border: 1px solid #DFE6E9; border-radius: 8px; font-size: 13px;">
+            ${voiceOptions}
+          </select>
+        </div>
+        
+        <!-- Emotion Sliders (Compact) -->
+        <div style="background: rgba(6,182,212,0.05); border-radius: 8px; padding: 12px;">
+          <div style="font-size: 12px; color: #636E72; font-weight: 500; margin-bottom: 8px;">🎭 Emotions:</div>
+          <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;">
+            ${['happy', 'angry', 'sad', 'afraid', 'disgusted', 'melancholic', 'surprised', 'calm'].map(emo => `
+              <div>
+                <label style="font-size: 10px; color: #999; display: flex; justify-content: space-between;">
+                  <span>${emo.charAt(0).toUpperCase() + emo.slice(1)}</span>
+                  <span id="chunk_${emo}_val_${idx}">${chunk.emotions[emo]}</span>
+                </label>
+                <input type="range" id="chunk_${emo}_${idx}" min="0" max="1" step="0.1" value="${chunk.emotions[emo]}" 
+                       oninput="document.getElementById('chunk_${emo}_val_${idx}').textContent = this.value"
+                       style="width: 100%; height: 4px;">
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      </div>
+    `).join('');
+    
+    // Set correct voice for each chunk
+    indexttsChunks.forEach((chunk, idx) => {
+      const voiceEl = document.getElementById(`chunk_voice_${idx}`);
+      if (voiceEl) voiceEl.value = chunk.voice;
+    });
+  }
+  
+  function indextts_removeChunk(idx) {
+    indexttsChunks.splice(idx, 1);
+    // Re-number chunks
+    indexttsChunks.forEach((chunk, i) => chunk.id = i + 1);
+    indextts_renderChunks();
+  }
+  
+  function indextts_addChunk() {
+    const defaultVoice = document.getElementById('indexttsVoice').value;
+    indexttsChunks.push({
+      id: indexttsChunks.length + 1,
+      text: '',
+      voice: defaultVoice,
+      emotions: { happy: 0, angry: 0, sad: 0, afraid: 0, disgusted: 0, melancholic: 0, surprised: 0, calm: 0 }
+    });
+    indextts_renderChunks();
+  }
+  
+  function indextts_getChunksData() {
+    // Update chunk data from form inputs
+    return indexttsChunks.map((chunk, idx) => {
+      const text = document.getElementById(`chunk_text_${idx}`)?.value.trim() || chunk.text;
+      const voice = document.getElementById(`chunk_voice_${idx}`)?.value || chunk.voice;
+      const emotions = {};
+      ['happy', 'angry', 'sad', 'afraid', 'disgusted', 'melancholic', 'surprised', 'calm'].forEach(emo => {
+        emotions[emo] = parseFloat(document.getElementById(`chunk_${emo}_${idx}`)?.value || 0);
+      });
+      
+      return {
+        text: text,
+        voice: voice,
+        emo_vector: [emotions.happy, emotions.angry, emotions.sad, emotions.afraid, emotions.disgusted, emotions.melancholic, emotions.surprised, emotions.calm]
+      };
+    }).filter(c => c.text);
+  }
   
   // OPTIMIZED Ultra presets - tuned for HuggingFace-quality output
   // Lower temperature (0.35-0.45) = more stable, natural speech
