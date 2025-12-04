@@ -133,6 +133,11 @@ CHATTERBOX_URL = os.environ.get('CHATTERBOX_URL', 'http://localhost:8004')
 # Runs on Vast.ai GPU instance with cached voice embeddings
 INDEXTTS_URL = os.environ.get('INDEXTTS_URL', '')
 
+# Podcast TTS Configuration (Premium long-form multi-speaker TTS)
+# High-quality long-form TTS (up to 90 minutes, 4 speakers)
+# Runs on Vast.ai GPU instance (RTX 3060 12GB or better)
+VIBEVOICE_URL = os.environ.get('VIBEVOICE_URL', '')
+
 # All available Chatterbox predefined voices (with .wav extension required by server)
 # These are the actual voice names from the Chatterbox server
 CHATTERBOX_VOICES = [
@@ -471,6 +476,69 @@ class User(db.Model, UserMixin):
             return (False, f"IndexTTS2 character limit reached. {remaining:,} characters remaining.")
         
         self.indextts_chars_used = current_used + char_count
+        return (True, None)
+    
+    # --- Podcast TTS (Premium long-form multi-speaker) ---
+    # Tiers: 'none' | 'vibevoice' (100K) | 'vibevoice_plus' (200K) | 'vibevoice_pro' (300K)
+    vibevoice_tier = db.Column(db.String(32), default='none')
+    vibevoice_chars_used = db.Column(db.Integer, default=0)
+    vibevoice_chars_reset_at = db.Column(db.DateTime)
+    vibevoice_stripe_subscription_id = db.Column(db.String(255))
+    
+    # VibeVoice tier character limits
+    VIBEVOICE_LIMITS = {
+        'none': 0,
+        'vibevoice': 100000,      # 100K chars
+        'vibevoice_plus': 200000,  # 200K chars
+        'vibevoice_pro': 300000    # 300K chars
+    }
+    
+    @property
+    def has_vibevoice(self) -> bool:
+        """Check if user has any VibeVoice access"""
+        return self.vibevoice_tier in ('vibevoice', 'vibevoice_plus', 'vibevoice_pro')
+    
+    @property
+    def vibevoice_char_limit(self) -> int:
+        """Get VibeVoice character limit based on tier"""
+        return self.VIBEVOICE_LIMITS.get(self.vibevoice_tier, 0)
+    
+    @property
+    def vibevoice_chars_remaining(self) -> int:
+        """Get remaining VibeVoice characters for this billing period"""
+        if not self.has_vibevoice:
+            return 0
+        self.check_and_reset_vibevoice_usage()
+        return max(0, self.vibevoice_char_limit - (self.vibevoice_chars_used or 0))
+    
+    def check_and_reset_vibevoice_usage(self):
+        """Reset VibeVoice usage if billing period has passed (monthly)"""
+        if not self.vibevoice_chars_reset_at:
+            self.vibevoice_chars_reset_at = datetime.utcnow() + timedelta(days=30)
+            self.vibevoice_chars_used = 0
+            return
+        
+        if datetime.utcnow() >= self.vibevoice_chars_reset_at:
+            self.vibevoice_chars_used = 0
+            self.vibevoice_chars_reset_at = datetime.utcnow() + timedelta(days=30)
+    
+    def use_vibevoice_chars(self, char_count: int) -> tuple:
+        """
+        Track VibeVoice character usage.
+        Returns (success: bool, error_message: str or None)
+        """
+        if not self.has_vibevoice:
+            return (False, "VibeVoice subscription required.")
+        
+        self.check_and_reset_vibevoice_usage()
+        
+        current_used = self.vibevoice_chars_used or 0
+        remaining = self.vibevoice_char_limit - current_used
+        
+        if char_count > remaining:
+            return (False, f"VibeVoice character limit reached. {remaining:,} characters remaining.")
+        
+        self.vibevoice_chars_used = current_used + char_count
         return (True, None)
     
     # Premium tier character limits
@@ -3542,6 +3610,430 @@ def api_indextts_health():
         }), 503
 
 
+# ==================== VibeVoice API Endpoints ====================
+
+def generate_vibevoice_audio(text, voice, cfg_scale=1.5, inference_steps=5):
+    """
+    Call the Podcast TTS server /generate endpoint.
+    Returns audio bytes (WAV) or raises exception.
+    
+    Parameters:
+    - text: The text to synthesize
+    - voice: Voice name (e.g., 'Wayne', 'Carter')
+    - cfg_scale: Classifier-free guidance scale (default 1.5)
+    - inference_steps: Diffusion steps (default 5 for realtime)
+    """
+    payload = {
+        'text': text,
+        'voice': voice,
+        'cfg_scale': cfg_scale,
+        'inference_steps': inference_steps
+    }
+    
+    print(f"[VibeVoice] Generating: voice={voice}, text_len={len(text)}, cfg={cfg_scale}")
+    
+    response = requests.post(
+        f'{VIBEVOICE_URL}/generate',
+        json=payload,
+        timeout=600,  # 10 min timeout for long-form
+        stream=True
+    )
+    
+    if response.status_code != 200:
+        error_msg = 'Unknown error'
+        try:
+            error_msg = response.json().get('detail', response.text[:200])
+        except:
+            error_msg = response.text[:200] if response.text else f'HTTP {response.status_code}'
+        raise Exception(f'VibeVoice error: {error_msg}')
+    
+    return response.content
+
+
+def generate_vibevoice_batch(segments, silence_ms=300):
+    """
+    Call the Podcast TTS server /batch-generate endpoint.
+    Much faster for multi-segment generation.
+    
+    Parameters:
+    - segments: List of {text, voice}
+    - silence_ms: Silence between segments
+    
+    Returns audio bytes (WAV) or raises exception.
+    """
+    payload = {
+        'segments': segments,
+        'silence_ms': silence_ms,
+        'crossfade_ms': 30
+    }
+    
+    print(f"[VibeVoice] Batch generating {len(segments)} segments...")
+    
+    response = requests.post(
+        f'{VIBEVOICE_URL}/batch-generate',
+        json=payload,
+        timeout=900,  # 15 min timeout for batch
+        stream=True
+    )
+    
+    if response.status_code != 200:
+        error_msg = 'Unknown error'
+        try:
+            error_msg = response.json().get('detail', response.text[:200])
+        except:
+            error_msg = response.text[:200] if response.text else f'HTTP {response.status_code}'
+        raise Exception(f'VibeVoice batch error: {error_msg}')
+    
+    gen_time = response.headers.get('X-Generation-Time', 'unknown')
+    audio_duration = response.headers.get('X-Audio-Duration', 'unknown')
+    print(f"[VibeVoice] Batch done: gen_time={gen_time}s, audio_duration={audio_duration}s")
+    
+    return response.content
+
+
+@app.route('/api/vibevoice/voices', methods=['GET'])
+def api_vibevoice_voices():
+    """
+    Get available Podcast TTS voices from the server.
+    """
+    try:
+        if not VIBEVOICE_URL:
+            return jsonify({
+                'success': False,
+                'error': 'Podcast TTS service is not configured.'
+            }), 503
+        
+        response = requests.get(f'{VIBEVOICE_URL}/voices', timeout=30)
+        if response.status_code == 200:
+            data = response.json()
+            return jsonify({
+                'success': True,
+                'voices': data.get('voices', []),
+                'count': data.get('count', 0),
+                'default': data.get('default')
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': f'Failed to fetch voices: HTTP {response.status_code}'
+            }), 500
+    except requests.Timeout:
+        return jsonify({
+            'success': False,
+            'error': 'VibeVoice service is not responding.'
+        }), 504
+    except Exception as e:
+        print(f"[VibeVoice] Error fetching voices: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/vibevoice/generate', methods=['POST'])
+@login_required
+@csrf.exempt
+def api_vibevoice_generate():
+    """
+    Generate audio using Podcast TTS.
+    Supports:
+    - Single voice generation
+    - Multi-speaker dialogue
+    
+    Requires Podcast TTS subscription tier.
+    """
+    import re
+    
+    try:
+        # Check if Podcast TTS is configured
+        if not VIBEVOICE_URL:
+            return jsonify({
+                'success': False,
+                'error': 'Podcast TTS service is not configured. Please contact support.'
+            }), 503
+        
+        data = request.get_json(silent=True) or {}
+        
+        text = (data.get('text', '') or '').strip()
+        voice = data.get('voice', 'Wayne')
+        cfg_scale = float(data.get('cfg_scale', 1.5))
+        inference_steps = int(data.get('inference_steps', 5))
+        
+        # Support for pre-chunked segments
+        pre_segments = data.get('segments')
+        
+        if not text and not pre_segments:
+            return jsonify({'success': False, 'error': 'No text provided'}), 400
+        
+        # Calculate character count
+        if pre_segments:
+            char_count = sum(len(s.get('text', '')) for s in pre_segments)
+        else:
+            # Remove speaker tags for counting
+            plain_text = re.sub(r'\[[\w]+\]:\s*', '', text)
+            char_count = len(plain_text)
+        
+        if char_count > 200000:
+            return jsonify({'success': False, 'error': 'Text too long (max 200,000 chars)'}), 400
+        
+        # Check VibeVoice subscription and usage
+        if not current_user.has_vibevoice:
+            return jsonify({
+                'success': False,
+                'error': 'VibeVoice subscription required. Upgrade for frontier-quality long-form TTS.',
+                'upgrade_url': '/subscribe',
+                'vibevoice_required': True
+            }), 402
+        
+        # Check and track usage
+        success, error_msg = current_user.use_vibevoice_chars(char_count)
+        if not success:
+            return jsonify({
+                'success': False,
+                'error': error_msg,
+                'limit_reached': True,
+                'vibevoice_chars_used': current_user.vibevoice_chars_used or 0,
+                'vibevoice_chars_limit': current_user.vibevoice_char_limit,
+                'vibevoice_chars_remaining': current_user.vibevoice_chars_remaining,
+                'upgrade_url': '/subscribe'
+            }), 402
+        
+        db.session.commit()
+        
+        # Build segments list
+        segments = []
+        
+        if pre_segments:
+            # Use pre-chunked segments
+            for seg in pre_segments:
+                seg_voice = seg.get('voice', voice)
+                seg_text = (seg.get('text', '') or '').strip()
+                if seg_text:
+                    segments.append({
+                        'voice': seg_voice,
+                        'text': seg_text
+                    })
+        else:
+            # Parse multi-speaker segments [Wayne]: [Carter]: format
+            speaker_pattern = r'\[(\w+)\]:\s*'
+            parts = re.split(speaker_pattern, text)
+            
+            # First part before any tag
+            if parts[0].strip():
+                segments.append({
+                    'voice': voice,
+                    'text': parts[0].strip()
+                })
+            
+            # Process speaker:text pairs
+            for i in range(1, len(parts), 2):
+                speaker_voice = parts[i]
+                if i + 1 < len(parts):
+                    seg_text = parts[i + 1].strip()
+                    if seg_text:
+                        segments.append({
+                            'voice': speaker_voice,
+                            'text': seg_text
+                        })
+        
+        # If no segments parsed, treat as single-voice
+        if not segments:
+            segments = [{'voice': voice, 'text': text}]
+        
+        has_multiple_speakers = len(set(s['voice'] for s in segments)) > 1
+        
+        print(f"[VibeVoice] Processing {len(segments)} segments, multi-speaker={has_multiple_speakers}")
+        
+        # Use batch endpoint for multiple segments
+        if len(segments) > 1:
+            try:
+                print(f"[VibeVoice] Using batch generation for {len(segments)} segments")
+                
+                batch_segments = []
+                for seg in segments:
+                    batch_segments.append({
+                        'text': seg['text'],
+                        'voice': seg['voice']
+                    })
+                
+                silence_ms = 400 if has_multiple_speakers else 200
+                final_audio = generate_vibevoice_batch(batch_segments, silence_ms=silence_ms)
+                
+                segment_stats = [{'voice': s['voice'], 'chars': len(s['text'])} for s in segments]
+                
+            except Exception as e:
+                print(f"[VibeVoice] Batch generation failed: {e}, falling back to sequential")
+                final_audio = None
+        else:
+            final_audio = None
+        
+        # Sequential generation (single segment or batch fallback)
+        if final_audio is None:
+            audio_chunks = []
+            segment_stats = []
+            
+            for idx, seg in enumerate(segments):
+                seg_voice = seg['voice']
+                seg_text = seg['text']
+                
+                print(f"[VibeVoice] Segment {idx+1}/{len(segments)}: Voice={seg_voice}, {len(seg_text)} chars")
+                
+                try:
+                    audio_data = generate_vibevoice_audio(
+                        text=seg_text,
+                        voice=seg_voice,
+                        cfg_scale=cfg_scale,
+                        inference_steps=inference_steps
+                    )
+                    audio_chunks.append(audio_data)
+                    segment_stats.append({
+                        'voice': seg_voice,
+                        'chars': len(seg_text),
+                        'audio_size': len(audio_data)
+                    })
+                except Exception as e:
+                    print(f"[VibeVoice] Segment {idx+1} failed: {e}")
+                    # Rollback usage
+                    current_user.vibevoice_chars_used = max(0, (current_user.vibevoice_chars_used or 0) - char_count)
+                    db.session.commit()
+                    return jsonify({
+                        'success': False,
+                        'error': f'Failed to generate segment {idx+1}: {str(e)}'
+                    }), 500
+            
+            # Concatenate audio chunks
+            if len(audio_chunks) > 1:
+                print(f"[VibeVoice] Concatenating {len(audio_chunks)} audio chunks...")
+                if has_multiple_speakers:
+                    final_audio = concatenate_wav_files_with_crossfade(audio_chunks, crossfade_ms=30, silence_ms=400)
+                else:
+                    final_audio = concatenate_wav_files_with_crossfade(audio_chunks, crossfade_ms=40, silence_ms=150)
+            else:
+                final_audio = audio_chunks[0] if audio_chunks else b''
+        
+        if not final_audio:
+            return jsonify({
+                'success': False,
+                'error': 'No audio data generated'
+            }), 500
+        
+        # Save the audio file
+        file_hash = hashlib.md5(f"vibevoice:{voice}:{text[:50]}:{time.time()}".encode()).hexdigest()[:12]
+        output_file = OUTPUT_DIR / f"vibevoice_{file_hash}.wav"
+        
+        with open(output_file, 'wb') as f:
+            f.write(final_audio)
+        
+        print(f"[VibeVoice] Saved {output_file.name}, {len(final_audio)} bytes")
+        
+        return jsonify({
+            'success': True,
+            'audioUrl': f'/api/audio/{output_file.name}',
+            'stats': {
+                'total_chars': char_count,
+                'segments': len(segments),
+                'multi_speaker': has_multiple_speakers,
+                'segment_details': segment_stats,
+                'audio_size': len(final_audio)
+            },
+            'vibevoice_chars_used': current_user.vibevoice_chars_used or 0,
+            'vibevoice_chars_limit': current_user.vibevoice_char_limit,
+            'vibevoice_chars_remaining': current_user.vibevoice_chars_remaining
+        })
+        
+    except requests.Timeout:
+        return jsonify({
+            'success': False,
+            'error': 'VibeVoice generation timed out. Please try with shorter text.'
+        }), 504
+    except Exception as e:
+        print(f"[VibeVoice ERROR] {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/vibevoice/preview', methods=['POST'])
+@login_required
+@csrf.exempt
+def api_vibevoice_preview():
+    """Preview a Podcast voice (short sample, no usage tracking)."""
+    try:
+        if not VIBEVOICE_URL:
+            return jsonify({
+                'success': False,
+                'error': 'Podcast TTS service is not configured.'
+            }), 503
+        
+        data = request.get_json(silent=True) or {}
+        voice = data.get('voice', 'Wayne')
+        
+        # Use the server's preview endpoint
+        try:
+            response = requests.get(
+                f'{VIBEVOICE_URL}/preview/{voice}',
+                timeout=60
+            )
+            
+            if response.status_code == 200:
+                # Save preview file
+                file_hash = hashlib.md5(f"vibevoice_preview:{voice}:{time.time()}".encode()).hexdigest()[:12]
+                output_file = OUTPUT_DIR / f"vibevoice_preview_{file_hash}.wav"
+                
+                with open(output_file, 'wb') as f:
+                    f.write(response.content)
+                
+                return jsonify({
+                    'success': True,
+                    'audioUrl': f'/api/audio/{output_file.name}'
+                })
+            else:
+                return jsonify({
+                    'success': False,
+                    'error': f'Preview failed: HTTP {response.status_code}'
+                }), 500
+                
+        except Exception as e:
+            print(f"[VibeVoice Preview ERROR] {e}")
+            return jsonify({
+                'success': False,
+                'error': f'Preview failed: {str(e)}'
+            }), 500
+            
+    except Exception as e:
+        print(f"[VibeVoice Preview ERROR] {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/vibevoice/health', methods=['GET'])
+def api_vibevoice_health():
+    """Check VibeVoice server health."""
+    try:
+        if not VIBEVOICE_URL:
+            return jsonify({
+                'success': False,
+                'status': 'not_configured'
+            })
+        
+        response = requests.get(f'{VIBEVOICE_URL}/health', timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            return jsonify({
+                'success': True,
+                'status': data.get('status', 'unknown'),
+                'model_loaded': data.get('model_loaded', False),
+                'voices_loaded': data.get('voices_loaded', 0)
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'status': 'unhealthy'
+            }), 503
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'status': 'unreachable',
+            'error': str(e)
+        }), 503
+
+
 @app.route('/api/audio/<filename>')
 def api_audio(filename):
     """Serve audio file (public for previews)"""
@@ -3550,6 +4042,7 @@ def api_audio(filename):
         if file_path.exists():
             # Determine correct mimetype based on extension
             if filename.endswith('.wav'):
+
                 mimetype = 'audio/wav'
             elif filename.endswith('.mp3'):
                 mimetype = 'audio/mpeg'

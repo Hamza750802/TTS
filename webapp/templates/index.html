@@ -711,6 +711,10 @@
       🎯 Studio Voices <span style="background: linear-gradient(135deg, #06b6d4, #0891b2); color: white; font-size: 9px; padding: 2px 6px; border-radius: 6px; margin-left: 6px; font-weight: 700;">NEW</span>
       <div style="font-size: 11px; color: #06b6d4; font-weight: 400; margin-top: 4px;">Ultra-quality voice clones</div>
     </button>
+    <button type="button" class="tts-tab" onclick="switchTab('vibevoice')" id="tabVibeVoice" style="border-left: 3px solid #8b5cf6;">
+      🎧 Podcast Voices <span style="background: linear-gradient(135deg, #8b5cf6, #7c3aed); color: white; font-size: 9px; padding: 2px 6px; border-radius: 6px; margin-left: 6px; font-weight: 700;">FRONTIER</span>
+      <div style="font-size: 11px; color: #8b5cf6; font-weight: 400; margin-top: 4px;">Long-form • Multi-speaker</div>
+    </button>
   </div>
 
   <!-- Standard TTS Tab Content -->
@@ -1296,6 +1300,129 @@ Emotions: happy, angry, sad, afraid, disgusted, melancholic, surprised, calm"></
     </form>
   </div><!-- End IndexTTS2 Tab -->
 
+  <!-- VibeVoice Tab Content -->
+  <div class="tab-content" id="vibevoiceTab">
+    <form id="vibevoiceForm">
+      <div class="form-card">
+        <!-- Podcast Voices Header -->
+        <div style="background: linear-gradient(135deg, rgba(139,92,246,0.1), rgba(124,58,237,0.1)); border: 2px solid rgba(139,92,246,0.3); border-radius: 16px; padding: 20px; margin-bottom: 24px; text-align: center;">
+          <h3 style="margin: 0 0 8px 0; background: linear-gradient(135deg, #8b5cf6, #7c3aed); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; font-size: 20px;">🎧 Podcast Voices</h3>
+          <p style="margin: 0 0 10px 0; color: #636E72; font-size: 14px;">Premium long-form TTS • Up to 90 minutes • Multi-speaker</p>
+        </div>
+
+        {% if current_user.has_vibevoice %}
+        <!-- User has VibeVoice subscription -->
+        <div style="background: rgba(139,92,246,0.1); border: 1px solid rgba(139,92,246,0.3); border-radius: 12px; padding: 12px 16px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
+          <span style="color: #8b5cf6; font-weight: 600;">✓ Podcast Voices Active</span>
+          <span style="color: #636E72; font-size: 13px;">
+            <span id="vibevoiceCharsUsed">{{ current_user.vibevoice_chars_used or 0 }}</span> / 
+            <span id="vibevoiceCharsLimit">{{ current_user.vibevoice_char_limit }}</span> chars used
+          </span>
+        </div>
+        
+        <!-- Voice Selection -->
+        <div class="form-section">
+          <div class="section-title">Voice Selection</div>
+          <div class="input-group">
+            <label for="vibevoiceVoice">Choose a voice</label>
+            <select id="vibevoiceVoice" style="width: 100%; padding: 12px 16px; border: 2px solid #DFE6E9; border-radius: 12px; font-size: 15px; background: white; cursor: pointer;">
+              <option value="">Loading voices...</option>
+            </select>
+            <p style="font-size: 12px; color: #636E72; margin-top: 8px;">🎧 Premium voices optimized for podcasts and long-form content</p>
+          </div>
+          <button type="button" id="vibevoicePreviewBtn" onclick="previewVibevoiceVoice()" style="margin-top: 10px; padding: 10px 20px; border-radius: 10px; border: 2px solid #8b5cf6; background: transparent; color: #8b5cf6; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s;">
+            🔊 Preview Voice
+          </button>
+          <audio id="vibevoicePreviewAudio" style="display: none;"></audio>
+        </div>
+
+        <!-- Text Input -->
+        <div class="form-section">
+          <div class="section-title">Your Text</div>
+          <div class="input-group">
+            <label for="vibevoiceText">Enter text to convert (supports long-form content)</label>
+            <textarea id="vibevoiceText" placeholder="[Wayne]: Welcome to the podcast! Today we have a very special guest.
+[Carter]: Thanks for having me! I'm excited to be here.
+[Wayne]: So let's dive right in. Tell us about your journey.
+
+Or just type plain text for single-speaker audio.
+
+Available voices: Wayne, Carter (more coming soon)
+Tip: Use [VoiceName]: format for multi-speaker dialogue"></textarea>
+            <p style="font-size: 12px; color: #8b5cf6; margin-top: 8px;">💡 Use <strong>[VoiceName]:</strong> format for multi-speaker podcast-style dialogue!</p>
+          </div>
+        </div>
+
+        <!-- VibeVoice Settings -->
+        <div class="form-section">
+          <div class="section-title">Generation Settings</div>
+          
+          <!-- CFG Scale -->
+          <div class="input-group">
+            <label style="display: flex; justify-content: space-between;">
+              <span>CFG Scale (quality vs speed)</span>
+              <span id="vibevoiceCfgVal">1.5</span>
+            </label>
+            <input type="range" id="vibevoiceCfg" min="1" max="3" step="0.1" value="1.5" oninput="document.getElementById('vibevoiceCfgVal').textContent = this.value" style="width: 100%;">
+            <p style="font-size: 11px; color: #999; margin-top: 4px;">Higher = better quality, lower = faster generation</p>
+          </div>
+          
+          <!-- Inference Steps -->
+          <div class="input-group">
+            <label style="display: flex; justify-content: space-between;">
+              <span>Inference Steps</span>
+              <span id="vibevoiceStepsVal">5</span>
+            </label>
+            <input type="range" id="vibevoiceSteps" min="3" max="10" step="1" value="5" oninput="document.getElementById('vibevoiceStepsVal').textContent = this.value" style="width: 100%;">
+            <p style="font-size: 11px; color: #999; margin-top: 4px;">5 = realtime speed, 10 = highest quality</p>
+          </div>
+        </div>
+        
+        <!-- Generate Button -->
+        <div class="form-section">
+          <button type="button" id="vibevoiceGenerateBtn" onclick="generateVibevoice()" style="width: 100%; padding: 16px; border-radius: 14px; border: none; background: linear-gradient(135deg, #8b5cf6, #7c3aed); color: white; font-size: 16px; font-weight: 700; cursor: pointer; transition: all 0.3s; box-shadow: 0 4px 15px rgba(139,92,246,0.3);">
+            🎧 Generate Podcast Audio
+          </button>
+          <div id="vibevoiceProgress" style="display: none; margin-top: 16px; text-align: center;">
+            <div style="display: inline-block; width: 24px; height: 24px; border: 3px solid #8b5cf6; border-top-color: transparent; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+            <p style="margin-top: 8px; color: #8b5cf6; font-weight: 500;">Generating audio... (long-form may take a few minutes)</p>
+          </div>
+        </div>
+        
+        <!-- Audio Player -->
+        <div id="vibevoiceAudioSection" style="display: none; margin-top: 20px; background: linear-gradient(135deg, rgba(139,92,246,0.05), rgba(124,58,237,0.05)); border: 2px solid rgba(139,92,246,0.2); border-radius: 16px; padding: 20px;">
+          <div style="font-weight: 600; color: #2D3436; margin-bottom: 12px;">🎧 Generated Audio</div>
+          <audio id="vibevoiceAudioPlayer" controls style="width: 100%; margin-bottom: 12px;"></audio>
+          <div id="vibevoiceStats" style="font-size: 12px; color: #636E72; margin-bottom: 12px;"></div>
+          <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px;">
+            <a id="vibevoiceDownloadLink" class="download-btn" download="podcast_voice.wav" style="background: linear-gradient(135deg, #8b5cf6, #7c3aed); color: white; border-color: transparent; padding: 10px 20px; border-radius: 10px; text-decoration: none; font-weight: 600;">⬇️ Download WAV</a>
+          </div>
+        </div>
+      </div>
+        
+        {% else %}
+        <!-- User needs VibeVoice subscription -->
+        <div style="text-align: center; padding: 40px 20px;">
+          <div style="font-size: 48px; margin-bottom: 16px;">🎧</div>
+          <h3 style="color: #2D3436; margin-bottom: 12px;">Unlock Podcast Voices</h3>
+          <p style="color: #636E72; margin-bottom: 24px; max-width: 400px; margin-left: auto; margin-right: auto;">
+            Get access to premium long-form podcast-style audio generation with multiple speakers.
+          </p>
+          <ul style="text-align: left; max-width: 300px; margin: 0 auto 24px; color: #636E72; font-size: 14px;">
+            <li>Up to 90 minutes of audio</li>
+            <li>4 distinct speakers</li>
+            <li>Natural conversation flow</li>
+            <li>Podcast-quality output</li>
+          </ul>
+          <a href="{{ url_for('subscribe') }}" style="display: inline-block; padding: 14px 28px; background: linear-gradient(135deg, #8b5cf6, #7c3aed); color: white; text-decoration: none; border-radius: 12px; font-weight: 600; box-shadow: 0 4px 15px rgba(139,92,246,0.3);">
+            Subscribe to Podcast Voices
+          </a>
+        </div>
+        {% endif %}
+      </div>
+    </form>
+  </div><!-- End VibeVoice Tab -->
+
 </div>
 {% endif %}
 {% endblock %}
@@ -1328,6 +1455,17 @@ Emotions: happy, angry, sad, afraid, disgusted, melancholic, surprised, calm"></
     const indexttsTab = document.getElementById('indexttsTab');
     if (tabIndexTTS) tabIndexTTS.classList.toggle('active', tab === 'indextts');
     if (indexttsTab) indexttsTab.classList.toggle('active', tab === 'indextts');
+    
+    // VibeVoice tab
+    const tabVibeVoice = document.getElementById('tabVibeVoice');
+    const vibevoiceTab = document.getElementById('vibevoiceTab');
+    if (tabVibeVoice) tabVibeVoice.classList.toggle('active', tab === 'vibevoice');
+    if (vibevoiceTab) vibevoiceTab.classList.toggle('active', tab === 'vibevoice');
+    
+    // Load VibeVoice voices when switching to that tab
+    if (tab === 'vibevoice' && !vibevoiceVoicesLoaded) {
+      loadVibevoiceVoices();
+    }
   }
 
   // ===== CHUNK EDITOR MANAGEMENT =====
@@ -3060,6 +3198,158 @@ Emotions: happy, angry, sad, afraid, disgusted, melancholic, surprised, calm"></
         upgradeBtn.style.background = percent >= 100 ? '#ef4444' : '#f97316';
         upgradeBtn.innerHTML = `⭐ ${percent >= 100 ? 'Upgrade for Unlimited' : 'Upgrade Now'}`;
       }
+    }
+  }
+  
+  // ========== VibeVoice Functions ==========
+  let vibevoiceVoicesLoaded = false;
+  let vibevoiceVoices = [];
+  
+  async function loadVibevoiceVoices() {
+    try {
+      const response = await fetch('/api/vibevoice/voices');
+      const data = await response.json();
+      
+      if (data.success && data.voices) {
+        vibevoiceVoices = data.voices;
+        const select = document.getElementById('vibevoiceVoice');
+        if (select) {
+          select.innerHTML = '';
+          data.voices.forEach(voice => {
+            const option = document.createElement('option');
+            option.value = voice;
+            option.textContent = voice;
+            select.appendChild(option);
+          });
+          vibevoiceVoicesLoaded = true;
+        }
+      } else {
+        console.log('[VibeVoice] No voices available or service not configured');
+        const select = document.getElementById('vibevoiceVoice');
+        if (select) {
+          select.innerHTML = '<option value="Wayne">Wayne</option><option value="Carter">Carter</option>';
+        }
+      }
+    } catch (error) {
+      console.log('[VibeVoice] Error loading voices:', error);
+      // Fallback to default voices
+      const select = document.getElementById('vibevoiceVoice');
+      if (select) {
+        select.innerHTML = '<option value="Wayne">Wayne</option><option value="Carter">Carter</option>';
+      }
+    }
+  }
+  
+  async function previewVibevoiceVoice() {
+    const voice = document.getElementById('vibevoiceVoice')?.value || 'Wayne';
+    const btn = document.getElementById('vibevoicePreviewBtn');
+    const audio = document.getElementById('vibevoicePreviewAudio');
+    
+    if (!btn || !audio) return;
+    
+    btn.disabled = true;
+    btn.textContent = '⏳ Loading...';
+    
+    try {
+      const response = await fetch('/api/vibevoice/preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ voice: voice })
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        audio.src = data.audioUrl;
+        audio.play();
+      } else {
+        alert('Preview failed: ' + (data.error || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('[VibeVoice] Preview error:', error);
+      alert('Failed to load preview');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '🔊 Preview Voice';
+    }
+  }
+  
+  async function generateVibevoice() {
+    const text = document.getElementById('vibevoiceText')?.value?.trim();
+    const voice = document.getElementById('vibevoiceVoice')?.value || 'Wayne';
+    const cfgScale = parseFloat(document.getElementById('vibevoiceCfg')?.value || '1.5');
+    const inferenceSteps = parseInt(document.getElementById('vibevoiceSteps')?.value || '5');
+    
+    if (!text) {
+      alert('Please enter some text to convert to speech.');
+      return;
+    }
+    
+    const generateBtn = document.getElementById('vibevoiceGenerateBtn');
+    const progress = document.getElementById('vibevoiceProgress');
+    const audioSection = document.getElementById('vibevoiceAudioSection');
+    
+    generateBtn.disabled = true;
+    generateBtn.textContent = '⏳ Generating...';
+    if (progress) progress.style.display = 'block';
+    if (audioSection) audioSection.style.display = 'none';
+    
+    try {
+      const response = await fetch('/api/vibevoice/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: text,
+          voice: voice,
+          cfg_scale: cfgScale,
+          inference_steps: inferenceSteps
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        // Update usage display
+        const usedEl = document.getElementById('vibevoiceCharsUsed');
+        if (usedEl && data.vibevoice_chars_used !== undefined) {
+          usedEl.textContent = data.vibevoice_chars_used.toLocaleString();
+        }
+        
+        // Show audio player
+        const audioPlayer = document.getElementById('vibevoiceAudioPlayer');
+        const downloadLink = document.getElementById('vibevoiceDownloadLink');
+        const statsEl = document.getElementById('vibevoiceStats');
+        
+        if (audioPlayer) audioPlayer.src = data.audioUrl;
+        if (downloadLink) downloadLink.href = data.audioUrl;
+        
+        if (statsEl && data.stats) {
+          statsEl.innerHTML = `
+            📊 ${data.stats.total_chars?.toLocaleString() || 0} characters • 
+            ${data.stats.segments || 1} segment(s) • 
+            ${data.stats.multi_speaker ? '👥 Multi-speaker' : '👤 Single speaker'}
+          `;
+        }
+        
+        if (audioSection) audioSection.style.display = 'block';
+      } else {
+        let errorMsg = data.error || 'Failed to generate audio.';
+        
+        if (data.vibevoice_required) {
+          errorMsg = data.error + ' <a href="/subscribe" style="color: #8b5cf6; font-weight: 600;">Subscribe Now →</a>';
+        } else if (data.limit_reached) {
+          errorMsg = data.error + ' <a href="/subscribe" style="color: #8b5cf6; font-weight: 600;">Upgrade for more →</a>';
+        }
+        
+        alert(errorMsg.replace(/<[^>]*>/g, '')); // Strip HTML for alert
+      }
+    } catch (error) {
+      console.error('[VibeVoice] Generate error:', error);
+      alert('Network error. Please try again.');
+    } finally {
+      generateBtn.disabled = false;
+      generateBtn.textContent = '🎧 Generate Podcast Audio';
+      if (progress) progress.style.display = 'none';
     }
   }
   
