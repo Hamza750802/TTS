@@ -3754,6 +3754,39 @@ def api_vibevoice_generate():
     """
     import re
     
+    # Voice name mapping: friendly name -> raw voice ID
+    PODCAST_VOICE_MAP = {
+        'carter': 'en-Carter_man',
+        'davis': 'en-Davis_man',
+        'emma': 'en-Emma_woman',
+        'frank': 'en-Frank_man',
+        'grace': 'en-Grace_woman',
+        'mike': 'en-Mike_man',
+        'samuel': 'in-Samuel_man',
+        # Also allow raw names
+        'en-carter_man': 'en-Carter_man',
+        'en-davis_man': 'en-Davis_man',
+        'en-emma_woman': 'en-Emma_woman',
+        'en-frank_man': 'en-Frank_man',
+        'en-grace_woman': 'en-Grace_woman',
+        'en-mike_man': 'en-Mike_man',
+        'in-samuel_man': 'in-Samuel_man',
+    }
+    
+    def resolve_podcast_voice(name):
+        """Map friendly voice name to raw voice ID"""
+        if not name:
+            return 'en-Carter_man'
+        # Check exact match first
+        lower_name = name.lower()
+        if lower_name in PODCAST_VOICE_MAP:
+            return PODCAST_VOICE_MAP[lower_name]
+        # If it already looks like a raw voice ID, return as-is
+        if '-' in name and '_' in name:
+            return name
+        # Default fallback
+        return 'en-Carter_man'
+    
     try:
         # Check if Podcast TTS is configured
         if not VIBEVOICE_URL:
@@ -3765,7 +3798,7 @@ def api_vibevoice_generate():
         data = request.get_json(silent=True) or {}
         
         text = (data.get('text', '') or '').strip()
-        voice = data.get('voice', 'Wayne')
+        voice = resolve_podcast_voice(data.get('voice', 'Carter'))
         cfg_scale = float(data.get('cfg_scale', 1.5))
         inference_steps = int(data.get('inference_steps', 5))
         
@@ -3814,9 +3847,9 @@ def api_vibevoice_generate():
         segments = []
         
         if pre_segments:
-            # Use pre-chunked segments
+            # Use pre-chunked segments - resolve voice names
             for seg in pre_segments:
-                seg_voice = seg.get('voice', voice)
+                seg_voice = resolve_podcast_voice(seg.get('voice', voice))
                 seg_text = (seg.get('text', '') or '').strip()
                 if seg_text:
                     segments.append({
@@ -3824,7 +3857,7 @@ def api_vibevoice_generate():
                         'text': seg_text
                     })
         else:
-            # Parse multi-speaker segments [Wayne]: [Carter]: format
+            # Parse multi-speaker segments [Carter]: [Emma]: format
             speaker_pattern = r'\[(\w+)\]:\s*'
             parts = re.split(speaker_pattern, text)
             
@@ -3835,9 +3868,10 @@ def api_vibevoice_generate():
                     'text': parts[0].strip()
                 })
             
-            # Process speaker:text pairs
+            # Process speaker:text pairs - resolve voice names
             for i in range(1, len(parts), 2):
-                speaker_voice = parts[i]
+                speaker_name = parts[i]
+                speaker_voice = resolve_podcast_voice(speaker_name)
                 if i + 1 < len(parts):
                     seg_text = parts[i + 1].strip()
                     if seg_text:
