@@ -5651,6 +5651,54 @@ def admin_delete_legacy_api_keys():
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/admin/grant-vibevoice')
+def admin_grant_vibevoice():
+    """
+    Grant VibeVoice/Podcast Voices access to a user.
+    
+    Query params:
+        key: Admin API key (required)
+        email: User email (required)
+        tier: vibevoice, vibevoice_plus, or vibevoice_pro (default: vibevoice_pro)
+    """
+    admin_pass = request.args.get('key')
+    if admin_pass != ADMIN_API_KEY:
+        return jsonify({'error': 'Unauthorized'}), 403
+    
+    email = request.args.get('email')
+    if not email:
+        return jsonify({'error': 'Email required'}), 400
+    
+    tier = request.args.get('tier', 'vibevoice_pro')
+    if tier not in ('vibevoice', 'vibevoice_plus', 'vibevoice_pro'):
+        return jsonify({'error': 'Invalid tier. Use: vibevoice, vibevoice_plus, or vibevoice_pro'}), 400
+    
+    try:
+        user = User.query.filter_by(email=email).first()
+        if not user:
+            return jsonify({'error': f'User not found: {email}'}), 404
+        
+        user.vibevoice_tier = tier
+        user.vibevoice_chars_used = 0
+        user.vibevoice_chars_reset_at = datetime.utcnow() + timedelta(days=30)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': f'Granted {tier} to {email}',
+            'user': {
+                'email': email,
+                'vibevoice_tier': tier,
+                'vibevoice_char_limit': user.vibevoice_char_limit,
+                'vibevoice_chars_remaining': user.vibevoice_chars_remaining
+            }
+        })
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
 if __name__ == '__main__':
     # Initialize DB if needed
     with app.app_context():
