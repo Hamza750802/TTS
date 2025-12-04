@@ -128,17 +128,10 @@ STRIPE_PREMIUM_PRO_PRICE_ID = os.environ.get('STRIPE_PREMIUM_PRO_PRICE_ID', '') 
 # Can be Vast.ai instance, RunPod Pod URL or any hosted instance
 CHATTERBOX_URL = os.environ.get('CHATTERBOX_URL', 'http://localhost:8004')
 
-# HiggsAudio v2 Configuration (for premium multi-speaker dialogue)
-# Uses our custom HiggsAudio server on a separate Vast.ai instance (24GB+ VRAM)
-# Set HIGGS_SERVER_URL in Railway env vars once server is deployed
-HIGGS_SERVER_URL = os.environ.get('HIGGS_SERVER_URL', '')
-HIGGS_ENABLED = bool(HIGGS_SERVER_URL)
-
 # IndexTTS2 Configuration (for IndexTTS2 premium tier - separate from Chatterbox)
 # High-quality zero-shot TTS with emotion control and voice cloning
 # Runs on Vast.ai GPU instance with cached voice embeddings
 INDEXTTS_URL = os.environ.get('INDEXTTS_URL', '')
-INDEXTTS_ENABLED = bool(INDEXTTS_URL)
 
 # All available Chatterbox predefined voices (with .wav extension required by server)
 # These are the actual voice names from the Chatterbox server
@@ -1262,9 +1255,7 @@ def dashboard():
                            chars_limit=chars_limit,
                            chars_remaining=chars_remaining,
                            chars_reset_date=chars_reset_date,
-                           is_unlimited=is_unlimited,
-                           higgs_enabled=HIGGS_ENABLED,
-                           indextts_enabled=INDEXTTS_ENABLED)
+                           is_unlimited=is_unlimited)
 
 
 @app.route('/signup', methods=['GET', 'POST'])
@@ -2474,131 +2465,6 @@ def generate_chatterbox_audio(text, voice_mode='predefined', predefined_voice_id
     return response.content
 
 
-# ============== HiggsAudio v2 Functions ==============
-
-def check_higgs_health():
-    """Check if HiggsAudio server is available and model is loaded"""
-    if not HIGGS_SERVER_URL:
-        return False
-    try:
-        response = requests.get(f'{HIGGS_SERVER_URL}/health', timeout=10)
-        return response.status_code == 200 and response.json().get('model_loaded', False)
-    except Exception as e:
-        print(f"[HIGGS] Health check failed: {e}")
-        return False
-
-
-def generate_higgs_audio(text, temperature=0.3, top_p=0.95, top_k=50, 
-                         max_new_tokens=2048, seed=None, reference_audio_id=None,
-                         scene_description="Audio is recorded from a quiet room."):
-    """
-    Generate single-speaker audio using HiggsAudio v2.
-    
-    Parameters:
-    - text: Text to synthesize
-    - temperature: Generation temperature (0.1-1.0, default 0.3)
-    - reference_audio_id: Optional voice ID for cloning
-    - scene_description: Audio scene context
-    
-    Returns: Audio bytes (WAV)
-    """
-    if not HIGGS_SERVER_URL:
-        raise Exception("HiggsAudio server not configured")
-    
-    payload = {
-        'text': text,
-        'temperature': temperature,
-        'top_p': top_p,
-        'top_k': top_k,
-        'max_new_tokens': max_new_tokens,
-        'scene_description': scene_description
-    }
-    
-    if seed:
-        payload['seed'] = seed
-    if reference_audio_id:
-        payload['reference_audio_id'] = reference_audio_id
-    
-    print(f"[HIGGS TTS] Generating: temp={temperature}, text_len={len(text)}")
-    
-    response = requests.post(
-        f'{HIGGS_SERVER_URL}/generate',
-        json=payload,
-        timeout=300
-    )
-    
-    if response.status_code != 200:
-        error_msg = response.text[:200] if response.text else f'HTTP {response.status_code}'
-        raise Exception(f'HiggsAudio error: {error_msg}')
-    
-    gen_time = response.headers.get('X-Generation-Time', 'unknown')
-    print(f"[HIGGS TTS] Generated {len(response.content)} bytes in {gen_time}s")
-    
-    return response.content
-
-
-def generate_higgs_multi_speaker(text, temperature=0.3, top_p=0.95, top_k=50,
-                                  max_new_tokens=4096, seed=None,
-                                  scene_description="Audio is recorded from a quiet room."):
-    """
-    Generate multi-speaker dialogue using HiggsAudio v2.
-    Model automatically assigns distinct voices to speakers.
-    
-    Text format:
-    [Speaker1]: Hello, how are you?
-    [Speaker2]: I'm doing great!
-    
-    Or natural dialogue - model auto-detects speakers.
-    
-    Returns: Audio bytes (WAV)
-    """
-    if not HIGGS_SERVER_URL:
-        raise Exception("HiggsAudio server not configured")
-    
-    payload = {
-        'text': text,
-        'temperature': temperature,
-        'top_p': top_p,
-        'top_k': top_k,
-        'max_new_tokens': max_new_tokens,
-        'scene_description': scene_description
-    }
-    
-    if seed:
-        payload['seed'] = seed
-    
-    print(f"[HIGGS TTS] Multi-speaker: temp={temperature}, text_len={len(text)}")
-    
-    response = requests.post(
-        f'{HIGGS_SERVER_URL}/multi-speaker',
-        json=payload,
-        timeout=600  # Longer timeout for multi-speaker
-    )
-    
-    if response.status_code != 200:
-        error_msg = response.text[:200] if response.text else f'HTTP {response.status_code}'
-        raise Exception(f'HiggsAudio error: {error_msg}')
-    
-    gen_time = response.headers.get('X-Generation-Time', 'unknown')
-    print(f"[HIGGS TTS] Multi-speaker generated {len(response.content)} bytes in {gen_time}s")
-    
-    return response.content
-
-
-def get_higgs_reference_voices():
-    """Get list of available voice IDs for cloning from HiggsAudio server"""
-    if not HIGGS_SERVER_URL:
-        return []
-    
-    try:
-        response = requests.get(f'{HIGGS_SERVER_URL}/list-references', timeout=30)
-        if response.status_code == 200:
-            return response.json().get('references', [])
-    except Exception as e:
-        print(f"[HIGGS] Error getting reference voices: {e}")
-    return []
-
-
 def concatenate_wav_files_with_crossfade(audio_chunks, crossfade_ms=30, silence_ms=200):
     """
     Concatenate WAV audio chunks with crossfade for smooth transitions.
@@ -3226,127 +3092,6 @@ def api_premium_voices():
             'default': 0.5,
             'range': [0.0, 1.0]
         }
-    })
-
-
-# ============== HiggsAudio API Endpoints ==============
-
-@app.route('/api/higgs/health')
-def api_higgs_health():
-    """Check HiggsAudio server status"""
-    if not HIGGS_ENABLED:
-        return jsonify({'available': False, 'reason': 'Not configured'})
-    
-    try:
-        healthy = check_higgs_health()
-        return jsonify({'available': healthy, 'server': HIGGS_SERVER_URL})
-    except Exception as e:
-        return jsonify({'available': False, 'error': str(e)})
-
-
-@app.route('/api/higgs/generate', methods=['POST'])
-@login_required
-@csrf.exempt
-def api_higgs_generate():
-    """Generate single-speaker audio with HiggsAudio"""
-    if not HIGGS_ENABLED:
-        return jsonify({'success': False, 'error': 'HiggsAudio not available. Server not configured.'}), 503
-    
-    if not current_user.has_premium:
-        return jsonify({'success': False, 'error': 'Premium subscription required for HiggsAudio'}), 403
-    
-    data = request.get_json()
-    text = data.get('text', '').strip()
-    
-    if not text:
-        return jsonify({'success': False, 'error': 'Text is required'}), 400
-    
-    if len(text) > 10000:
-        return jsonify({'success': False, 'error': 'Text too long. Maximum 10,000 characters.'}), 400
-    
-    try:
-        audio_bytes = generate_higgs_audio(
-            text=text,
-            temperature=float(data.get('temperature', 0.3)),
-            seed=data.get('seed'),
-            reference_audio_id=data.get('reference_audio_id'),
-            scene_description=data.get('scene_description', 'Audio is recorded from a quiet room.')
-        )
-        
-        # Save and return
-        import uuid
-        filename = f"higgs_{uuid.uuid4().hex[:8]}.wav"
-        filepath = OUTPUT_DIR / filename
-        with open(filepath, 'wb') as f:
-            f.write(audio_bytes)
-        
-        return jsonify({
-            'success': True,
-            'audioUrl': f'/api/audio/{filename}',
-            'chars': len(text)
-        })
-    except Exception as e:
-        print(f"[HIGGS API] Error: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-
-@app.route('/api/higgs/dialogue', methods=['POST'])
-@login_required
-@csrf.exempt
-def api_higgs_dialogue():
-    """Generate multi-speaker dialogue with HiggsAudio - the main feature!"""
-    if not HIGGS_ENABLED:
-        return jsonify({'success': False, 'error': 'HiggsAudio not available. Server not configured.'}), 503
-    
-    if not current_user.has_premium:
-        return jsonify({'success': False, 'error': 'Premium subscription required for HiggsAudio'}), 403
-    
-    data = request.get_json()
-    text = data.get('text', '').strip()
-    
-    if not text:
-        return jsonify({'success': False, 'error': 'Dialogue text is required'}), 400
-    
-    if len(text) > 20000:
-        return jsonify({'success': False, 'error': 'Dialogue too long. Maximum 20,000 characters.'}), 400
-    
-    try:
-        audio_bytes = generate_higgs_multi_speaker(
-            text=text,
-            temperature=float(data.get('temperature', 0.3)),
-            seed=data.get('seed'),
-            scene_description=data.get('scene_description', 'Audio is recorded from a quiet room.')
-        )
-        
-        # Save and return
-        import uuid
-        filename = f"higgs_dialogue_{uuid.uuid4().hex[:8]}.wav"
-        filepath = OUTPUT_DIR / filename
-        with open(filepath, 'wb') as f:
-            f.write(audio_bytes)
-        
-        return jsonify({
-            'success': True,
-            'audioUrl': f'/api/audio/{filename}',
-            'chars': len(text)
-        })
-    except Exception as e:
-        print(f"[HIGGS API] Dialogue error: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-
-@app.route('/api/higgs/voices')
-@login_required
-def api_higgs_voices():
-    """Get available HiggsAudio voice references for cloning"""
-    if not HIGGS_ENABLED:
-        return jsonify({'success': False, 'voices': [], 'reason': 'HiggsAudio not configured'})
-    
-    voices = get_higgs_reference_voices()
-    return jsonify({
-        'success': True, 
-        'voices': voices,
-        'info': 'HiggsAudio can also auto-assign voices based on dialogue content'
     })
 
 
