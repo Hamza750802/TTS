@@ -474,8 +474,16 @@ async def cache_all_voices():
                     embedding = extract_voice_embedding(voice_name, str(voice_file))
                     voice_cache[voice_name] = embedding
                     cached.append(voice_name)
+                    
+                    # Clear CUDA cache after each extraction to prevent OOM
+                    if torch.cuda.is_available():
+                        torch.cuda.empty_cache()
+                        
                 except Exception as e:
                     errors.append({"voice": voice_name, "error": str(e)})
+                    # Try to recover from OOM errors
+                    if torch.cuda.is_available():
+                        torch.cuda.empty_cache()
     
     return {
         "success": True,
