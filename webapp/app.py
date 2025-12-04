@@ -137,7 +137,8 @@ HIGGS_ENABLED = bool(HIGGS_SERVER_URL)
 # IndexTTS2 Configuration (for IndexTTS2 premium tier - separate from Chatterbox)
 # High-quality zero-shot TTS with emotion control and voice cloning
 # Runs on Vast.ai GPU instance with cached voice embeddings
-INDEXTTS_URL = os.environ.get('INDEXTTS_URL', 'http://localhost:8000')
+INDEXTTS_URL = os.environ.get('INDEXTTS_URL', '')
+INDEXTTS_ENABLED = bool(INDEXTTS_URL)
 
 # All available Chatterbox predefined voices (with .wav extension required by server)
 # These are the actual voice names from the Chatterbox server
@@ -1262,7 +1263,8 @@ def dashboard():
                            chars_remaining=chars_remaining,
                            chars_reset_date=chars_reset_date,
                            is_unlimited=is_unlimited,
-                           higgs_enabled=HIGGS_ENABLED)
+                           higgs_enabled=HIGGS_ENABLED,
+                           indextts_enabled=INDEXTTS_ENABLED)
 
 
 @app.route('/signup', methods=['GET', 'POST'])

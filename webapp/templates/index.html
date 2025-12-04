@@ -713,6 +713,12 @@
       <div style="font-size: 11px; color: #8B5CF6; font-weight: 400; margin-top: 4px;">Multi-speaker conversations</div>
     </button>
     {% endif %}
+    {% if indextts_enabled %}
+    <button type="button" class="tts-tab" onclick="switchTab('indextts')" id="tabIndexTTS" style="border-left: 3px solid #06b6d4;">
+      🎯 Studio Voices <span style="background: linear-gradient(135deg, #06b6d4, #0891b2); color: white; font-size: 9px; padding: 2px 6px; border-radius: 6px; margin-left: 6px; font-weight: 700;">NEW</span>
+      <div style="font-size: 11px; color: #06b6d4; font-weight: 400; margin-top: 4px;">Ultra-quality voice clones</div>
+    </button>
+    {% endif %}
   </div>
 
   <!-- Standard TTS Tab Content -->
@@ -1152,6 +1158,102 @@ Or just write natural dialogue - the AI will figure out the speakers automatical
   </div><!-- End HiggsAudio Tab -->
   {% endif %}
 
+  {% if indextts_enabled %}
+  <!-- IndexTTS2 Tab Content -->
+  <div class="tab-content" id="indexttsTab">
+    <form id="indexttsForm">
+      <div class="form-card">
+        <!-- IndexTTS2 Header -->
+        <div style="background: linear-gradient(135deg, rgba(6,182,212,0.1), rgba(8,145,178,0.1)); border: 2px solid rgba(6,182,212,0.3); border-radius: 16px; padding: 20px; margin-bottom: 24px; text-align: center;">
+          <h3 style="margin: 0 0 8px 0; background: linear-gradient(135deg, #06b6d4, #0891b2); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; font-size: 20px;">🎯 Studio Voices</h3>
+          <p style="margin: 0 0 10px 0; color: #636E72; font-size: 14px;">Ultra-quality voice clones with natural expression • Multi-speaker support</p>
+          <a href="{{ url_for('storytelling') }}" style="color: #06b6d4; font-size: 13px; text-decoration: none;">Learn more about Studio Voices →</a>
+        </div>
+
+        {% if current_user.has_indextts %}
+        <!-- User has IndexTTS2 subscription -->
+        <div style="background: rgba(6,182,212,0.1); border: 1px solid rgba(6,182,212,0.3); border-radius: 12px; padding: 12px 16px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
+          <span style="color: #06b6d4; font-weight: 600;">✓ Studio Voices Active</span>
+          <span style="color: #636E72; font-size: 13px;">
+            <span id="indexttsCharsUsed">{{ current_user.indextts_chars_used or 0 }}</span> / 
+            <span id="indexttsCharsLimit">{{ current_user.indextts_char_limit }}</span> chars used
+          </span>
+        </div>
+        
+        <!-- Voice Selection -->
+        <div class="form-section">
+          <div class="section-title">Voice Selection</div>
+          <div class="input-group">
+            <label for="indexttsVoice">Choose a voice</label>
+            <select id="indexttsVoice" style="width: 100%; padding: 12px 16px; border: 2px solid #DFE6E9; border-radius: 12px; font-size: 15px; background: white; cursor: pointer;">
+              <option value="">Loading voices...</option>
+            </select>
+            <p style="font-size: 12px; color: #636E72; margin-top: 8px;">🎯 Studio Voices use IndexTTS2 for ultra-realistic cloned voices</p>
+          </div>
+          <button type="button" id="indexttsPreviewBtn" onclick="previewIndexttsVoice()" style="margin-top: 10px; padding: 10px 20px; border-radius: 10px; border: 2px solid #06b6d4; background: transparent; color: #06b6d4; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s;">
+            🔊 Preview Voice
+          </button>
+          <audio id="indexttsPreviewAudio" style="display: none;"></audio>
+        </div>
+
+        <!-- Text Input -->
+        <div class="form-section">
+          <div class="section-title">Your Text</div>
+          <div class="input-group">
+            <label for="indexttsText">Enter text to convert</label>
+            <textarea id="indexttsText" placeholder="Type your text here...&#10;&#10;For multi-speaker dialogue, use voice names in brackets:&#10;[Emily]: Hello! How are you today?&#10;[Michael]: I'm doing great, thanks for asking!&#10;[Emily]: That's wonderful to hear.&#10;&#10;Available voices: Adam, Eleanor, Emily, Grace, Hannah, Michael, Natalie, Olivia, Sophia"></textarea>
+            <p style="font-size: 12px; color: #06b6d4; margin-top: 8px;">💡 Use [VoiceName]: format for multi-speaker dialogue!</p>
+          </div>
+        </div>
+
+        <!-- Generate Button -->
+        <button type="submit" id="indexttsGenerateBtn" style="width: 100%; padding: 16px; font-size: 16px; background: linear-gradient(135deg, #06b6d4, #0891b2); color: white; border: none; border-radius: 12px; font-weight: 600; cursor: pointer; box-shadow: 0 4px 16px rgba(6,182,212,0.3); transition: all 0.2s;">
+          🎯 Generate Studio Audio
+        </button>
+        
+        {% else %}
+        <!-- Non-subscribed User - Upgrade prompt -->
+        <div style="background: linear-gradient(135deg, rgba(6,182,212,0.1), rgba(8,145,178,0.1)); border: 2px solid rgba(6,182,212,0.3); border-radius: 16px; padding: 24px; margin-bottom: 24px; text-align: center;">
+          <h4 style="margin: 0 0 12px 0; color: #06b6d4;">🔒 Studio Voices Subscription Required</h4>
+          <p style="color: #636E72; margin: 0 0 16px 0; font-size: 14px;">Subscribe to access ultra-quality voice clones with natural expression and multi-speaker support.</p>
+          <a href="/subscribe" style="display: inline-block; padding: 12px 32px; background: linear-gradient(135deg, #06b6d4, #0891b2); color: white; text-decoration: none; border-radius: 12px; font-weight: 600; box-shadow: 0 4px 16px rgba(6,182,212,0.3);">Subscribe to Studio Voices →</a>
+        </div>
+        
+        <!-- Preview Section (available to all) -->
+        <div style="background: rgba(6,182,212,0.05); border: 1px solid rgba(6,182,212,0.2); border-radius: 12px; padding: 16px; margin-top: 16px;">
+          <h4 style="margin: 0 0 12px 0; color: #06b6d4; font-size: 15px;">🎧 Try a Preview</h4>
+          <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+            <select id="indexttsPreviewVoice" style="padding: 10px 14px; border: 2px solid #DFE6E9; border-radius: 10px; font-size: 14px; background: white; cursor: pointer; min-width: 150px;">
+              <option value="">Loading voices...</option>
+            </select>
+            <button type="button" onclick="previewIndexttsVoiceFree()" style="padding: 10px 20px; border-radius: 10px; border: 2px solid #06b6d4; background: transparent; color: #06b6d4; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s;">
+              🔊 Preview
+            </button>
+          </div>
+          <audio id="indexttsPreviewAudioFree" style="width: 100%; margin-top: 12px; display: none;"></audio>
+          <p style="font-size: 11px; color: #999; margin-top: 8px;">Preview limited to 100 characters</p>
+        </div>
+        {% endif %}
+
+        <!-- Status & Progress -->
+        <div id="indexttsStatus" style="display: none; margin-top: 16px; padding: 14px 18px; border-radius: 14px; background: rgba(6,182,212,0.1); color: #06b6d4; font-weight: 500; text-align: center;">
+          ⏳ Generating audio...
+        </div>
+        <div class="error" id="indexttsError" style="display: none;"></div>
+        
+        <!-- Audio Player -->
+        <div class="audio-player" id="indexttsAudioPlayer" style="display: none; margin-top: 20px; padding: 20px; background: rgba(6,182,212,0.05); border-radius: 16px; border: 1px solid rgba(6,182,212,0.2);">
+          <strong style="color: #06b6d4;">🎯 Studio audio ready!</strong>
+          <audio id="indexttsAudioElement" controls style="width: 100%; margin-top: 12px;"></audio>
+          <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px;">
+            <a id="indexttsDownloadLink" class="download-btn" download="studio_voice.wav" style="background: linear-gradient(135deg, #06b6d4, #0891b2); color: white; border-color: transparent; padding: 10px 20px; border-radius: 10px; text-decoration: none; font-weight: 600;">⬇️ Download WAV</a>
+          </div>
+        </div>
+      </div>
+    </form>
+  </div><!-- End IndexTTS2 Tab -->
+  {% endif %}
+
 </div>
 {% endif %}
 {% endblock %}
@@ -1184,6 +1286,12 @@ Or just write natural dialogue - the AI will figure out the speakers automatical
     const higgsTab = document.getElementById('higgsTab');
     if (tabHiggs) tabHiggs.classList.toggle('active', tab === 'higgs');
     if (higgsTab) higgsTab.classList.toggle('active', tab === 'higgs');
+    
+    // IndexTTS2 tab (if exists)
+    const tabIndexTTS = document.getElementById('tabIndexTTS');
+    const indexttsTab = document.getElementById('indexttsTab');
+    if (tabIndexTTS) tabIndexTTS.classList.toggle('active', tab === 'indextts');
+    if (indexttsTab) indexttsTab.classList.toggle('active', tab === 'indextts');
   }
 
   // ===== CHUNK EDITOR MANAGEMENT =====
@@ -1643,6 +1751,219 @@ Or just write natural dialogue - the AI will figure out the speakers automatical
       loading.classList.remove('visible');
     }
   });
+  
+  // ===== IndexTTS2 (Studio Voices) =====
+  let indexttsVoices = [];
+  
+  // Load IndexTTS2 voices on page load
+  async function loadIndexttsVoices() {
+    try {
+      const response = await fetch('/api/indextts/voices');
+      const data = await response.json();
+      if (data.success && data.voices) {
+        indexttsVoices = data.voices;
+        populateIndexttsVoiceDropdowns();
+      }
+    } catch (err) {
+      console.error('Failed to load IndexTTS2 voices:', err);
+    }
+  }
+  
+  function populateIndexttsVoiceDropdowns() {
+    const dropdowns = [
+      document.getElementById('indexttsVoice'),
+      document.getElementById('indexttsPreviewVoice')
+    ];
+    
+    dropdowns.forEach(dropdown => {
+      if (!dropdown) return;
+      dropdown.innerHTML = '';
+      
+      if (indexttsVoices.length === 0) {
+        dropdown.innerHTML = '<option value="">No voices available</option>';
+        return;
+      }
+      
+      // Group voices by gender (simple heuristic)
+      const femaleVoices = ['Emily', 'Grace', 'Hannah', 'Natalie', 'Olivia', 'Sophia', 'Eleanor'];
+      const maleVoices = ['Adam', 'Michael'];
+      
+      const femaleGroup = document.createElement('optgroup');
+      femaleGroup.label = '👩 Female Voices';
+      
+      const maleGroup = document.createElement('optgroup');
+      maleGroup.label = '👨 Male Voices';
+      
+      const otherGroup = document.createElement('optgroup');
+      otherGroup.label = '🎙️ Other Voices';
+      
+      indexttsVoices.forEach(voice => {
+        const option = document.createElement('option');
+        option.value = voice;
+        option.textContent = voice;
+        
+        if (femaleVoices.includes(voice)) {
+          femaleGroup.appendChild(option);
+        } else if (maleVoices.includes(voice)) {
+          maleGroup.appendChild(option);
+        } else {
+          otherGroup.appendChild(option);
+        }
+      });
+      
+      if (femaleGroup.children.length > 0) dropdown.appendChild(femaleGroup);
+      if (maleGroup.children.length > 0) dropdown.appendChild(maleGroup);
+      if (otherGroup.children.length > 0) dropdown.appendChild(otherGroup);
+    });
+  }
+  
+  // Preview voice (for subscribed users)
+  async function previewIndexttsVoice() {
+    const voice = document.getElementById('indexttsVoice')?.value;
+    if (!voice) {
+      alert('Please select a voice first');
+      return;
+    }
+    
+    const btn = document.getElementById('indexttsPreviewBtn');
+    const audio = document.getElementById('indexttsPreviewAudio');
+    
+    btn.disabled = true;
+    btn.textContent = '⏳ Loading...';
+    
+    try {
+      const response = await fetch('/api/indextts/preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ voice: voice })
+      });
+      
+      const data = await response.json();
+      if (data.success && data.audio_url) {
+        audio.src = data.audio_url;
+        audio.style.display = 'block';
+        audio.play();
+      } else {
+        alert(data.error || 'Failed to generate preview');
+      }
+    } catch (err) {
+      console.error('Preview error:', err);
+      alert('Network error. Please try again.');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '🔊 Preview Voice';
+    }
+  }
+  
+  // Preview voice (for non-subscribed users - free preview)
+  async function previewIndexttsVoiceFree() {
+    const voice = document.getElementById('indexttsPreviewVoice')?.value;
+    if (!voice) {
+      alert('Please select a voice first');
+      return;
+    }
+    
+    const audio = document.getElementById('indexttsPreviewAudioFree');
+    
+    try {
+      const response = await fetch('/api/indextts/preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ voice: voice })
+      });
+      
+      const data = await response.json();
+      if (data.success && data.audio_url) {
+        audio.src = data.audio_url;
+        audio.style.display = 'block';
+        audio.play();
+      } else {
+        alert(data.error || 'Failed to generate preview');
+      }
+    } catch (err) {
+      console.error('Preview error:', err);
+      alert('Network error. Please try again.');
+    }
+  }
+  
+  // IndexTTS2 Form Handler
+  document.getElementById('indexttsForm')?.addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const text = document.getElementById('indexttsText').value.trim();
+    const voice = document.getElementById('indexttsVoice').value;
+    const generateBtn = document.getElementById('indexttsGenerateBtn');
+    const status = document.getElementById('indexttsStatus');
+    const error = document.getElementById('indexttsError');
+    const audioPlayer = document.getElementById('indexttsAudioPlayer');
+    
+    if (!text) {
+      error.textContent = 'Please enter text to convert.';
+      error.style.display = 'block';
+      return;
+    }
+    
+    if (!voice) {
+      error.textContent = 'Please select a voice.';
+      error.style.display = 'block';
+      return;
+    }
+    
+    // Show loading
+    generateBtn.disabled = true;
+    generateBtn.textContent = '⏳ Generating...';
+    status.style.display = 'block';
+    status.textContent = '⏳ Generating audio with Studio Voices...';
+    error.style.display = 'none';
+    audioPlayer.style.display = 'none';
+    
+    try {
+      const response = await fetch('/api/indextts/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: text, voice: voice })
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        // Update usage display
+        const usedEl = document.getElementById('indexttsCharsUsed');
+        if (usedEl && data.chars_used !== undefined) {
+          usedEl.textContent = data.chars_used;
+        }
+        
+        // Show audio player
+        document.getElementById('indexttsAudioElement').src = data.audio_url;
+        document.getElementById('indexttsDownloadLink').href = data.audio_url;
+        audioPlayer.style.display = 'block';
+        status.textContent = '✅ Audio generated successfully!';
+        
+        setTimeout(() => { status.style.display = 'none'; }, 3000);
+      } else {
+        error.textContent = data.error || 'Failed to generate audio.';
+        error.style.display = 'block';
+        status.style.display = 'none';
+        
+        if (data.subscription_required) {
+          error.innerHTML = data.error + ' <a href="/subscribe" style="color: #06b6d4; font-weight: 600;">Subscribe Now →</a>';
+        }
+      }
+    } catch (err) {
+      console.error('IndexTTS2 generate error:', err);
+      error.textContent = 'Network error. Please try again.';
+      error.style.display = 'block';
+      status.style.display = 'none';
+    } finally {
+      generateBtn.disabled = false;
+      generateBtn.textContent = '🎯 Generate Studio Audio';
+    }
+  });
+  
+  // Load IndexTTS2 voices when page loads
+  if (document.getElementById('indexttsTab')) {
+    loadIndexttsVoices();
+  }
   
   // OPTIMIZED Ultra presets - tuned for HuggingFace-quality output
   // Lower temperature (0.35-0.45) = more stable, natural speech
