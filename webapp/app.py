@@ -3477,7 +3477,21 @@ def api_audio(filename):
     try:
         file_path = OUTPUT_DIR / filename
         if file_path.exists():
-            return send_file(file_path, mimetype='audio/mpeg')
+            # Determine correct mimetype based on extension
+            if filename.endswith('.wav'):
+                mimetype = 'audio/wav'
+            elif filename.endswith('.mp3'):
+                mimetype = 'audio/mpeg'
+            elif filename.endswith('.ogg'):
+                mimetype = 'audio/ogg'
+            else:
+                mimetype = 'audio/mpeg'
+            
+            # Add cache headers for faster playback
+            response = send_file(file_path, mimetype=mimetype)
+            response.headers['Accept-Ranges'] = 'bytes'
+            response.headers['Cache-Control'] = 'public, max-age=3600'
+            return response
         else:
             return jsonify({'success': False, 'error': 'File not found'}), 404
     except Exception as e:
