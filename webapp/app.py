@@ -868,6 +868,19 @@ with app.app_context():
         if 'indextts_stripe_subscription_id' not in existing_columns:
             conn.execute(text("ALTER TABLE \"user\" ADD COLUMN indextts_stripe_subscription_id VARCHAR(255)"))
             print("[MIGRATION] Added indextts_stripe_subscription_id column to user table")
+        # VibeVoice/Podcast TTS tier columns
+        if 'vibevoice_tier' not in existing_columns:
+            conn.execute(text("ALTER TABLE \"user\" ADD COLUMN vibevoice_tier VARCHAR(32) DEFAULT 'none'"))
+            print("[MIGRATION] Added vibevoice_tier column to user table")
+        if 'vibevoice_chars_used' not in existing_columns:
+            conn.execute(text("ALTER TABLE \"user\" ADD COLUMN vibevoice_chars_used INTEGER DEFAULT 0"))
+            print("[MIGRATION] Added vibevoice_chars_used column to user table")
+        if 'vibevoice_chars_reset_at' not in existing_columns:
+            conn.execute(text("ALTER TABLE \"user\" ADD COLUMN vibevoice_chars_reset_at TIMESTAMP"))
+            print("[MIGRATION] Added vibevoice_chars_reset_at column to user table")
+        if 'vibevoice_stripe_subscription_id' not in existing_columns:
+            conn.execute(text("ALTER TABLE \"user\" ADD COLUMN vibevoice_stripe_subscription_id VARCHAR(255)"))
+            print("[MIGRATION] Added vibevoice_stripe_subscription_id column to user table")
         conn.commit()
 
 # Cleanup old files on startup (works with Gunicorn)
