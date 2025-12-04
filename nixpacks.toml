@@ -1,6 +1,0 @@
-# Nixpacks configuration for faster builds
-[phases.setup]
-nixPkgs = ["python311", "gcc"]
-
-[start]
-cmd = "gunicorn -w 2 -b 0.0.0.0:$PORT --timeout 120 webapp.app:app"
