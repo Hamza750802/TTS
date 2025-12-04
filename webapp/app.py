@@ -134,6 +134,11 @@ CHATTERBOX_URL = os.environ.get('CHATTERBOX_URL', 'http://localhost:8004')
 HIGGS_SERVER_URL = os.environ.get('HIGGS_SERVER_URL', '')
 HIGGS_ENABLED = bool(HIGGS_SERVER_URL)
 
+# IndexTTS2 Configuration (for IndexTTS2 premium tier - separate from Chatterbox)
+# High-quality zero-shot TTS with emotion control and voice cloning
+# Runs on Vast.ai GPU instance with cached voice embeddings
+INDEXTTS_URL = os.environ.get('INDEXTTS_URL', 'http://localhost:8000')
+
 # All available Chatterbox predefined voices (with .wav extension required by server)
 # These are the actual voice names from the Chatterbox server
 CHATTERBOX_VOICES = [
@@ -408,6 +413,69 @@ class User(db.Model, UserMixin):
     premium_chars_reset_at = db.Column(db.DateTime)
     premium_stripe_subscription_id = db.Column(db.String(255))
     premium_overage_cents = db.Column(db.Integer, default=0)  # Track overage charges
+    
+    # --- IndexTTS2 (Separate premium tier from Chatterbox) ---
+    # Tiers: 'none' | 'indextts' (100K) | 'indextts_plus' (200K) | 'indextts_pro' (300K)
+    indextts_tier = db.Column(db.String(32), default='none')
+    indextts_chars_used = db.Column(db.Integer, default=0)
+    indextts_chars_reset_at = db.Column(db.DateTime)
+    indextts_stripe_subscription_id = db.Column(db.String(255))
+    
+    # IndexTTS2 tier character limits
+    INDEXTTS_LIMITS = {
+        'none': 0,
+        'indextts': 100000,      # 100K chars
+        'indextts_plus': 200000,  # 200K chars
+        'indextts_pro': 300000    # 300K chars
+    }
+    
+    @property
+    def has_indextts(self) -> bool:
+        """Check if user has any IndexTTS2 access"""
+        return self.indextts_tier in ('indextts', 'indextts_plus', 'indextts_pro')
+    
+    @property
+    def indextts_char_limit(self) -> int:
+        """Get IndexTTS2 character limit based on tier"""
+        return self.INDEXTTS_LIMITS.get(self.indextts_tier, 0)
+    
+    @property
+    def indextts_chars_remaining(self) -> int:
+        """Get remaining IndexTTS2 characters for this billing period"""
+        if not self.has_indextts:
+            return 0
+        self.check_and_reset_indextts_usage()
+        return max(0, self.indextts_char_limit - (self.indextts_chars_used or 0))
+    
+    def check_and_reset_indextts_usage(self):
+        """Reset IndexTTS2 usage if billing period has passed (monthly)"""
+        if not self.indextts_chars_reset_at:
+            self.indextts_chars_reset_at = datetime.utcnow() + timedelta(days=30)
+            self.indextts_chars_used = 0
+            return
+        
+        if datetime.utcnow() >= self.indextts_chars_reset_at:
+            self.indextts_chars_used = 0
+            self.indextts_chars_reset_at = datetime.utcnow() + timedelta(days=30)
+    
+    def use_indextts_chars(self, char_count: int) -> tuple:
+        """
+        Track IndexTTS2 character usage.
+        Returns (success: bool, error_message: str or None)
+        """
+        if not self.has_indextts:
+            return (False, "IndexTTS2 subscription required.")
+        
+        self.check_and_reset_indextts_usage()
+        
+        current_used = self.indextts_chars_used or 0
+        remaining = self.indextts_char_limit - current_used
+        
+        if char_count > remaining:
+            return (False, f"IndexTTS2 character limit reached. {remaining:,} characters remaining.")
+        
+        self.indextts_chars_used = current_used + char_count
+        return (True, None)
     
     # Premium tier character limits
     PREMIUM_LIMITS = {
@@ -723,6 +791,19 @@ with app.app_context():
         if 'premium_overage_cents' not in existing_columns:
             conn.execute(text("ALTER TABLE \"user\" ADD COLUMN premium_overage_cents INTEGER DEFAULT 0"))
             print("[MIGRATION] Added premium_overage_cents column to user table")
+        # IndexTTS2 tier columns
+        if 'indextts_tier' not in existing_columns:
+            conn.execute(text("ALTER TABLE \"user\" ADD COLUMN indextts_tier VARCHAR(32) DEFAULT 'none'"))
+            print("[MIGRATION] Added indextts_tier column to user table")
+        if 'indextts_chars_used' not in existing_columns:
+            conn.execute(text("ALTER TABLE \"user\" ADD COLUMN indextts_chars_used INTEGER DEFAULT 0"))
+            print("[MIGRATION] Added indextts_chars_used column to user table")
+        if 'indextts_chars_reset_at' not in existing_columns:
+            conn.execute(text("ALTER TABLE \"user\" ADD COLUMN indextts_chars_reset_at TIMESTAMP"))
+            print("[MIGRATION] Added indextts_chars_reset_at column to user table")
+        if 'indextts_stripe_subscription_id' not in existing_columns:
+            conn.execute(text("ALTER TABLE \"user\" ADD COLUMN indextts_stripe_subscription_id VARCHAR(255)"))
+            print("[MIGRATION] Added indextts_stripe_subscription_id column to user table")
         conn.commit()
 
 # Cleanup old files on startup (works with Gunicorn)
@@ -3265,6 +3346,359 @@ def api_higgs_voices():
         'voices': voices,
         'info': 'HiggsAudio can also auto-assign voices based on dialogue content'
     })
+
+
+# ==================== IndexTTS2 API Endpoints ====================
+
+def generate_indextts_audio(text, voice, emo_alpha=0.6, use_emo_text=False, emo_text=None, emo_vector=None, use_random=False):
+    """
+    Call the IndexTTS2 server /generate endpoint.
+    Returns audio bytes (WAV) or raises exception.
+    
+    Parameters:
+    - text: The text to synthesize
+    - voice: Voice name (e.g., 'Emily', 'Michael')
+    - emo_alpha: Emotion intensity (0.0-1.0, default 0.6)
+    - use_emo_text: Use text content to infer emotion
+    - emo_text: Separate emotion description
+    - emo_vector: [happy, angry, sad, afraid, disgusted, melancholic, surprised, calm]
+    - use_random: Enable stochastic sampling
+    """
+    payload = {
+        'text': text,
+        'voice': voice,
+        'emo_alpha': emo_alpha,
+        'use_emo_text': use_emo_text,
+        'use_random': use_random
+    }
+    
+    if emo_text:
+        payload['emo_text'] = emo_text
+    if emo_vector:
+        payload['emo_vector'] = emo_vector
+    
+    print(f"[IndexTTS2] Generating: voice={voice}, emo_alpha={emo_alpha}, text_len={len(text)}")
+    
+    response = requests.post(
+        f'{INDEXTTS_URL}/generate',
+        json=payload,
+        timeout=300,  # 5 min timeout
+        stream=True
+    )
+    
+    if response.status_code != 200:
+        error_msg = 'Unknown error'
+        try:
+            error_msg = response.json().get('detail', response.text[:200])
+        except:
+            error_msg = response.text[:200] if response.text else f'HTTP {response.status_code}'
+        raise Exception(f'IndexTTS2 error: {error_msg}')
+    
+    return response.content
+
+
+@app.route('/api/indextts/voices', methods=['GET'])
+def api_indextts_voices():
+    """
+    Get available IndexTTS2 voices from the server.
+    """
+    try:
+        if not INDEXTTS_URL:
+            return jsonify({
+                'success': False,
+                'error': 'IndexTTS2 service is not configured.'
+            }), 503
+        
+        response = requests.get(f'{INDEXTTS_URL}/voices', timeout=30)
+        if response.status_code == 200:
+            data = response.json()
+            return jsonify({
+                'success': True,
+                'voices': data.get('voices', []),
+                'count': data.get('count', 0),
+                'cached_count': data.get('cached_count', 0)
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': f'Failed to fetch voices: HTTP {response.status_code}'
+            }), 500
+    except requests.Timeout:
+        return jsonify({
+            'success': False,
+            'error': 'IndexTTS2 service is not responding.'
+        }), 504
+    except Exception as e:
+        print(f"[IndexTTS2] Error fetching voices: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/indextts/generate', methods=['POST'])
+@login_required
+@csrf.exempt
+def api_indextts_generate():
+    """
+    Generate audio using IndexTTS2.
+    Supports:
+    - Single voice generation
+    - Emotion control via emo_alpha, emo_text, or emo_vector
+    - Multi-speaker dialogue with [Emily]: [Michael]: format
+    
+    Requires IndexTTS2 subscription tier.
+    """
+    import re
+    
+    try:
+        # Check if IndexTTS2 is configured
+        if not INDEXTTS_URL:
+            return jsonify({
+                'success': False,
+                'error': 'IndexTTS2 service is not configured. Please contact support.'
+            }), 503
+        
+        data = request.get_json(silent=True) or {}
+        
+        text = (data.get('text', '') or '').strip()
+        voice = data.get('voice', 'Emily')
+        emo_alpha = float(data.get('emo_alpha', 0.6))
+        use_emo_text = bool(data.get('use_emo_text', False))
+        emo_text = data.get('emo_text')
+        emo_vector = data.get('emo_vector')
+        use_random = bool(data.get('use_random', False))
+        
+        if not text:
+            return jsonify({'success': False, 'error': 'No text provided'}), 400
+        
+        if len(text) > 100000:
+            return jsonify({'success': False, 'error': 'Text too long (max 100,000 chars)'}), 400
+        
+        # Calculate character count (strip speaker tags)
+        plain_text = re.sub(r'\[([\w]+)\]:\s*', '', text)
+        char_count = len(plain_text)
+        
+        # Check IndexTTS2 subscription and usage
+        if not current_user.has_indextts:
+            return jsonify({
+                'success': False,
+                'error': 'IndexTTS2 subscription required. Upgrade for high-quality voice cloning.',
+                'upgrade_url': '/subscribe',
+                'indextts_required': True
+            }), 402
+        
+        # Check and track usage
+        success, error_msg = current_user.use_indextts_chars(char_count)
+        if not success:
+            return jsonify({
+                'success': False,
+                'error': error_msg,
+                'limit_reached': True,
+                'indextts_chars_used': current_user.indextts_chars_used or 0,
+                'indextts_chars_limit': current_user.indextts_char_limit,
+                'indextts_chars_remaining': current_user.indextts_chars_remaining,
+                'upgrade_url': '/subscribe'
+            }), 402
+        
+        db.session.commit()
+        
+        # Parse multi-speaker segments [Emily]: [Michael]: format
+        segments = []
+        speaker_pattern = r'\[(\w+)\]:\s*'
+        parts = re.split(speaker_pattern, text)
+        
+        # First part before any tag
+        if parts[0].strip():
+            segments.append((voice, parts[0].strip()))
+        
+        # Process speaker:text pairs
+        for i in range(1, len(parts), 2):
+            speaker_voice = parts[i]
+            if i + 1 < len(parts):
+                seg_text = parts[i + 1].strip()
+                if seg_text:
+                    segments.append((speaker_voice, seg_text))
+        
+        # If no segments parsed, treat as single-voice
+        if not segments:
+            segments = [(voice, text)]
+        
+        has_multiple_speakers = len(set(s[0] for s in segments)) > 1
+        
+        print(f"[IndexTTS2] Processing {len(segments)} segments, multi-speaker={has_multiple_speakers}")
+        
+        audio_chunks = []
+        segment_stats = []
+        
+        for idx, (seg_voice, seg_text) in enumerate(segments):
+            print(f"[IndexTTS2] Segment {idx+1}/{len(segments)}: Voice={seg_voice}, {len(seg_text)} chars")
+            
+            try:
+                audio_data = generate_indextts_audio(
+                    text=seg_text,
+                    voice=seg_voice,
+                    emo_alpha=emo_alpha,
+                    use_emo_text=use_emo_text,
+                    emo_text=emo_text,
+                    emo_vector=emo_vector,
+                    use_random=use_random
+                )
+                audio_chunks.append(audio_data)
+                segment_stats.append({
+                    'voice': seg_voice,
+                    'chars': len(seg_text),
+                    'audio_size': len(audio_data)
+                })
+            except Exception as e:
+                print(f"[IndexTTS2] Segment {idx+1} failed: {e}")
+                # Rollback usage
+                current_user.indextts_chars_used = max(0, (current_user.indextts_chars_used or 0) - char_count)
+                db.session.commit()
+                return jsonify({
+                    'success': False,
+                    'error': f'Failed to generate segment {idx+1}: {str(e)}'
+                }), 500
+        
+        # Concatenate audio chunks
+        if len(audio_chunks) > 1:
+            print(f"[IndexTTS2] Concatenating {len(audio_chunks)} audio chunks...")
+            if has_multiple_speakers:
+                final_audio = concatenate_wav_files_with_crossfade(audio_chunks, crossfade_ms=30, silence_ms=300)
+            else:
+                final_audio = concatenate_wav_files_with_crossfade(audio_chunks, crossfade_ms=40, silence_ms=100)
+        else:
+            final_audio = audio_chunks[0] if audio_chunks else b''
+        
+        if not final_audio:
+            return jsonify({
+                'success': False,
+                'error': 'No audio data generated'
+            }), 500
+        
+        # Save the audio file
+        file_hash = hashlib.md5(f"indextts:{voice}:{text[:50]}:{time.time()}".encode()).hexdigest()[:12]
+        output_file = OUTPUT_DIR / f"indextts_{file_hash}.wav"
+        
+        with open(output_file, 'wb') as f:
+            f.write(final_audio)
+        
+        print(f"[IndexTTS2] Saved {output_file.name}, {len(final_audio)} bytes")
+        
+        return jsonify({
+            'success': True,
+            'audioUrl': f'/api/audio/{output_file.name}',
+            'stats': {
+                'total_chars': char_count,
+                'segments': len(segments),
+                'multi_speaker': has_multiple_speakers,
+                'segment_details': segment_stats,
+                'audio_size': len(final_audio)
+            },
+            'indextts_chars_used': current_user.indextts_chars_used or 0,
+            'indextts_chars_limit': current_user.indextts_char_limit,
+            'indextts_chars_remaining': current_user.indextts_chars_remaining
+        })
+        
+    except requests.Timeout:
+        return jsonify({
+            'success': False,
+            'error': 'IndexTTS2 generation timed out. Please try with shorter text.'
+        }), 504
+    except Exception as e:
+        print(f"[IndexTTS2 ERROR] {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/indextts/preview', methods=['POST'])
+@csrf.exempt
+@limiter.limit("10 per minute")
+def api_indextts_preview():
+    """
+    Preview IndexTTS2 voice (max 100 chars, no auth required).
+    """
+    try:
+        if not INDEXTTS_URL:
+            return jsonify({
+                'success': False,
+                'error': 'IndexTTS2 service is not configured.'
+            }), 503
+        
+        data = request.get_json(silent=True) or {}
+        
+        text = (data.get('text', '') or '').strip()
+        voice = data.get('voice', 'Emily')
+        emo_alpha = float(data.get('emo_alpha', 0.6))
+        
+        if not text:
+            return jsonify({'success': False, 'error': 'No text provided'}), 400
+        
+        # Limit preview to 100 characters
+        if len(text) > 100:
+            text = text[:100]
+        
+        print(f"[IndexTTS2 Preview] Voice={voice}, Text: {text[:30]}...")
+        
+        try:
+            audio_data = generate_indextts_audio(
+                text=text,
+                voice=voice,
+                emo_alpha=emo_alpha
+            )
+            
+            # Save preview file
+            file_hash = hashlib.md5(f"indextts_preview:{text[:20]}:{time.time()}".encode()).hexdigest()[:12]
+            output_file = OUTPUT_DIR / f"indextts_preview_{file_hash}.wav"
+            
+            with open(output_file, 'wb') as f:
+                f.write(audio_data)
+            
+            return jsonify({
+                'success': True,
+                'audioUrl': f'/api/audio/{output_file.name}'
+            })
+            
+        except Exception as e:
+            print(f"[IndexTTS2 Preview ERROR] {e}")
+            return jsonify({
+                'success': False,
+                'error': f'Preview failed: {str(e)}'
+            }), 500
+            
+    except Exception as e:
+        print(f"[IndexTTS2 Preview ERROR] {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/indextts/health', methods=['GET'])
+def api_indextts_health():
+    """Check IndexTTS2 server health."""
+    try:
+        if not INDEXTTS_URL:
+            return jsonify({
+                'success': False,
+                'status': 'not_configured'
+            })
+        
+        response = requests.get(f'{INDEXTTS_URL}/health', timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            return jsonify({
+                'success': True,
+                'status': data.get('status', 'unknown'),
+                'model_loaded': data.get('model_loaded', False),
+                'cached_voices': data.get('cached_voices', 0)
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'status': 'unhealthy'
+            }), 503
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'status': 'unreachable',
+            'error': str(e)
+        }), 503
 
 
 @app.route('/api/audio/<filename>')
