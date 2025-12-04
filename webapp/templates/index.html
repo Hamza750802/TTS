@@ -1341,15 +1341,14 @@ Emotions: happy, angry, sad, afraid, disgusted, melancholic, surprised, calm"></
           <div class="section-title">Your Text</div>
           <div class="input-group">
             <label for="vibevoiceText">Enter text to convert (supports long-form content)</label>
-            <textarea id="vibevoiceText" placeholder="[Wayne]: Welcome to the podcast! Today we have a very special guest.
-[Carter]: Thanks for having me! I'm excited to be here.
-[Wayne]: So let's dive right in. Tell us about your journey.
+            <textarea id="vibevoiceText" placeholder="[Carter]: Welcome to the podcast! Today we have a very special guest.
+[Emma]: Thanks for having me! I'm excited to be here.
+[Carter]: So let's dive right in. Tell us about your journey.
 
 Or just type plain text for single-speaker audio.
-
-Available voices: Wayne, Carter (more coming soon)
 Tip: Use [VoiceName]: format for multi-speaker dialogue"></textarea>
             <p style="font-size: 12px; color: #8b5cf6; margin-top: 8px;">💡 Use <strong>[VoiceName]:</strong> format for multi-speaker podcast-style dialogue!</p>
+            <p id="podcastVoiceHint" style="font-size: 11px; color: #636E72; margin-top: 4px;">Loading available voices...</p>
           </div>
         </div>
 
@@ -3204,6 +3203,44 @@ Tip: Use [VoiceName]: format for multi-speaker dialogue"></textarea>
   // ========== VibeVoice Functions ==========
   let vibevoiceVoicesLoaded = false;
   let vibevoiceVoices = [];
+  let podcastVoiceMap = {}; // Maps friendly name -> raw voice ID
+  
+  function formatPodcastVoiceName(rawName) {
+    // Convert "en-Carter_man" -> "Carter (Male)", "en-Emma_woman" -> "Emma (Female)"
+    let name = rawName;
+    let gender = '';
+    
+    // Extract gender suffix
+    if (name.endsWith('_man')) {
+      gender = ' (Male)';
+      name = name.replace('_man', '');
+    } else if (name.endsWith('_woman')) {
+      gender = ' (Female)';
+      name = name.replace('_woman', '');
+    }
+    
+    // Remove language prefix (en-, in-, etc.)
+    if (name.includes('-')) {
+      name = name.split('-').slice(1).join('-');
+    }
+    
+    // Capitalize first letter
+    name = name.charAt(0).toUpperCase() + name.slice(1);
+    
+    return name + gender;
+  }
+  
+  function getFriendlyVoiceName(rawName) {
+    // Get just the base name for markup (e.g., "Carter" from "en-Carter_man")
+    let name = rawName;
+    if (name.endsWith('_man') || name.endsWith('_woman')) {
+      name = name.replace(/_man$|_woman$/, '');
+    }
+    if (name.includes('-')) {
+      name = name.split('-').slice(1).join('-');
+    }
+    return name.charAt(0).toUpperCase() + name.slice(1);
+  }
   
   async function loadVibevoiceVoices() {
     try {
@@ -3212,36 +3249,51 @@ Tip: Use [VoiceName]: format for multi-speaker dialogue"></textarea>
       
       if (data.success && data.voices) {
         vibevoiceVoices = data.voices;
+        podcastVoiceMap = {};
+        
         const select = document.getElementById('vibevoiceVoice');
         if (select) {
           select.innerHTML = '';
           data.voices.forEach(voice => {
+            const friendlyName = getFriendlyVoiceName(voice);
+            const displayName = formatPodcastVoiceName(voice);
+            podcastVoiceMap[friendlyName.toLowerCase()] = voice;
+            podcastVoiceMap[voice.toLowerCase()] = voice; // Also map raw name
+            
             const option = document.createElement('option');
             option.value = voice;
-            option.textContent = voice;
+            option.textContent = displayName;
             select.appendChild(option);
           });
           vibevoiceVoicesLoaded = true;
+          updatePodcastVoiceHint();
         }
       } else {
-        console.log('[VibeVoice] No voices available or service not configured');
+        console.log('[Podcast] No voices available or service not configured');
         const select = document.getElementById('vibevoiceVoice');
         if (select) {
-          select.innerHTML = '<option value="Wayne">Wayne</option><option value="Carter">Carter</option>';
+          select.innerHTML = '<option value="en-Carter_man">Carter (Male)</option><option value="en-Emma_woman">Emma (Female)</option>';
         }
       }
     } catch (error) {
-      console.log('[VibeVoice] Error loading voices:', error);
-      // Fallback to default voices
+      console.log('[Podcast] Error loading voices:', error);
       const select = document.getElementById('vibevoiceVoice');
       if (select) {
-        select.innerHTML = '<option value="Wayne">Wayne</option><option value="Carter">Carter</option>';
+        select.innerHTML = '<option value="en-Carter_man">Carter (Male)</option><option value="en-Emma_woman">Emma (Female)</option>';
       }
     }
   }
   
+  function updatePodcastVoiceHint() {
+    const hintEl = document.getElementById('podcastVoiceHint');
+    if (hintEl && vibevoiceVoices.length > 0) {
+      const names = vibevoiceVoices.map(v => getFriendlyVoiceName(v)).join(', ');
+      hintEl.textContent = `Available voices: ${names}`;
+    }
+  }
+  
   async function previewVibevoiceVoice() {
-    const voice = document.getElementById('vibevoiceVoice')?.value || 'Wayne';
+    const voice = document.getElementById('vibevoiceVoice')?.value || vibevoiceVoices[0] || 'en-Carter_man';
     const btn = document.getElementById('vibevoicePreviewBtn');
     const audio = document.getElementById('vibevoicePreviewAudio');
     
@@ -3274,9 +3326,42 @@ Tip: Use [VoiceName]: format for multi-speaker dialogue"></textarea>
     }
   }
   
+  function parsePodcastMarkup(text) {
+    // Parse [Speaker]: text format for podcast voices
+    const lines = text.trim().split('\n');
+    const segments = [];
+    const markupPattern = /^\[([^\]]+)\]:\s*(.+)$/;
+    const defaultVoice = document.getElementById('vibevoiceVoice')?.value || vibevoiceVoices[0] || 'en-Carter_man';
+    
+    for (let line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      
+      const match = trimmed.match(markupPattern);
+      if (match) {
+        const speakerName = match[1].trim();
+        const content = match[2].trim();
+        
+        // Look up voice by friendly name
+        const voiceId = podcastVoiceMap[speakerName.toLowerCase()] || defaultVoice;
+        
+        segments.push({ text: content, voice: voiceId });
+      } else {
+        // No markup, use default voice
+        segments.push({ text: trimmed, voice: defaultVoice });
+      }
+    }
+    
+    return segments;
+  }
+  
+  function hasPodcastMarkup(text) {
+    return /^\[[^\]]+\]:/m.test(text);
+  }
+  
   async function generateVibevoice() {
     const text = document.getElementById('vibevoiceText')?.value?.trim();
-    const voice = document.getElementById('vibevoiceVoice')?.value || 'Wayne';
+    const voice = document.getElementById('vibevoiceVoice')?.value || vibevoiceVoices[0] || 'en-Carter_man';
     const cfgScale = parseFloat(document.getElementById('vibevoiceCfg')?.value || '1.5');
     const inferenceSteps = parseInt(document.getElementById('vibevoiceSteps')?.value || '5');
     
@@ -3295,15 +3380,35 @@ Tip: Use [VoiceName]: format for multi-speaker dialogue"></textarea>
     if (audioSection) audioSection.style.display = 'none';
     
     try {
-      const response = await fetch('/api/vibevoice/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      let requestBody;
+      let endpoint;
+      
+      // Check if text has multi-speaker markup
+      if (hasPodcastMarkup(text)) {
+        const segments = parsePodcastMarkup(text);
+        endpoint = '/api/vibevoice/generate';
+        requestBody = {
+          text: text,
+          voice: voice,
+          segments: segments,
+          cfg_scale: cfgScale,
+          inference_steps: inferenceSteps,
+          multi_speaker: true
+        };
+      } else {
+        endpoint = '/api/vibevoice/generate';
+        requestBody = {
           text: text,
           voice: voice,
           cfg_scale: cfgScale,
           inference_steps: inferenceSteps
-        })
+        };
+      }
+      
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody)
       });
       
       const data = await response.json();
