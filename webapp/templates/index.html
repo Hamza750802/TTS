@@ -1593,8 +1593,8 @@
       }
       
       // Group voices by gender (simple heuristic)
-      const femaleVoices = ['Emily', 'Grace', 'Hannah', 'Natalie', 'Olivia', 'Sophia', 'Eleanor'];
-      const maleVoices = ['Adam', 'Michael'];
+      const femaleVoices = ['Emily', 'Grace', 'Hannah', 'Natalie', 'Olivia', 'Oliva', 'Sophia', 'Eleanor'];
+      const maleVoices = ['Adam', 'Michael', 'male1'];
       
       const femaleGroup = document.createElement('optgroup');
       femaleGroup.label = '👩 Female Voices';
@@ -1607,12 +1607,14 @@
       
       indexttsVoices.forEach(voice => {
         const option = document.createElement('option');
-        option.value = voice;
-        option.textContent = voice;
+        // Voice can be object {id, name, cached, status} or string
+        const voiceName = typeof voice === 'object' ? voice.name || voice.id : voice;
+        option.value = voiceName;
+        option.textContent = voiceName;
         
-        if (femaleVoices.includes(voice)) {
+        if (femaleVoices.includes(voiceName)) {
           femaleGroup.appendChild(option);
-        } else if (maleVoices.includes(voice)) {
+        } else if (maleVoices.includes(voiceName)) {
           maleGroup.appendChild(option);
         } else {
           otherGroup.appendChild(option);
