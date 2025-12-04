@@ -140,7 +140,9 @@ CHATTERBOX_VOICES = [
     'Abigail.wav', 'Adrian.wav', 'Alexander.wav', 'Alice.wav', 'Austin.wav', 'Axel.wav',
     'Connor.wav', 'Cora.wav', 'Elena.wav', 'Eli.wav', 'Everett.wav', 'Gabriel.wav',
     'Gianna.wav', 'Henry.wav', 'Ian.wav', 'Jade.wav', 'Jeremiah.wav', 'Jordan.wav',
-    'Julian.wav', 'Layla.wav', 'Leonardo.wav', 'Miles.wav'
+    'Julian.wav', 'Layla.wav', 'Leonardo.wav', 'Miles.wav',
+    # New voices from IndexTTS collection
+    'Adam.wav', 'Grace.wav', 'Hannah.wav', 'Natalie.wav', 'Sophia.wav'
 ]
 
 # Voice cloning disabled for now - use predefined voices
