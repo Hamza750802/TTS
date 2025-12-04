@@ -748,6 +748,98 @@ async def cleanup_old_outputs():
     asyncio.create_task(cleanup_loop())
 
 
+# ========== Batch Generation ==========
+
+class BatchSegment(BaseModel):
+    """Single segment in a batch request"""
+    text: str
+    voice: str = "Emily"
+    emo_vector: Optional[List[float]] = None
+
+
+class BatchTTSRequest(BaseModel):
+    """Request for batch TTS generation"""
+    segments: List[BatchSegment]
+    crossfade_ms: int = 30
+    silence_ms: int = 200
+
+
+@app.post("/batch-generate")
+async def batch_generate(request: BatchTTSRequest):
+    """
+    Generate multiple segments in one request and concatenate.
+    Much faster than making separate API calls for each segment.
+    """
+    if not model_loaded:
+        raise HTTPException(status_code=503, detail="Model not loaded")
+    
+    if not request.segments:
+        raise HTTPException(status_code=400, detail="No segments provided")
+    
+    if len(request.segments) > 50:
+        raise HTTPException(status_code=400, detail="Max 50 segments per batch")
+    
+    from scipy.io import wavfile
+    
+    start_total = time.time()
+    audio_arrays = []
+    sample_rate = 22050
+    
+    for idx, seg in enumerate(request.segments):
+        seg_start = time.time()
+        print(f"[Batch] Segment {idx+1}/{len(request.segments)}: {seg.voice}, {len(seg.text)} chars")
+        try:
+            audio_bytes = generate_speech_with_cache(
+                text=seg.text,
+                voice=seg.voice,
+                emo_vector=seg.emo_vector
+            )
+            # Convert bytes to numpy array
+            sr, audio_data = wavfile.read(io.BytesIO(audio_bytes))
+            sample_rate = sr
+            audio_arrays.append(audio_data.astype(np.float32))
+            print(f"[Batch] Segment {idx+1} done in {time.time() - seg_start:.2f}s")
+        except Exception as e:
+            print(f"[Batch] Segment {idx+1} failed: {e}")
+            import traceback
+            traceback.print_exc()
+            raise HTTPException(status_code=500, detail=f"Segment {idx+1} failed: {str(e)}")
+    
+    # Concatenate with silence between segments
+    silence_samples = int(sample_rate * request.silence_ms / 1000)
+    silence = np.zeros(silence_samples, dtype=np.float32)
+    
+    combined = audio_arrays[0]
+    for arr in audio_arrays[1:]:
+        combined = np.concatenate([combined, silence, arr])
+    
+    # Normalize to prevent clipping
+    max_val = np.max(np.abs(combined))
+    if max_val > 0:
+        combined = combined / max_val * 32767 * 0.95
+    combined = combined.astype(np.int16)
+    
+    # Save to file
+    output_filename = f"batch_{uuid.uuid4().hex[:8]}.wav"
+    output_path = OUTPUT_DIR / output_filename
+    wavfile.write(str(output_path), sample_rate, combined)
+    
+    total_time = time.time() - start_total
+    audio_duration = len(combined) / sample_rate
+    print(f"[Batch] Generated {len(request.segments)} segments in {total_time:.2f}s, audio={audio_duration:.1f}s")
+    
+    return FileResponse(
+        output_path,
+        media_type="audio/wav",
+        filename="batch_speech.wav",
+        headers={
+            "X-Generation-Time": str(round(total_time, 2)),
+            "X-Segments": str(len(request.segments)),
+            "X-Audio-Duration": str(round(audio_duration, 2))
+        }
+    )
+
+
 if __name__ == "__main__":
     import uvicorn
     

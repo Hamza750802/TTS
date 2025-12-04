@@ -3139,6 +3139,47 @@ def generate_indextts_audio(text, voice, emo_vector=None, use_random=False):
     return response.content
 
 
+def generate_indextts_batch(segments, silence_ms=200):
+    """
+    Call the IndexTTS2 server /batch-generate endpoint.
+    Much faster for multi-segment generation.
+    
+    Parameters:
+    - segments: List of {text, voice, emo_vector}
+    - silence_ms: Silence between segments
+    
+    Returns audio bytes (WAV) or raises exception.
+    """
+    payload = {
+        'segments': segments,
+        'silence_ms': silence_ms,
+        'crossfade_ms': 30
+    }
+    
+    print(f"[IndexTTS2] Batch generating {len(segments)} segments...")
+    
+    response = requests.post(
+        f'{INDEXTTS_URL}/batch-generate',
+        json=payload,
+        timeout=600,  # 10 min timeout for batch
+        stream=True
+    )
+    
+    if response.status_code != 200:
+        error_msg = 'Unknown error'
+        try:
+            error_msg = response.json().get('detail', response.text[:200])
+        except:
+            error_msg = response.text[:200] if response.text else f'HTTP {response.status_code}'
+        raise Exception(f'IndexTTS2 batch error: {error_msg}')
+    
+    gen_time = response.headers.get('X-Generation-Time', 'unknown')
+    audio_duration = response.headers.get('X-Audio-Duration', 'unknown')
+    print(f"[IndexTTS2] Batch done: gen_time={gen_time}s, audio_duration={audio_duration}s")
+    
+    return response.content
+
+
 @app.route('/api/indextts/voices', methods=['GET'])
 def api_indextts_voices():
     """
@@ -3294,46 +3335,76 @@ def api_indextts_generate():
         
         print(f"[IndexTTS2] Processing {len(segments)} segments, multi-speaker={has_multiple_speakers}")
         
-        audio_chunks = []
-        segment_stats = []
-        
-        for idx, seg in enumerate(segments):
-            seg_voice = seg['voice']
-            seg_text = seg['text']
-            seg_emo_vector = seg.get('emo_vector')
-            
-            print(f"[IndexTTS2] Segment {idx+1}/{len(segments)}: Voice={seg_voice}, {len(seg_text)} chars")
-            
+        # Use batch endpoint for multiple segments (much faster)
+        if len(segments) > 1:
             try:
-                audio_data = generate_indextts_audio(
-                    text=seg_text,
-                    voice=seg_voice,
-                    emo_vector=seg_emo_vector,
-                    use_random=use_random
-                )
-                audio_chunks.append(audio_data)
-                segment_stats.append({
-                    'voice': seg_voice,
-                    'chars': len(seg_text),
-                    'audio_size': len(audio_data)
-                })
+                print(f"[IndexTTS2] Using batch generation for {len(segments)} segments")
+                
+                # Prepare batch request
+                batch_segments = []
+                for seg in segments:
+                    batch_segments.append({
+                        'text': seg['text'],
+                        'voice': seg['voice'],
+                        'emo_vector': seg.get('emo_vector')
+                    })
+                
+                silence_ms = 300 if has_multiple_speakers else 150
+                final_audio = generate_indextts_batch(batch_segments, silence_ms=silence_ms)
+                
+                segment_stats = [{'voice': s['voice'], 'chars': len(s['text'])} for s in segments]
+                
             except Exception as e:
-                print(f"[IndexTTS2] Segment {idx+1} failed: {e}")
-                # Rollback usage
-                current_user.indextts_chars_used = max(0, (current_user.indextts_chars_used or 0) - char_count)
-                db.session.commit()
-                return jsonify({
-                    'success': False,
-                    'error': f'Failed to generate segment {idx+1}: {str(e)}'
-                }), 500
+                print(f"[IndexTTS2] Batch generation failed: {e}, falling back to sequential")
+                # Fallback to sequential generation
+                final_audio = None
+        else:
+            final_audio = None
         
-        # Concatenate audio chunks
-        if len(audio_chunks) > 1:
-            print(f"[IndexTTS2] Concatenating {len(audio_chunks)} audio chunks...")
-            if has_multiple_speakers:
-                final_audio = concatenate_wav_files_with_crossfade(audio_chunks, crossfade_ms=30, silence_ms=300)
+        # Sequential generation (single segment or batch fallback)
+        if final_audio is None:
+            audio_chunks = []
+            segment_stats = []
+            
+            for idx, seg in enumerate(segments):
+                seg_voice = seg['voice']
+                seg_text = seg['text']
+                seg_emo_vector = seg.get('emo_vector')
+                
+                print(f"[IndexTTS2] Segment {idx+1}/{len(segments)}: Voice={seg_voice}, {len(seg_text)} chars")
+                
+                try:
+                    audio_data = generate_indextts_audio(
+                        text=seg_text,
+                        voice=seg_voice,
+                        emo_vector=seg_emo_vector,
+                        use_random=use_random
+                    )
+                    audio_chunks.append(audio_data)
+                    segment_stats.append({
+                        'voice': seg_voice,
+                        'chars': len(seg_text),
+                        'audio_size': len(audio_data)
+                    })
+                except Exception as e:
+                    print(f"[IndexTTS2] Segment {idx+1} failed: {e}")
+                    # Rollback usage
+                    current_user.indextts_chars_used = max(0, (current_user.indextts_chars_used or 0) - char_count)
+                    db.session.commit()
+                    return jsonify({
+                        'success': False,
+                        'error': f'Failed to generate segment {idx+1}: {str(e)}'
+                    }), 500
+            
+            # Concatenate audio chunks
+            if len(audio_chunks) > 1:
+                print(f"[IndexTTS2] Concatenating {len(audio_chunks)} audio chunks...")
+                if has_multiple_speakers:
+                    final_audio = concatenate_wav_files_with_crossfade(audio_chunks, crossfade_ms=30, silence_ms=300)
+                else:
+                    final_audio = concatenate_wav_files_with_crossfade(audio_chunks, crossfade_ms=40, silence_ms=100)
             else:
-                final_audio = concatenate_wav_files_with_crossfade(audio_chunks, crossfade_ms=40, silence_ms=100)
+                final_audio = audio_chunks[0] if audio_chunks else b''
         else:
             final_audio = audio_chunks[0] if audio_chunks else b''
         
