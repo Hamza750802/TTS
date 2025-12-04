@@ -1113,8 +1113,15 @@
           <div class="section-title">Your Text</div>
           <div class="input-group">
             <label for="indexttsText">Enter text to convert</label>
-            <textarea id="indexttsText" placeholder="Type your text here...&#10;&#10;For multi-speaker dialogue, use voice names in brackets:&#10;[Emily]: Hello! How are you today?&#10;[Michael]: I'm doing great, thanks for asking!&#10;[Emily]: That's wonderful to hear.&#10;&#10;Available voices: Adam, Eleanor, Emily, Grace, Hannah, Michael, Natalie, Olivia, Sophia"></textarea>
-            <p style="font-size: 12px; color: #06b6d4; margin-top: 8px;">💡 Use [VoiceName]: format for multi-speaker dialogue!</p>
+            <textarea id="indexttsText" placeholder="[Emily]: Hello! How are you today?
+[Michael:happy]: I'm doing great, thanks for asking!
+[Emily:sad]: Oh no, I heard about what happened.
+[Adam:angry]: This is unacceptable! We need to fix this now!
+[Grace:calm]: Let's all take a deep breath and think this through.
+
+Available voices: Adam, Eleanor, Emily, Grace, Hannah, Michael, Natalie, Olivia, Sophia
+Emotions: happy, angry, sad, afraid, disgusted, melancholic, surprised, calm"></textarea>
+            <p style="font-size: 12px; color: #06b6d4; margin-top: 8px;">💡 Use <strong>[VoiceName]:</strong> or <strong>[VoiceName:emotion]:</strong> for multi-speaker dialogue with emotions!</p>
           </div>
         </div>
 
@@ -1999,6 +2006,94 @@
   let indexttsChunks = [];
   let indexttsChunkMode = false;
   
+  // IndexTTS voice name mapping (case-insensitive)
+  const indexttsVoiceMap = {
+    'adam': 'Adam',
+    'eleanor': 'Eleanor', 
+    'emily': 'Emily',
+    'grace': 'Grace',
+    'hannah': 'Hannah',
+    'michael': 'Michael',
+    'natalie': 'Natalie',
+    'olivia': 'Olivia',
+    'sophia': 'Sophia',
+    'male1': 'male1',
+    // Common aliases
+    'man': 'Adam',
+    'woman': 'Emily',
+    'narrator': 'Eleanor',
+    'speaker1': 'Adam',
+    'speaker2': 'Emily',
+    'speaker3': 'Michael',
+    'speaker4': 'Grace'
+  };
+  
+  // Emotion name to vector index mapping
+  const emotionMap = {
+    'happy': 0, 'joy': 0, 'excited': 0,
+    'angry': 1, 'mad': 1, 'furious': 1,
+    'sad': 2, 'crying': 2, 'depressed': 2,
+    'afraid': 3, 'scared': 3, 'fearful': 3,
+    'disgusted': 4, 'disgust': 4,
+    'melancholic': 5, 'melancholy': 5, 'wistful': 5,
+    'surprised': 6, 'shocked': 6, 'amazed': 6,
+    'calm': 7, 'relaxed': 7, 'peaceful': 7
+  };
+  
+  function parseIndexttsDialogue(text) {
+    // Pattern: [VoiceName] or [VoiceName:emotion] followed by : and text
+    const markupPattern = /^\[([^\]:]+)(?::([^\]]+))?\]:\s*(.+)$/;
+    const lines = text.trim().split('\n');
+    const chunks = [];
+    const defaultVoice = document.getElementById('indexttsVoice').value || 'Emily';
+    
+    for (let line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      
+      const match = trimmed.match(markupPattern);
+      if (match) {
+        const voiceName = match[1].trim();
+        const emotionStr = match[2] ? match[2].trim().toLowerCase() : null;
+        const content = match[3].trim();
+        
+        // Map voice name (case-insensitive)
+        const mappedVoice = indexttsVoiceMap[voiceName.toLowerCase()] || voiceName;
+        
+        // Parse emotion if provided
+        let emotions = { happy: 0, angry: 0, sad: 0, afraid: 0, disgusted: 0, melancholic: 0, surprised: 0, calm: 0 };
+        if (emotionStr) {
+          const emoKey = emotionMap[emotionStr];
+          if (emoKey !== undefined) {
+            const emoNames = ['happy', 'angry', 'sad', 'afraid', 'disgusted', 'melancholic', 'surprised', 'calm'];
+            emotions[emoNames[emoKey]] = 0.8;
+          }
+        }
+        
+        chunks.push({
+          id: chunks.length + 1,
+          text: content,
+          voice: mappedVoice,
+          emotions: emotions
+        });
+      } else {
+        // No markup - use default voice
+        chunks.push({
+          id: chunks.length + 1,
+          text: trimmed,
+          voice: defaultVoice,
+          emotions: { happy: 0, angry: 0, sad: 0, afraid: 0, disgusted: 0, melancholic: 0, surprised: 0, calm: 0 }
+        });
+      }
+    }
+    
+    return chunks;
+  }
+  
+  function hasIndexttsDialogueMarkup(text) {
+    return /^\[([^\]:]+)(?::([^\]]+))?\]:/m.test(text);
+  }
+  
   function indextts_splitIntoChunks() {
     const text = document.getElementById('indexttsText').value.trim();
     if (!text) {
@@ -2006,26 +2101,39 @@
       return;
     }
     
-    // Split by double newlines, or single newlines if no double ones
-    let segments = text.split(/\n\n+/).filter(s => s.trim());
-    if (segments.length === 1) {
-      segments = text.split(/\n+/).filter(s => s.trim());
+    // Check for dialogue markup format
+    if (hasIndexttsDialogueMarkup(text)) {
+      indexttsChunks = parseIndexttsDialogue(text);
+      
+      // Show success message
+      const status = document.getElementById('indexttsStatus');
+      status.style.display = 'block';
+      status.textContent = `✨ Detected dialogue markup! Created ${indexttsChunks.length} chunks with assigned voices.`;
+      status.style.background = 'rgba(16,185,129,0.1)';
+      status.style.color = '#10b981';
+      setTimeout(() => { 
+        status.style.display = 'none'; 
+        status.style.background = 'rgba(6,182,212,0.1)';
+        status.style.color = '#06b6d4';
+      }, 4000);
+    } else {
+      // Regular text splitting by paragraphs/sentences
+      let segments = text.split(/\n\n+/).filter(s => s.trim());
+      if (segments.length === 1) {
+        segments = text.split(/\n+/).filter(s => s.trim());
+      }
+      if (segments.length === 1) {
+        segments = text.match(/[^.!?]+[.!?]+|[^.!?]+$/g)?.filter(s => s.trim()) || [text];
+      }
+      
+      const defaultVoice = document.getElementById('indexttsVoice').value;
+      indexttsChunks = segments.map((seg, idx) => ({
+        id: idx + 1,
+        text: seg.trim(),
+        voice: defaultVoice,
+        emotions: { happy: 0, angry: 0, sad: 0, afraid: 0, disgusted: 0, melancholic: 0, surprised: 0, calm: 0 }
+      }));
     }
-    if (segments.length === 1) {
-      // Split by sentences
-      segments = text.match(/[^.!?]+[.!?]+|[^.!?]+$/g)?.filter(s => s.trim()) || [text];
-    }
-    
-    // Get current voice as default
-    const defaultVoice = document.getElementById('indexttsVoice').value;
-    
-    // Create chunks with default emotions
-    indexttsChunks = segments.map((seg, idx) => ({
-      id: idx + 1,
-      text: seg.trim(),
-      voice: defaultVoice,
-      emotions: { happy: 0, angry: 0, sad: 0, afraid: 0, disgusted: 0, melancholic: 0, surprised: 0, calm: 0 }
-    }));
     
     indexttsChunkMode = true;
     indextts_renderChunks();
