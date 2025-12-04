@@ -1,0 +1,13 @@
+# Nixpacks configuration for faster builds
+[phases.setup]
+nixPkgs = ["python311"]
+
+[phases.install]
+cmds = ["pip install --no-cache-dir -r requirements.txt"]
+
+[start]
+cmd = "gunicorn -w 4 -b 0.0.0.0:$PORT --timeout 120 webapp.app:app"
+
+# Cache pip packages
+[phases.install.caching]
+cacheDirectories = ["/root/.cache/pip"]
