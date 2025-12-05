@@ -16,7 +16,8 @@ cd ~
 
 # 1. Install dependencies
 echo "[1/7] Installing Python dependencies..."
-pip install -q fastapi uvicorn scipy transformers diffusers accelerate tiktoken protobuf huggingface_hub
+pip install -q fastapi uvicorn scipy diffusers accelerate tiktoken protobuf huggingface_hub librosa soundfile
+pip install -q transformers==4.51.3  # VV requires this specific version
 
 # 2. Clone VV repository (with patches already applied)
 echo "[2/7] Setting up VV library..."

@@ -332,8 +332,8 @@ def load_model():
     start = time.time()
     
     try:
-        from vibevoice.modular.modeling_vibevoice import (
-            VibeVoiceForConditionalGeneration
+        from vibevoice.modular.modeling_vibevoice_inference import (
+            VibeVoiceForConditionalGenerationInference
         )
         from vibevoice.processor.vibevoice_processor import (
             VibeVoiceProcessor
@@ -360,7 +360,7 @@ def load_model():
         print(f"[Studio Model] Loading model (dtype={load_dtype}, attn={attn_impl})...")
         
         try:
-            model = VibeVoiceForConditionalGeneration.from_pretrained(
+            model = VibeVoiceForConditionalGenerationInference.from_pretrained(
                 repo_id,
                 subfolder=subfolder,
                 torch_dtype=load_dtype,
@@ -369,7 +369,7 @@ def load_model():
             )
         except Exception as e:
             print(f"[Studio Model] Flash attention failed, trying SDPA: {e}")
-            model = VibeVoiceForConditionalGeneration.from_pretrained(
+            model = VibeVoiceForConditionalGenerationInference.from_pretrained(
                 repo_id,
                 subfolder=subfolder,
                 torch_dtype=load_dtype,
@@ -399,59 +399,54 @@ def load_model():
 
 
 def load_voice_registry():
-    """Load available voices from custom directory"""
+    """Load available voices from directories"""
     global voice_registry
     
     voice_registry = {}
     
-    # Load built-in voice names (these use different logic in 1.5B)
-    builtin_voices = [
-        "Carter", "Davis", "Emma", "Frank", "Grace", "Mike", "Samuel"
-    ]
+    # VV demo voices directory (bundled with VV package)
+    vv_demo_dir = Path("/root/VV/demo/voices")
     
-    # For built-in voices, we don't have audio files, so mark them specially
-    for name in builtin_voices:
-        voice_registry[name.lower()] = f"builtin:{name}"
-    
-    # Load custom voices from audio files - check both directories
+    # Load custom voices from audio files - check all directories
     audio_extensions = ['.wav', '.mp3', '.flac', '.ogg', '.m4a']
-    voice_dirs = [VOICES_DIR, CUSTOM_VOICES_DIR]
+    voice_dirs = [VOICES_DIR, CUSTOM_VOICES_DIR, vv_demo_dir]
     
     for voice_dir in voice_dirs:
         if voice_dir.exists():
             for audio_file in voice_dir.glob("*"):
                 if audio_file.suffix.lower() in audio_extensions and audio_file.is_file():
+                    # Extract voice name - handle VV demo format like "en-Carter_man.wav"
                     voice_name = audio_file.stem
-                    # Don't override built-in voices
-                    if voice_name.lower() not in voice_registry or not voice_registry[voice_name.lower()].startswith("builtin:"):
+                    if voice_name.startswith(("en-", "zh-", "in-")):
+                        # VV demo voice: "en-Carter_man" -> "Carter"
+                        parts = voice_name.split("-", 1)[1]  # "Carter_man"
+                        voice_name = parts.split("_")[0]  # "Carter"
+                    
+                    # Register voice (don't override existing)
+                    if voice_name.lower() not in voice_registry:
                         voice_registry[voice_name.lower()] = str(audio_file)
-                        print(f"[Studio Model] Registered custom voice: {voice_name}")
+                        print(f"[Studio Model] Registered voice: {voice_name} -> {audio_file}")
     
     print(f"[Studio Model] Loaded {len(voice_registry)} voices: {list(voice_registry.keys())}")
 
 
 def get_voice_audio(voice_name: str) -> Optional[str]:
-    """Get audio file path for a voice, or None for built-in"""
+    """Get audio file path for a voice"""
     name_lower = voice_name.lower()
     
     if name_lower in voice_registry:
-        path = voice_registry[name_lower]
-        if path.startswith("builtin:"):
-            return None  # Built-in voice, no audio file needed
-        return path
+        return voice_registry[name_lower]
     
     # Try case-insensitive match
     for key, path in voice_registry.items():
         if key.lower() == name_lower:
-            if path.startswith("builtin:"):
-                return None
             return path
     
     return None
 
 
 def generate_audio(text: str, voice: str, cfg_scale: float = 1.5, inference_steps: int = 5) -> bytes:
-    """Generate audio from text using voice (can be custom audio file)"""
+    """Generate audio from text using voice cloning"""
     global model, processor
     
     if not model_loaded:
@@ -459,31 +454,30 @@ def generate_audio(text: str, voice: str, cfg_scale: float = 1.5, inference_step
     
     device = os.environ.get("MODEL_DEVICE", "cuda")
     
-    # Get voice audio if custom
+    # Get voice audio file - required for VV 1.5B
     voice_audio_path = get_voice_audio(voice)
+    
+    if not voice_audio_path or not os.path.exists(voice_audio_path):
+        # Fall back to first available voice
+        if voice_registry:
+            fallback_voice = list(voice_registry.keys())[0]
+            voice_audio_path = voice_registry[fallback_voice]
+            print(f"[Studio Model] Voice '{voice}' not found, using '{fallback_voice}'")
+        else:
+            raise RuntimeError(f"No voice samples available")
     
     # Format script for the model
     # 1.5B model expects format like "Speaker 0: text"
     script = f"Speaker 0: {text}"
     
-    # Process input with optional voice sample
-    if voice_audio_path and os.path.exists(voice_audio_path):
-        # Custom voice - pass audio sample
-        inputs = processor(
-            text=script,
-            voice_samples=[voice_audio_path],
-            padding=True,
-            return_tensors="pt",
-            return_attention_mask=True,
-        )
-    else:
-        # Built-in voice or no custom audio
-        inputs = processor(
-            text=script,
-            padding=True,
-            return_tensors="pt",
-            return_attention_mask=True,
-        )
+    # Process input with voice sample (always required for 1.5B)
+    inputs = processor(
+        text=script,
+        voice_samples=[voice_audio_path],
+        padding=True,
+        return_tensors="pt",
+        return_attention_mask=True,
+    )
     
     # Move tensors to device
     target_device = device if device != "cpu" else "cpu"
@@ -495,10 +489,8 @@ def generate_audio(text: str, voice: str, cfg_scale: float = 1.5, inference_step
     with torch.no_grad():
         outputs = model.generate(
             **inputs,
-            max_new_tokens=None,
             cfg_scale=cfg_scale,
             tokenizer=processor.tokenizer,
-            generation_config={'do_sample': False},
         )
     
     # Extract audio
@@ -509,9 +501,9 @@ def generate_audio(text: str, voice: str, cfg_scale: float = 1.5, inference_step
     else:
         raise RuntimeError("No audio in model output")
     
-    # Convert to numpy
+    # Convert to numpy (handle bfloat16)
     if torch.is_tensor(audio):
-        audio = audio.cpu().numpy()
+        audio = audio.float().cpu().numpy()
     
     # Ensure correct shape
     if audio.ndim > 1:
