@@ -1153,25 +1153,21 @@ Available voices: Adam, Aloy, Bill, Carter, Chris, Dace, Emily, Frank, Grace, Ha
         
         {% else %}
         <!-- Non-subscribed User - Upgrade prompt -->
-        <div style="background: linear-gradient(135deg, rgba(6,182,212,0.1), rgba(8,145,178,0.1)); border: 2px solid rgba(6,182,212,0.3); border-radius: 16px; padding: 24px; margin-bottom: 24px; text-align: center;">
-          <h4 style="margin: 0 0 12px 0; color: #06b6d4;">🔒 Studio Voices Subscription Required</h4>
-          <p style="color: #636E72; margin: 0 0 16px 0; font-size: 14px;">Subscribe to access 24 ultra-quality voice clones with natural expression and multi-speaker support.</p>
-          <a href="/subscribe" style="display: inline-block; padding: 12px 32px; background: linear-gradient(135deg, #06b6d4, #0891b2); color: white; text-decoration: none; border-radius: 12px; font-weight: 600; box-shadow: 0 4px 16px rgba(6,182,212,0.3);">Subscribe to Studio Voices →</a>
-        </div>
-        
-        <!-- Preview Section (available to all) -->
-        <div style="background: rgba(6,182,212,0.05); border: 1px solid rgba(6,182,212,0.2); border-radius: 12px; padding: 16px; margin-top: 16px;">
-          <h4 style="margin: 0 0 12px 0; color: #06b6d4; font-size: 15px;">🎧 Try a Preview</h4>
-          <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-            <select id="studioPreviewVoiceFree" style="padding: 10px 14px; border: 2px solid #DFE6E9; border-radius: 10px; font-size: 14px; background: white; cursor: pointer; min-width: 150px;">
-              <option value="">Loading voices...</option>
-            </select>
-            <button type="button" onclick="previewStudioVoiceFree()" style="padding: 10px 20px; border-radius: 10px; border: 2px solid #06b6d4; background: transparent; color: #06b6d4; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s;">
-              🔊 Preview
-            </button>
-          </div>
-          <audio id="studioPreviewAudioFree" style="width: 100%; margin-top: 12px; display: none;"></audio>
-          <p style="font-size: 11px; color: #999; margin-top: 8px;">Preview limited to 100 characters</p>
+        <div style="background: linear-gradient(135deg, rgba(6,182,212,0.1), rgba(8,145,178,0.1)); border: 2px solid rgba(6,182,212,0.3); border-radius: 16px; padding: 32px; text-align: center;">
+          <div style="font-size: 48px; margin-bottom: 16px;">🎯</div>
+          <h4 style="margin: 0 0 12px 0; color: #06b6d4; font-size: 20px;">Unlock Studio Voices</h4>
+          <p style="color: #636E72; margin: 0 0 20px 0; font-size: 14px; max-width: 400px; margin-left: auto; margin-right: auto;">
+            Get access to 24 ultra-quality voice clones with natural expression and multi-speaker dialogue support.
+          </p>
+          <ul style="text-align: left; max-width: 280px; margin: 0 auto 24px; color: #636E72; font-size: 14px; list-style: none; padding: 0;">
+            <li style="margin-bottom: 8px;">✓ Unlimited Edge TTS (550+ voices)</li>
+            <li style="margin-bottom: 8px;">✓ 24 premium HD voice clones</li>
+            <li style="margin-bottom: 8px;">✓ 5 hours of Studio audio/month</li>
+            <li style="margin-bottom: 8px;">✓ Multi-speaker dialogue</li>
+          </ul>
+          <a href="/subscribe" style="display: inline-block; padding: 14px 32px; background: linear-gradient(135deg, #06b6d4, #0891b2); color: white; text-decoration: none; border-radius: 12px; font-weight: 600; box-shadow: 0 4px 16px rgba(6,182,212,0.3); font-size: 15px;">
+            Subscribe — $14.99/mo →
+          </a>
         </div>
         {% endif %}
 

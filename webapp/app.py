@@ -118,8 +118,8 @@ STRIPE_LIFETIME_PRICE_ID = 'price_1SYORtLz6FHVmZlME0DueU5x'  # $99 lifetime web 
 STRIPE_API_STARTER_PRICE_ID = 'price_1SYThPLz6FHVmZlMFskDh4bS'  # $5/mo API Starter (100k chars)
 STRIPE_API_PRO_PRICE_ID = 'price_1SYTheLz6FHVmZlMH2wwGQ6q'  # $19/mo API Pro (500k chars)
 
-# Studio Model Stripe Price ID ($19.99/mo - 10 hours premium voices)
-STRIPE_STUDIO_MODEL_PRICE_ID = os.environ.get('STRIPE_STUDIO_MODEL_PRICE_ID', '')  # $19.99/mo
+# Studio Model Stripe Price ID ($14.99/mo - 5 hours premium voices + unlimited Edge TTS)
+STRIPE_STUDIO_MODEL_PRICE_ID = os.environ.get('STRIPE_STUDIO_MODEL_PRICE_ID', '')  # $14.99/mo
 
 # Premium Chatterbox TTS Stripe Price IDs (to be created in Stripe dashboard)
 STRIPE_PREMIUM_PRICE_ID = os.environ.get('STRIPE_PREMIUM_PRICE_ID', '')  # $19.99/mo (100K chars)
@@ -492,7 +492,7 @@ class User(db.Model, UserMixin):
     # Studio Model tier limits (in characters, 60K chars ≈ 1 hour)
     VIBEVOICE_LIMITS = {
         'none': 0,
-        'vibevoice': 600000,      # 10 hours (600K chars)
+        'vibevoice': 300000,      # 5 hours (300K chars)
     }
     
     # Characters per hour for Studio Model
@@ -1693,15 +1693,15 @@ def subscription_success():
                 flash('Lifetime access activated. Enjoy forever!', 'success')
                 return redirect(url_for('index'))
             elif plan_type == 'studio_model':
-                # Studio Model subscription - premium HD voices
+                # Studio Model subscription - premium HD voices + unlimited Edge TTS
                 current_user.vibevoice_tier = 'vibevoice'
                 current_user.vibevoice_chars_used = 0  # Reset usage
                 current_user.vibevoice_usage_reset_at = datetime.utcnow() + timedelta(days=30)
-                current_user.subscription_status = 'active'  # Also gives Edge TTS access
+                current_user.subscription_status = 'active'  # Also gives unlimited Edge TTS
                 db.session.commit()
                 send_subscription_email(current_user.email, plan_type)
-                app.logger.info(f"[Studio Model] Activated for user {current_user.email}")
-                flash('Studio Model activated! Enjoy 10 hours of premium HD voices.', 'success')
+                app.logger.info(f"[Studio Voices] Activated for user {current_user.email}")
+                flash('Studio Voices activated! Enjoy 5 hours of premium HD voices + unlimited Edge TTS.', 'success')
                 return redirect(url_for('index'))
             elif plan_type.startswith('api_'):
                 # API plan purchase
