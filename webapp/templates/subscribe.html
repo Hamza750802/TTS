@@ -30,9 +30,9 @@
 
   .pricing-cards {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 28px;
-    max-width: 750px;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 20px;
+    max-width: 1200px;
     margin: 48px auto;
     padding: 0 20px;
   }
@@ -240,62 +240,79 @@
 {% endblock %}
 {% block content %}
   <div class="subscribe-hero">
-    <h1>Unlock Unlimited Text‑to‑Speech</h1>
-    <p>Choose the plan that works best for you. Use the TTS tool on our website with no character limits.</p>
+    <h1>Unlock Premium Text‑to‑Speech</h1>
+    <p>All plans include unlimited HD voices. Choose how much premium neural TTS you need.</p>
   </div>
     
   <div class="pricing-cards">
-    <!-- Monthly Plan (Edge TTS) -->
+    <!-- 🥉 Starter Plan -->
     <div class="pricing-card">
-      <div class="badge" style="background: linear-gradient(135deg, rgba(126,200,227,0.2), rgba(126,200,227,0.3)); color: #2D3436;">PRO VOICES</div>
-      <div class="price">$7.99<small>/mo</small></div>
-      <p class="subtitle">Unlimited Edge TTS</p>
+      <div class="badge" style="background: linear-gradient(135deg, #cd7f32, #b8860b); color: white;">🥉 STARTER</div>
+      <div class="price">$9.99<small>/mo</small></div>
+      <p class="subtitle">2 hours Premium Neural TTS</p>
       <ul>
-        <li>Unlimited TTS generation</li>
+        <li><strong>Unlimited HD Voices</strong></li>
+        <li>2 hours neural TTS/month</li>
         <li>550+ natural voices</li>
-        <li>153 languages</li>
         <li>Multi-speaker dialogue</li>
         <li>Emotion control</li>
         <li>Commercial use</li>
       </ul>
-      <button id="subscribeBtn" class="subscribe-btn monthly">Subscribe Monthly</button>
+      <button id="starterBtn" class="subscribe-btn monthly">Get Starter</button>
     </div>
     
-    <!-- Studio Model Plan -->
-    <div class="pricing-card featured" style="border-color: #8b5cf6; background: linear-gradient(145deg, rgba(139,92,246,0.08), rgba(255,255,255,0.95));">
-      <div class="badge" style="background: linear-gradient(135deg, #8b5cf6, #7c3aed); color: white;">🎤 STUDIO VOICES</div>
+    <!-- 🥈 Creator Plan (Best Seller) -->
+    <div class="pricing-card featured" style="border-color: #c0c0c0; background: linear-gradient(145deg, rgba(192,192,192,0.1), rgba(255,255,255,0.95));">
+      <div class="badge" style="background: linear-gradient(135deg, #c0c0c0, #a8a8a8); color: #333;">🥈 CREATOR</div>
       <div class="price">$14.99<small>/mo</small></div>
-      <p class="subtitle" style="color: #8b5cf6; font-weight: 600;">Premium HD Voices</p>
+      <p class="subtitle" style="color: #666; font-weight: 600;">5 hours Premium Neural TTS</p>
+      <p class="urgency-text" style="background: rgba(192,192,192,0.2); color: #555;">⭐ Most Popular</p>
       <ul>
-        <li><strong>Unlimited Edge TTS (550+ voices)</strong></li>
-        <li>24 premium HD voice clones</li>
-        <li>5 hours of Studio audio/month</li>
-        <li>Ultra-realistic quality</li>
+        <li><strong>Unlimited HD Voices</strong></li>
+        <li>5 hours neural TTS/month</li>
+        <li>24 premium voice clones</li>
         <li>Multi-speaker dialogue</li>
         <li>Priority processing</li>
+        <li>Perfect for creators</li>
       </ul>
-      <button id="studioModelBtn" class="subscribe-btn monthly" style="background: linear-gradient(135deg, #8b5cf6, #7c3aed); color: white; border: none;">Subscribe to Studio Voices</button>
+      <button id="creatorBtn" class="subscribe-btn monthly" style="background: linear-gradient(135deg, #c0c0c0, #a8a8a8); color: #333; border: none;">Get Creator</button>
     </div>
     
-    <!-- Lifetime Plan -->
-    <div class="pricing-card">
-      <div class="badge" style="background: #6BCB77; color: white;">⭐ BEST VALUE</div>
-      <div class="price">$99<small> one-time</small></div>
-      <p class="subtitle" style="color: #6BCB77; font-weight: 600;">Lifetime Pro Voices</p>
-      <p class="urgency-text">🔥 Only 50 spots at this price! Then $149</p>
+    <!-- 🥇 Pro Plan -->
+    <div class="pricing-card featured" style="border-color: #ffd700; background: linear-gradient(145deg, rgba(255,215,0,0.08), rgba(255,255,255,0.95));">
+      <div class="badge" style="background: linear-gradient(135deg, #ffd700, #ffb800); color: #333;">🥇 PRO</div>
+      <div class="price">$24.99<small>/mo</small></div>
+      <p class="subtitle" style="color: #b8860b; font-weight: 600;">12 hours Premium Neural TTS</p>
       <ul>
-        <li>Everything in Pro Voices</li>
-        <li>Pay once, use forever</li>
-        <li>No recurring charges</li>
-        <li>All future updates included</li>
-        <li>Priority support</li>
+        <li><strong>Unlimited HD Voices</strong></li>
+        <li>12 hours neural TTS/month</li>
+        <li>24 premium voice clones</li>
+        <li>Ultra-realistic quality</li>
+        <li>Priority processing</li>
+        <li>Best for power users</li>
       </ul>
-      <button id="lifetimeBtn" class="subscribe-btn lifetime">Get Lifetime Access</button>
+      <button id="proBtn" class="subscribe-btn monthly" style="background: linear-gradient(135deg, #ffd700, #ffb800); color: #333; border: none;">Get Pro</button>
+    </div>
+    
+    <!-- 💎 Studio Plan -->
+    <div class="pricing-card featured" style="border-color: #8b5cf6; background: linear-gradient(145deg, rgba(139,92,246,0.08), rgba(255,255,255,0.95));">
+      <div class="badge" style="background: linear-gradient(135deg, #8b5cf6, #7c3aed); color: white;">💎 STUDIO</div>
+      <div class="price">$39.99<small>/mo</small></div>
+      <p class="subtitle" style="color: #8b5cf6; font-weight: 600;">25 hours Premium Neural TTS</p>
+      <ul>
+        <li><strong>Unlimited HD Voices</strong></li>
+        <li>25 hours neural TTS/month</li>
+        <li>24 premium voice clones</li>
+        <li>Ultra-realistic quality</li>
+        <li>Top priority processing</li>
+        <li>For agencies & studios</li>
+      </ul>
+      <button id="studioBtn" class="subscribe-btn monthly" style="background: linear-gradient(135deg, #8b5cf6, #7c3aed); color: white; border: none;">Get Studio</button>
     </div>
   </div>
   
   <div class="api-note">
-    <strong>📌 Note:</strong> These plans are for using TTS on this website only. 
+    <strong>📌 Note:</strong> All plans include unlimited HD voices (550+). Premium Neural TTS hours are for our ultra-realistic AI voices.
     Need API access for your own app? <a href="{{ url_for('api_pricing') }}">View API Plans →</a>
   </div>
   
@@ -305,65 +322,38 @@
 {% endblock %}
 {% block scripts %}
 <script>
-  document.getElementById('subscribeBtn').addEventListener('click', async () => {
+  // Helper function for checkout
+  async function startCheckout(planType, btnId) {
+    const btn = document.getElementById(btnId);
+    const originalText = btn.textContent;
+    btn.textContent = 'Loading...';
+    btn.disabled = true;
+    
     try {
       const res = await fetch('/create-checkout-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan_type: 'monthly' })
+        body: JSON.stringify({ plan_type: planType })
       });
       const data = await res.json();
       if(data.url){
         window.location.href = data.url;
       } else {
-        alert(data.error || 'Stripe is not configured');
+        alert(data.error || 'Failed to start checkout');
+        btn.textContent = originalText;
+        btn.disabled = false;
       }
     } catch (e) {
       alert('Failed to start checkout');
+      btn.textContent = originalText;
+      btn.disabled = false;
     }
-  });
-  
-  document.getElementById('studioModelBtn').addEventListener('click', async () => {
-    try {
-      const res = await fetch('/create-checkout-session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan_type: 'studio_model' })
-      });
-      const data = await res.json();
-      if(data.url){
-        window.location.href = data.url;
-      } else {
-        alert(data.error || 'Stripe is not configured');
-      }
-    } catch (e) {
-      alert('Failed to start checkout');
-    }
-  });
-  
-  document.getElementById('lifetimeBtn').addEventListener('click', async () => {
-    try {
-      const res = await fetch('/create-checkout-session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan_type: 'lifetime' })
-      });
-      const data = await res.json();
-      if(data.url){
-        window.location.href = data.url;
-      } else {
-        alert(data.error || 'Stripe is not configured');
-      }
-    } catch (e) {
-      alert('Failed to start checkout');
-    }
-  });
-  
-  // Auto-scroll to lifetime if plan=lifetime in URL
-  const urlParams = new URLSearchParams(window.location.search);
-  if (urlParams.get('plan') === 'lifetime') {
-    document.getElementById('lifetimeBtn').scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
+  
+  document.getElementById('starterBtn').addEventListener('click', () => startCheckout('starter', 'starterBtn'));
+  document.getElementById('creatorBtn').addEventListener('click', () => startCheckout('creator', 'creatorBtn'));
+  document.getElementById('proBtn').addEventListener('click', () => startCheckout('pro', 'proBtn'));
+  document.getElementById('studioBtn').addEventListener('click', () => startCheckout('studio', 'studioBtn'));
 </script>
 {% endblock %}
 

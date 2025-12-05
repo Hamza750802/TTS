@@ -107,21 +107,39 @@ limiter = Limiter(
 
 # Stripe config (set env vars in production)
 stripe.api_key = os.environ.get('STRIPE_SECRET_KEY', '')
-STRIPE_PRICE_ID = os.environ.get('STRIPE_PRICE_ID', '')  # monthly price id
+STRIPE_PRICE_ID = os.environ.get('STRIPE_PRICE_ID', '')  # monthly price id (legacy)
 STRIPE_WEBHOOK_SECRET = os.environ.get('STRIPE_WEBHOOK_SECRET', '')
 
 # Admin API key (for your personal projects - free access)
 ADMIN_API_KEY = os.environ.get('ADMIN_API_KEY', '')  # Set this in .env
 
-# Stripe Price IDs
+# Stripe Price IDs - Legacy
 STRIPE_LIFETIME_PRICE_ID = 'price_1SYORtLz6FHVmZlME0DueU5x'  # $99 lifetime web access
 STRIPE_API_STARTER_PRICE_ID = 'price_1SYThPLz6FHVmZlMFskDh4bS'  # $5/mo API Starter (100k chars)
 STRIPE_API_PRO_PRICE_ID = 'price_1SYTheLz6FHVmZlMH2wwGQ6q'  # $19/mo API Pro (500k chars)
 
-# Studio Model Stripe Price ID ($14.99/mo - 5 hours premium voices + unlimited Edge TTS)
+# NEW Premium TTS Plans - 4 Tiers (all include unlimited Edge TTS)
+# 🥉 Starter: $9.99/mo - 2 hours Premium Neural TTS (~120K chars)
+STRIPE_STARTER_PRICE_ID = os.environ.get('STRIPE_STARTER_PRICE_ID', '')
+# 🥈 Creator: $14.99/mo - 5 hours Premium Neural TTS (~300K chars)  
+STRIPE_CREATOR_PRICE_ID = os.environ.get('STRIPE_CREATOR_PRICE_ID', '')
+# 🥇 Pro: $24.99/mo - 12 hours Premium Neural TTS (~700K chars)
+STRIPE_PRO_PRICE_ID = os.environ.get('STRIPE_PRO_PRICE_ID', '')
+# 💎 Studio: $39.99/mo - 25 hours Premium Neural TTS (~1.5M chars)
+STRIPE_STUDIO_PRICE_ID = os.environ.get('STRIPE_STUDIO_PRICE_ID', '')
+
+# Character limits per tier (1 hour ≈ 60K chars)
+TIER_CHAR_LIMITS = {
+    'starter': 120000,    # 2 hours
+    'creator': 300000,    # 5 hours
+    'pro': 720000,        # 12 hours
+    'studio': 1500000,    # 25 hours
+}
+
+# Studio Model Stripe Price ID (legacy - now using tiered system)
 STRIPE_STUDIO_MODEL_PRICE_ID = os.environ.get('STRIPE_STUDIO_MODEL_PRICE_ID', '')  # $14.99/mo
 
-# Premium Chatterbox TTS Stripe Price IDs (to be created in Stripe dashboard)
+# Premium Chatterbox TTS Stripe Price IDs (legacy)
 STRIPE_PREMIUM_PRICE_ID = os.environ.get('STRIPE_PREMIUM_PRICE_ID', '')  # $19.99/mo (100K chars)
 STRIPE_PREMIUM_PLUS_PRICE_ID = os.environ.get('STRIPE_PREMIUM_PLUS_PRICE_ID', '')  # $29.99/mo (200K chars)
 STRIPE_PREMIUM_PRO_PRICE_ID = os.environ.get('STRIPE_PREMIUM_PRO_PRICE_ID', '')  # $39.99/mo (300K chars)
@@ -481,32 +499,60 @@ class User(db.Model, UserMixin):
         self.indextts_chars_used = current_used + char_count
         return (True, None)
     
-    # --- Studio Model (Premium HD voices with 10 hours/month) ---
-    # Tiers: 'none' | 'vibevoice' (10 hrs = 600K chars)
+    # --- Studio Voices (Premium HD voices) ---
+    # Tiers: 'none' | 'vibevoice' (5 hrs) | 'vibevoice_unlimited' (unlimited with throttle)
     # 1 hour ≈ 60,000 characters at ~1000 chars/minute
     vibevoice_tier = db.Column(db.String(32), default='none')
     vibevoice_chars_used = db.Column(db.Integer, default=0)
     vibevoice_chars_reset_at = db.Column(db.DateTime)
     vibevoice_stripe_subscription_id = db.Column(db.String(255))
     
-    # Studio Model tier limits (in characters, 60K chars ≈ 1 hour)
+    # Unlimited tier throttle tracking (in seconds of audio generated)
+    vibevoice_hourly_seconds = db.Column(db.Integer, default=0)      # Seconds generated this hour
+    vibevoice_daily_seconds = db.Column(db.Integer, default=0)       # Seconds generated today
+    vibevoice_hourly_reset_at = db.Column(db.DateTime)               # When to reset hourly counter
+    vibevoice_daily_reset_at = db.Column(db.DateTime)                # When to reset daily counter
+    vibevoice_request_count = db.Column(db.Integer, default=0)       # Requests in current minute
+    vibevoice_request_minute = db.Column(db.DateTime)                # Current minute for rate limiting
+    
+    # Studio Voices tier limits (in characters, 60K chars ≈ 1 hour)
     VIBEVOICE_LIMITS = {
         'none': 0,
-        'vibevoice': 300000,      # 5 hours (300K chars)
+        # New tiered plans
+        'starter': 120000,             # 2 hours ($9.99/mo)
+        'creator': 300000,             # 5 hours ($14.99/mo)
+        'pro': 720000,                 # 12 hours ($24.99/mo)
+        'studio': 1500000,             # 25 hours ($39.99/mo)
+        # Legacy tiers
+        'vibevoice': 300000,           # 5 hours (300K chars)
+        'vibevoice_unlimited': -1,     # Unlimited (throttle-based)
     }
     
-    # Characters per hour for Studio Model
+    # Throttle thresholds for unlimited tier (in seconds)
+    THROTTLE_HOURLY_SOFT = 25 * 60     # 25 min/hour → start throttling
+    THROTTLE_HOURLY_HARD = 30 * 60     # 30 min/hour → heavy throttle
+    THROTTLE_DAILY_SOFT = 3 * 60 * 60  # 3 hours/day → 50% slower
+    THROTTLE_DAILY_HARD = 5 * 60 * 60  # 5 hours/day → 70% slower, everything queued
+    RATE_LIMIT_PER_MINUTE = 50         # Max requests per minute
+    
+    # Characters per hour for Studio Voices
     CHARS_PER_HOUR = 60000
     
     @property
     def has_vibevoice(self) -> bool:
-        """Check if user has Studio Model access"""
-        return self.vibevoice_tier in ('vibevoice',)
+        """Check if user has Studio Voices access (any paid tier)"""
+        return self.vibevoice_tier in ('starter', 'creator', 'pro', 'studio', 'vibevoice', 'vibevoice_unlimited')
+    
+    @property
+    def is_vibevoice_unlimited(self) -> bool:
+        """Check if user has unlimited tier"""
+        return self.vibevoice_tier == 'vibevoice_unlimited'
     
     @property
     def vibevoice_char_limit(self) -> int:
-        """Get Studio Model character limit based on tier"""
-        return self.VIBEVOICE_LIMITS.get(self.vibevoice_tier, 0)
+        """Get Studio Voices character limit based on tier"""
+        limit = self.VIBEVOICE_LIMITS.get(self.vibevoice_tier, 0)
+        return limit if limit >= 0 else float('inf')  # -1 means unlimited
     
     @property
     def vibevoice_hours_remaining(self) -> float:
@@ -519,14 +565,16 @@ class User(db.Model, UserMixin):
     
     @property
     def vibevoice_chars_remaining(self) -> int:
-        """Get remaining Studio Model characters for this billing period"""
+        """Get remaining Studio Voices characters for this billing period"""
         if not self.has_vibevoice:
             return 0
+        if self.is_vibevoice_unlimited:
+            return float('inf')  # Unlimited
         self.check_and_reset_vibevoice_usage()
         return max(0, self.vibevoice_char_limit - (self.vibevoice_chars_used or 0))
     
     def check_and_reset_vibevoice_usage(self):
-        """Reset Studio Model usage if billing period has passed (monthly)"""
+        """Reset Studio Voices usage if billing period has passed (monthly)"""
         if not self.vibevoice_chars_reset_at:
             self.vibevoice_chars_reset_at = datetime.utcnow() + timedelta(days=30)
             self.vibevoice_chars_used = 0
@@ -538,11 +586,15 @@ class User(db.Model, UserMixin):
     
     def use_vibevoice_chars(self, char_count: int) -> tuple:
         """
-        Track Studio Model character usage.
+        Track Studio Voices character usage.
         Returns (success: bool, error_message: str or None, hours_remaining: float)
         """
         if not self.has_vibevoice:
-            return (False, "Studio Model subscription required.", 0.0)
+            return (False, "Studio Voices subscription required.", 0.0)
+        
+        # Unlimited tier doesn't track char usage (uses throttle instead)
+        if self.is_vibevoice_unlimited:
+            return (True, None, float('inf'))
         
         self.check_and_reset_vibevoice_usage()
         
@@ -551,11 +603,110 @@ class User(db.Model, UserMixin):
         
         if char_count > remaining:
             hours_left = remaining / self.CHARS_PER_HOUR
-            return (False, f"Studio Model limit reached. {hours_left:.1f} hours remaining.", hours_left)
+            return (False, f"Studio Voices limit reached. {hours_left:.1f} hours remaining.", hours_left)
         
         self.vibevoice_chars_used = current_used + char_count
         hours_remaining = (self.vibevoice_char_limit - self.vibevoice_chars_used) / self.CHARS_PER_HOUR
         return (True, None, round(hours_remaining, 1))
+    
+    def check_and_reset_throttle_counters(self):
+        """Reset hourly/daily throttle counters if time has passed"""
+        now = datetime.utcnow()
+        
+        # Reset hourly counter
+        if not self.vibevoice_hourly_reset_at or now >= self.vibevoice_hourly_reset_at:
+            self.vibevoice_hourly_seconds = 0
+            self.vibevoice_hourly_reset_at = now + timedelta(hours=1)
+        
+        # Reset daily counter
+        if not self.vibevoice_daily_reset_at or now >= self.vibevoice_daily_reset_at:
+            self.vibevoice_daily_seconds = 0
+            self.vibevoice_daily_reset_at = now + timedelta(days=1)
+    
+    def get_vibevoice_priority(self) -> int:
+        """
+        Calculate queue priority (1=highest/fastest, 10=lowest/slowest) based on usage.
+        Used for server-side priority queue throttling.
+        
+        Priority levels:
+        1 = Normal speed (default for non-unlimited or low usage)
+        5 = Medium throttle (>25min/hour)
+        7 = Heavy throttle (>3h/day)
+        10 = Slowest (>5h/day)
+        """
+        # Non-unlimited tiers always get top priority
+        if self.vibevoice_tier != 'vibevoice_unlimited':
+            return 1
+        
+        self.check_and_reset_throttle_counters()
+        
+        hourly = self.vibevoice_hourly_seconds or 0
+        daily = self.vibevoice_daily_seconds or 0
+        
+        # Priority based on usage thresholds
+        if daily >= self.THROTTLE_DAILY_HARD:      # >5h/day → slowest
+            return 10
+        elif daily >= self.THROTTLE_DAILY_SOFT:    # >3h/day → heavy throttle
+            return 7
+        elif hourly >= self.THROTTLE_HOURLY_SOFT:  # >25min/hour → medium throttle
+            return 5
+        else:
+            return 1  # Full speed
+    
+    def check_rate_limit(self) -> tuple:
+        """
+        Check if user is rate limited (50 requests/minute).
+        Returns (allowed: bool, requests_remaining: int)
+        """
+        now = datetime.utcnow()
+        current_minute = now.replace(second=0, microsecond=0)
+        
+        if self.vibevoice_request_minute != current_minute:
+            self.vibevoice_request_minute = current_minute
+            self.vibevoice_request_count = 1
+            return (True, self.RATE_LIMIT_PER_MINUTE - 1)
+        
+        self.vibevoice_request_count = (self.vibevoice_request_count or 0) + 1
+        remaining = self.RATE_LIMIT_PER_MINUTE - self.vibevoice_request_count
+        return (remaining >= 0, max(0, remaining))
+    
+    def track_vibevoice_generation(self, audio_seconds: int):
+        """
+        Track audio generation time for throttle calculations.
+        Called after successful generation for unlimited tier users.
+        """
+        if self.vibevoice_tier == 'vibevoice_unlimited':
+            self.check_and_reset_throttle_counters()
+            self.vibevoice_hourly_seconds = (self.vibevoice_hourly_seconds or 0) + audio_seconds
+            self.vibevoice_daily_seconds = (self.vibevoice_daily_seconds or 0) + audio_seconds
+    
+    def get_throttle_status(self) -> dict:
+        """Get current throttle status for UI display"""
+        if self.vibevoice_tier != 'vibevoice_unlimited':
+            return {'throttled': False, 'priority': 1, 'message': None}
+        
+        self.check_and_reset_throttle_counters()
+        priority = self.get_vibevoice_priority()
+        
+        hourly_mins = (self.vibevoice_hourly_seconds or 0) / 60
+        daily_hours = (self.vibevoice_daily_seconds or 0) / 3600
+        
+        if priority >= 10:
+            msg = f"High usage detected ({daily_hours:.1f}h today). Requests queued for fairness."
+        elif priority >= 7:
+            msg = f"Heavy usage ({daily_hours:.1f}h today). Generation speed reduced."
+        elif priority >= 5:
+            msg = f"High hourly usage ({hourly_mins:.0f}min). Slight throttle applied."
+        else:
+            msg = None
+        
+        return {
+            'throttled': priority > 1,
+            'priority': priority,
+            'message': msg,
+            'hourly_minutes': round(hourly_mins, 1),
+            'daily_hours': round(daily_hours, 2)
+        }
     
     # Premium tier character limits
     PREMIUM_LIMITS = {
@@ -1610,6 +1761,34 @@ def create_checkout_session():
         price_id = STRIPE_LIFETIME_PRICE_ID
         mode = 'payment'  # One-time payment
         app.logger.info(f"Using LIFETIME price_id: {price_id}")
+    
+    # NEW Premium TTS Tiers
+    elif plan_type == 'starter':
+        if not stripe.api_key or not STRIPE_STARTER_PRICE_ID:
+            return jsonify({'error': 'Starter plan not configured'}), 500
+        price_id = STRIPE_STARTER_PRICE_ID
+        mode = 'subscription'
+        app.logger.info(f"Using STARTER price_id: {price_id}")
+    elif plan_type == 'creator':
+        if not stripe.api_key or not STRIPE_CREATOR_PRICE_ID:
+            return jsonify({'error': 'Creator plan not configured'}), 500
+        price_id = STRIPE_CREATOR_PRICE_ID
+        mode = 'subscription'
+        app.logger.info(f"Using CREATOR price_id: {price_id}")
+    elif plan_type == 'pro':
+        if not stripe.api_key or not STRIPE_PRO_PRICE_ID:
+            return jsonify({'error': 'Pro plan not configured'}), 500
+        price_id = STRIPE_PRO_PRICE_ID
+        mode = 'subscription'
+        app.logger.info(f"Using PRO price_id: {price_id}")
+    elif plan_type == 'studio':
+        if not stripe.api_key or not STRIPE_STUDIO_PRICE_ID:
+            return jsonify({'error': 'Studio plan not configured'}), 500
+        price_id = STRIPE_STUDIO_PRICE_ID
+        mode = 'subscription'
+        app.logger.info(f"Using STUDIO price_id: {price_id}")
+    
+    # Legacy plans
     elif plan_type == 'studio_model':
         if not stripe.api_key or not STRIPE_STUDIO_MODEL_PRICE_ID:
             return jsonify({'error': 'Studio Model subscription not configured'}), 500
@@ -1692,8 +1871,30 @@ def subscription_success():
                 send_subscription_email(current_user.email, plan_type)
                 flash('Lifetime access activated. Enjoy forever!', 'success')
                 return redirect(url_for('index'))
+            
+            # NEW Premium TTS Tiers (starter, creator, pro, studio)
+            elif plan_type in ('starter', 'creator', 'pro', 'studio'):
+                # Set character limit based on tier
+                char_limits = {
+                    'starter': 120000,   # 2 hours
+                    'creator': 300000,   # 5 hours
+                    'pro': 720000,       # 12 hours  
+                    'studio': 1500000,   # 25 hours
+                }
+                current_user.vibevoice_tier = plan_type
+                current_user.vibevoice_chars_used = 0  # Reset usage
+                current_user.vibevoice_usage_reset_at = datetime.utcnow() + timedelta(days=30)
+                current_user.subscription_status = 'active'  # Gives unlimited Edge TTS
+                db.session.commit()
+                send_subscription_email(current_user.email, plan_type)
+                
+                hours = char_limits[plan_type] // 60000
+                app.logger.info(f"[{plan_type.title()}] Activated for user {current_user.email}")
+                flash(f'{plan_type.title()} plan activated! Enjoy {hours} hours of premium neural TTS + unlimited HD voices.', 'success')
+                return redirect(url_for('index'))
+            
             elif plan_type == 'studio_model':
-                # Studio Model subscription - premium HD voices + unlimited Edge TTS
+                # Legacy Studio Model subscription - premium HD voices + unlimited Edge TTS
                 current_user.vibevoice_tier = 'vibevoice'
                 current_user.vibevoice_chars_used = 0  # Reset usage
                 current_user.vibevoice_usage_reset_at = datetime.utcnow() + timedelta(days=30)
@@ -3713,7 +3914,7 @@ def api_indextts_health():
 
 # ==================== VibeVoice API Endpoints ====================
 
-def generate_vibevoice_audio(text, voice, cfg_scale=1.5, inference_steps=5):
+def generate_vibevoice_audio(text, voice, cfg_scale=1.5, inference_steps=5, user_priority=1):
     """
     Call the Podcast TTS server /generate endpoint.
     Returns audio bytes (WAV) or raises exception.
@@ -3723,15 +3924,17 @@ def generate_vibevoice_audio(text, voice, cfg_scale=1.5, inference_steps=5):
     - voice: Voice name (e.g., 'Wayne', 'Carter')
     - cfg_scale: Classifier-free guidance scale (default 1.5)
     - inference_steps: Diffusion steps (default 5 for realtime)
+    - user_priority: Priority 1-10 (1=highest, 10=lowest) for queue ordering
     """
     payload = {
         'text': text,
         'voice': voice,
         'cfg_scale': cfg_scale,
-        'inference_steps': inference_steps
+        'inference_steps': inference_steps,
+        'user_priority': user_priority  # Pass to server for queue ordering
     }
     
-    print(f"[Studio Model] Generating: voice={voice}, text_len={len(text)}, cfg={cfg_scale}")
+    print(f"[Studio Model] Generating: voice={voice}, text_len={len(text)}, cfg={cfg_scale}, priority={user_priority}")
     
     response = requests.post(
         f'{VIBEVOICE_URL}/generate',
@@ -3751,7 +3954,7 @@ def generate_vibevoice_audio(text, voice, cfg_scale=1.5, inference_steps=5):
     return response.content
 
 
-def generate_vibevoice_batch(segments, silence_ms=300):
+def generate_vibevoice_batch(segments, silence_ms=300, user_priority=1):
     """
     Call the Podcast TTS server /batch-generate endpoint.
     Much faster for multi-segment generation.
@@ -3759,16 +3962,18 @@ def generate_vibevoice_batch(segments, silence_ms=300):
     Parameters:
     - segments: List of {text, voice}
     - silence_ms: Silence between segments
+    - user_priority: Priority 1-10 (1=highest, 10=lowest) for queue ordering
     
     Returns audio bytes (WAV) or raises exception.
     """
     payload = {
         'segments': segments,
         'silence_ms': silence_ms,
-        'crossfade_ms': 30
+        'crossfade_ms': 30,
+        'user_priority': user_priority  # Pass to server for queue ordering
     }
     
-    print(f"[Studio Model] Batch generating {len(segments)} segments...")
+    print(f"[Studio Model] Batch generating {len(segments)} segments, priority={user_priority}...")
     
     response = requests.post(
         f'{VIBEVOICE_URL}/batch-generate',
@@ -3922,6 +4127,20 @@ def api_vibevoice_generate():
                 'vibevoice_required': True
             }), 402
         
+        # Check rate limit for unlimited users (50 req/min)
+        is_unlimited = current_user.vibevoice_tier == 'vibevoice_unlimited'
+        if is_unlimited:
+            rate_ok, rate_msg = current_user.check_rate_limit()
+            if not rate_ok:
+                return jsonify({
+                    'success': False,
+                    'error': rate_msg,
+                    'rate_limited': True
+                }), 429
+        
+        # Get priority for queue ordering (only affects unlimited users)
+        user_priority = current_user.get_vibevoice_priority() if is_unlimited else 1
+        
         # Check and track usage (now returns hours_remaining)
         success, error_msg, hours_remaining = current_user.use_vibevoice_chars(char_count)
         if not success:
@@ -3996,7 +4215,7 @@ def api_vibevoice_generate():
                     })
                 
                 silence_ms = 400 if has_multiple_speakers else 200
-                final_audio = generate_vibevoice_batch(batch_segments, silence_ms=silence_ms)
+                final_audio = generate_vibevoice_batch(batch_segments, silence_ms=silence_ms, user_priority=user_priority)
                 
                 segment_stats = [{'voice': s['voice'], 'chars': len(s['text'])} for s in segments]
                 
@@ -4024,7 +4243,8 @@ def api_vibevoice_generate():
                         text=seg_text,
                         voice=seg_voice,
                         cfg_scale=cfg_scale,
-                        inference_steps=inference_steps
+                        inference_steps=inference_steps,
+                        user_priority=user_priority
                     )
                     audio_chunks.append(audio_data)
                     segment_stats.append({
@@ -4066,6 +4286,17 @@ def api_vibevoice_generate():
             f.write(final_audio)
         
         print(f"[Studio Model] Saved {output_file.name}, {len(final_audio)} bytes")
+        
+        # Track audio generation for unlimited tier throttling
+        if is_unlimited and final_audio:
+            # Estimate audio duration from WAV file size
+            # WAV: 16-bit mono 24kHz = 48000 bytes per second
+            # Actual VV output is 24kHz stereo = 96000 bytes per second
+            audio_bytes = len(final_audio) - 44  # Subtract WAV header
+            audio_seconds = max(1, audio_bytes / 96000)  # At least 1 second
+            current_user.track_vibevoice_generation(audio_seconds)
+            db.session.commit()
+            print(f"[Studio Model] Tracked {audio_seconds:.1f}s for unlimited user")
         
         return jsonify({
             'success': True,
@@ -5565,6 +5796,7 @@ def admin_grant_access(email):
         password: Custom password to set
         api_tier: 'starter' | 'pro' | 'enterprise' to grant API access
         indextts: 'indextts' | 'indextts_plus' | 'indextts_pro' to grant IndexTTS access
+        vibevoice: 'starter' | 'creator' | 'pro' | 'studio' to grant Studio Voices access
     """
     # Security check - only accessible with admin password
     admin_pass = request.args.get('key')
@@ -5577,6 +5809,7 @@ def admin_grant_access(email):
         custom_password = request.args.get('password', None)
         api_tier = request.args.get('api_tier', None)  # Grant API access
         indextts_tier = request.args.get('indextts', None)  # Grant IndexTTS access
+        vibevoice_tier = request.args.get('vibevoice', None)  # Grant Studio Voices access
         
         user = User.query.filter_by(email=email).first()
         if not user:
@@ -5590,6 +5823,9 @@ def admin_grant_access(email):
             if indextts_tier in ('indextts', 'indextts_plus', 'indextts_pro'):
                 user.indextts_tier = indextts_tier
                 user.indextts_chars_used = 0
+            if vibevoice_tier in ('starter', 'creator', 'pro', 'studio', 'vibevoice'):
+                user.vibevoice_tier = vibevoice_tier
+                user.vibevoice_chars_used = 0
             # Set password
             import secrets
             password = custom_password if custom_password else secrets.token_urlsafe(16)
@@ -5599,13 +5835,14 @@ def admin_grant_access(email):
             
             return jsonify({
                 'success': True, 
-                'message': f'User created and unlimited access granted to {email}' + (' (with Stripe simulation)' if simulate_stripe else '') + (f' (API: {api_tier})' if api_tier else '') + (f' (IndexTTS: {indextts_tier})' if indextts_tier else ''),
+                'message': f'User created and unlimited access granted to {email}' + (' (with Stripe simulation)' if simulate_stripe else '') + (f' (API: {api_tier})' if api_tier else '') + (f' (IndexTTS: {indextts_tier})' if indextts_tier else '') + (f' (Studio Voices: {vibevoice_tier})' if vibevoice_tier else ''),
                 'user': {
                     'email': user.email,
                     'password': password if custom_password else 'Random password set - use forgot password to reset',
                     'subscription_status': user.subscription_status,
                     'api_tier': user.api_tier,
                     'indextts_tier': user.indextts_tier,
+                    'vibevoice_tier': user.vibevoice_tier,
                     'stripe_customer_id': user.stripe_customer_id,
                     'created_at': user.created_at.isoformat()
                 }
@@ -5620,19 +5857,23 @@ def admin_grant_access(email):
         if indextts_tier in ('indextts', 'indextts_plus', 'indextts_pro'):
             user.indextts_tier = indextts_tier
             user.indextts_chars_used = 0
+        if vibevoice_tier in ('starter', 'creator', 'pro', 'studio', 'vibevoice'):
+            user.vibevoice_tier = vibevoice_tier
+            user.vibevoice_chars_used = 0
         if custom_password:
             user.set_password(custom_password)
         db.session.commit()
         
         return jsonify({
             'success': True, 
-            'message': f'Unlimited access granted to {email}' + (' (with Stripe simulation)' if simulate_stripe else '') + (f' (API: {api_tier})' if api_tier else '') + (f' (IndexTTS: {indextts_tier})' if indextts_tier else ''),
+            'message': f'Unlimited access granted to {email}' + (' (with Stripe simulation)' if simulate_stripe else '') + (f' (API: {api_tier})' if api_tier else '') + (f' (IndexTTS: {indextts_tier})' if indextts_tier else '') + (f' (Studio Voices: {vibevoice_tier})' if vibevoice_tier else ''),
             'user': {
                 'email': user.email,
                 'password_updated': bool(custom_password),
                 'subscription_status': user.subscription_status,
                 'api_tier': user.api_tier,
                 'indextts_tier': user.indextts_tier,
+                'vibevoice_tier': user.vibevoice_tier,
                 'stripe_customer_id': user.stripe_customer_id,
                 'created_at': user.created_at.isoformat()
             }

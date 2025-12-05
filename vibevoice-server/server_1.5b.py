@@ -73,7 +73,7 @@ class QueuePriority(Enum):
 @dataclass(order=True)
 class QueueItem:
     """Item in the priority queue"""
-    priority: int
+    priority: int  # Combined priority: user_priority * 10 + text_priority
     timestamp: float = field(compare=False)
     request_id: str = field(compare=False)
     text: str = field(compare=False)
@@ -82,6 +82,7 @@ class QueueItem:
     inference_steps: int = field(compare=False)
     future: asyncio.Future = field(compare=False)
     char_count: int = field(compare=False)
+    user_priority: int = field(compare=False, default=1)  # 1-10 from webapp
 
 
 class HybridQueue:
@@ -128,9 +129,17 @@ class HybridQueue:
             return QueuePriority.LOW
     
     async def enqueue(self, text: str, voice: str, cfg_scale: float, 
-                      inference_steps: int) -> Tuple[str, int, float]:
+                      inference_steps: int, user_priority: int = 1) -> Tuple[str, int, float]:
         """
         Add request to queue.
+        
+        Priority is calculated as: user_priority * 10 + text_priority
+        - user_priority: 1-10 (from webapp, 1=highest, 10=lowest based on usage)
+        - text_priority: 1-3 based on text length
+        
+        This means a throttled user (priority 10) with short text still waits
+        behind a normal user (priority 1) with any length text.
+        
         Returns (request_id, position, estimated_wait_seconds)
         """
         async with self._lock:
@@ -142,14 +151,19 @@ class HybridQueue:
                 )
             
             char_count = len(text)
-            priority = self.get_priority(char_count)
+            text_priority = self.get_priority(char_count)
+            
+            # Combined priority: user priority dominates, text priority is tiebreaker
+            # user_priority 1 = normal user, 5-10 = throttled unlimited user
+            combined_priority = user_priority * 10 + text_priority.value
+            
             request_id = str(uuid.uuid4())[:8]
             
             loop = asyncio.get_event_loop()
             future = loop.create_future()
             
             item = QueueItem(
-                priority=priority.value,
+                priority=combined_priority,
                 timestamp=time.time(),
                 request_id=request_id,
                 text=text,
@@ -157,13 +171,17 @@ class HybridQueue:
                 cfg_scale=cfg_scale,
                 inference_steps=inference_steps,
                 future=future,
-                char_count=char_count
+                char_count=char_count,
+                user_priority=user_priority
             )
             
             heapq.heappush(self._queue, item)
             
             position = self._get_position(request_id)
             eta = self._estimate_wait(position, char_count)
+            
+            if user_priority > 1:
+                print(f"[Queue] Enqueued {request_id}: {char_count} chars, user_priority={user_priority}, combined={combined_priority}")
             
             return request_id, position, eta
     
@@ -295,6 +313,7 @@ class TTSRequest(BaseModel):
     voice: str = "Carter"  # Voice name
     cfg_scale: float = 1.5  # Classifier-free guidance scale
     inference_steps: int = 5  # Diffusion steps
+    user_priority: int = 1  # User priority 1-10 (1=highest, passed from webapp)
 
 
 class BatchSegment(BaseModel):
@@ -308,6 +327,7 @@ class BatchRequest(BaseModel):
     segments: List[BatchSegment]
     silence_ms: int = 300
     crossfade_ms: int = 30
+    user_priority: int = 1  # User priority 1-10 (passed from webapp)
 
 
 class QueuedResponse(BaseModel):
@@ -649,12 +669,13 @@ async def generate(request: TTSRequest):
             return await batch_generate(batch_req)
     
     try:
-        # Add to queue
+        # Add to queue with user priority
         request_id, position, eta = await request_queue.enqueue(
             text=text,
             voice=request.voice,
             cfg_scale=request.cfg_scale,
-            inference_steps=request.inference_steps
+            inference_steps=request.inference_steps,
+            user_priority=request.user_priority
         )
         
         # Find the future for this request
@@ -719,12 +740,13 @@ async def batch_generate(request: BatchRequest):
         for i, seg in enumerate(request.segments):
             print(f"[Studio Model] Generating segment {i+1}/{len(request.segments)}: {seg.voice}")
             
-            # Generate each segment through queue
+            # Generate each segment through queue with user priority
             request_id, position, eta = await request_queue.enqueue(
                 text=seg.text,
                 voice=seg.voice,
                 cfg_scale=1.5,
-                inference_steps=5
+                inference_steps=5,
+                user_priority=request.user_priority
             )
             
             # Find future
