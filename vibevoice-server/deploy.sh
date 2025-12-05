@@ -65,25 +65,31 @@ fi
 echo "[5/7] Downloading custom voices..."
 mkdir -p voices
 python3 << 'VOICES'
-from huggingface_hub import hf_hub_download
+from huggingface_hub import hf_hub_download, list_repo_files
 import os
-
-voices = ['Adam', 'Aloy', 'Bill', 'Chris', 'Dace', 'Emily', 'Grace', 'Hannah', 
-          'Jennifer', 'John', 'Michael', 'Natalie', 'Oliva', 'Sean', 'Sophia']
 
 os.makedirs('voices', exist_ok=True)
 
-for voice in voices:
-    try:
-        path = hf_hub_download(
-            repo_id="hmzh59/vibevoice-voices",
-            filename=f"{voice}.wav",
-            local_dir="./voices",
-            local_dir_use_symlinks=False
-        )
-        print(f"  ✓ {voice}")
-    except Exception as e:
-        print(f"  ✗ {voice}: {e}")
+# Get all WAV files from the repo
+try:
+    files = list_repo_files("hmzh59/vibevoice-voices")
+    wav_files = [f for f in files if f.endswith('.wav')]
+    
+    for filename in wav_files:
+        try:
+            path = hf_hub_download(
+                repo_id="hmzh59/vibevoice-voices",
+                filename=filename,
+                local_dir="./voices",
+                local_dir_use_symlinks=False
+            )
+            print(f"  ✓ {filename}")
+        except Exception as e:
+            print(f"  ✗ {filename}: {e}")
+    
+    print(f"\nDownloaded {len(wav_files)} voice files")
+except Exception as e:
+    print(f"Error listing files: {e}")
 VOICES
 
 # 6. Pre-download model (optional, will download on first run anyway)
