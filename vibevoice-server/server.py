@@ -213,10 +213,13 @@ def generate_audio(text: str, voice: str, cfg_scale: float = 1.5, inference_step
     device = os.environ.get("MODEL_DEVICE", "cuda")
     torch_device = torch.device(device if device != "cpu" else "cpu")
     
-    # Get voice preset
-    prefilled_outputs = get_voice_preset(voice)
-    if prefilled_outputs is None:
+    # Get voice preset - MUST deepcopy to avoid corrupting cached preset
+    original_preset = get_voice_preset(voice)
+    if original_preset is None:
         raise RuntimeError(f"No voice presets available")
+    
+    # Deep copy the preset so we don't corrupt the cache
+    prefilled_outputs = copy.deepcopy(original_preset)
     
     # Clean text
     text = text.strip().replace("'", "'").replace('"', '"').replace('"', '"')
@@ -227,7 +230,7 @@ def generate_audio(text: str, voice: str, cfg_scale: float = 1.5, inference_step
     # Set inference steps
     model.set_ddpm_inference_steps(num_steps=inference_steps)
     
-    # Prepare inputs
+    # Prepare inputs - use a fresh copy of the preset
     inputs = processor.process_input_with_cached_prompt(
         text=text,
         cached_prompt=prefilled_outputs,
@@ -244,7 +247,7 @@ def generate_audio(text: str, voice: str, cfg_scale: float = 1.5, inference_step
     print(f"[VibeVoice] Generating: voice={voice}, text_len={len(text)}, cfg={cfg_scale}, steps={inference_steps}")
     start_time = time.time()
     
-    # Generate
+    # Generate - use another fresh copy for all_prefilled_outputs
     outputs = model.generate(
         **inputs,
         max_new_tokens=None,
@@ -252,7 +255,7 @@ def generate_audio(text: str, voice: str, cfg_scale: float = 1.5, inference_step
         tokenizer=processor.tokenizer,
         generation_config={'do_sample': False},
         verbose=False,
-        all_prefilled_outputs=copy.deepcopy(prefilled_outputs),
+        all_prefilled_outputs=copy.deepcopy(original_preset),
     )
     
     gen_time = time.time() - start_time

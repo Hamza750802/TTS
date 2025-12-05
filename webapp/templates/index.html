@@ -630,6 +630,11 @@
     50% { box-shadow: 0 0 24px rgba(236,72,153,0.6); }
   }
   
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+  
   /* Tab Styles */
   .tts-tabs {
     display: flex;
@@ -1359,21 +1364,29 @@ Tip: Use [VoiceName]: format for multi-speaker dialogue"></textarea>
           <!-- CFG Scale -->
           <div class="input-group">
             <label style="display: flex; justify-content: space-between;">
-              <span>CFG Scale (quality vs speed)</span>
+              <span>Audio Quality</span>
               <span id="vibevoiceCfgVal">1.5</span>
             </label>
             <input type="range" id="vibevoiceCfg" min="1" max="3" step="0.1" value="1.5" oninput="document.getElementById('vibevoiceCfgVal').textContent = this.value" style="width: 100%;">
-            <p style="font-size: 11px; color: #999; margin-top: 4px;">Higher = better quality, lower = faster generation</p>
+            <p style="font-size: 11px; color: #636E72; margin-top: 4px;">
+              🎯 Controls how closely the voice follows your text.<br>
+              <strong>1.0–1.5:</strong> Fast generation, slightly less precise.<br>
+              <strong>2.0–3.0:</strong> More expressive and accurate, but slower.
+            </p>
           </div>
           
           <!-- Inference Steps -->
           <div class="input-group">
             <label style="display: flex; justify-content: space-between;">
-              <span>Inference Steps</span>
+              <span>Generation Detail</span>
               <span id="vibevoiceStepsVal">5</span>
             </label>
             <input type="range" id="vibevoiceSteps" min="3" max="10" step="1" value="5" oninput="document.getElementById('vibevoiceStepsVal').textContent = this.value" style="width: 100%;">
-            <p style="font-size: 11px; color: #999; margin-top: 4px;">5 = realtime speed, 10 = highest quality</p>
+            <p style="font-size: 11px; color: #636E72; margin-top: 4px;">
+              ⏱️ More steps = smoother, higher-quality audio.<br>
+              <strong>3–5:</strong> Quick generation (good for previews).<br>
+              <strong>6–10:</strong> Best quality (recommended for final output).
+            </p>
           </div>
         </div>
         
@@ -1383,8 +1396,9 @@ Tip: Use [VoiceName]: format for multi-speaker dialogue"></textarea>
             🎧 Generate Podcast Audio
           </button>
           <div id="vibevoiceProgress" style="display: none; margin-top: 16px; text-align: center;">
-            <div style="display: inline-block; width: 24px; height: 24px; border: 3px solid #8b5cf6; border-top-color: transparent; border-radius: 50%; animation: spin 1s linear infinite;"></div>
-            <p style="margin-top: 8px; color: #8b5cf6; font-weight: 500;">Generating audio... (long-form may take a few minutes)</p>
+            <div style="display: inline-block; width: 32px; height: 32px; border: 3px solid #8b5cf6; border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite;"></div>
+            <p id="vibevoiceProgressText" style="margin-top: 8px; color: #8b5cf6; font-weight: 500;">Generating audio...</p>
+            <p style="margin-top: 4px; color: #636E72; font-size: 12px;">Long-form content may take a few minutes</p>
           </div>
         </div>
         
@@ -3372,6 +3386,7 @@ Tip: Use [VoiceName]: format for multi-speaker dialogue"></textarea>
     
     const generateBtn = document.getElementById('vibevoiceGenerateBtn');
     const progress = document.getElementById('vibevoiceProgress');
+    const progressText = document.getElementById('vibevoiceProgressText');
     const audioSection = document.getElementById('vibevoiceAudioSection');
     
     generateBtn.disabled = true;
@@ -3379,13 +3394,22 @@ Tip: Use [VoiceName]: format for multi-speaker dialogue"></textarea>
     if (progress) progress.style.display = 'block';
     if (audioSection) audioSection.style.display = 'none';
     
+    // Show initial progress
+    let segments = [];
+    const isMultiSpeaker = hasPodcastMarkup(text);
+    if (isMultiSpeaker) {
+      segments = parsePodcastMarkup(text);
+      if (progressText) progressText.textContent = `🎙️ Processing ${segments.length} speaker segment${segments.length > 1 ? 's' : ''}...`;
+    } else {
+      if (progressText) progressText.textContent = '🎙️ Generating audio...';
+    }
+    
     try {
       let requestBody;
       let endpoint;
       
       // Check if text has multi-speaker markup
-      if (hasPodcastMarkup(text)) {
-        const segments = parsePodcastMarkup(text);
+      if (isMultiSpeaker) {
         endpoint = '/api/vibevoice/generate';
         requestBody = {
           text: text,
