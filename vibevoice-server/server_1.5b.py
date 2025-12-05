@@ -1,11 +1,14 @@
 """
-Podcast TTS Server (1.5B) for CheapTTS
-FastAPI wrapper for long-form multi-speaker TTS with VOICE CLONING support.
+Studio Model TTS Server (1.5B) for CheapTTS
+FastAPI wrapper for high-quality TTS with hybrid priority queue system.
 
-This uses VibeVoice-1.5B which supports custom voices from audio samples.
-Run this instead of server.py if you want custom voice support.
+Features:
+- 22 voices (7 built-in + 15 custom)
+- Hybrid queue: priority lane for short texts, standard queue for longer texts
+- Auto-chunking for texts >2000 chars
+- Estimated wait times and queue position feedback
 
-To switch back to the fast realtime model, just run server.py instead.
+This uses VibeVoice-1.5B model from hmzh59/vibevoice-models.
 """
 
 import os
@@ -19,9 +22,13 @@ import asyncio
 import threading
 import traceback
 import shutil
+import uuid
 from pathlib import Path
 from typing import Optional, List, Dict, Any, Iterator, Tuple
 from contextlib import asynccontextmanager
+from dataclasses import dataclass, field
+from enum import Enum
+import heapq
 
 import numpy as np
 import torch
@@ -52,6 +59,235 @@ voice_registry: Dict[str, str] = {}
 # Sample rate for VibeVoice output
 SAMPLE_RATE = 24000
 
+# ============================================================================
+# HYBRID QUEUE SYSTEM
+# ============================================================================
+
+class QueuePriority(Enum):
+    """Queue priority levels"""
+    HIGH = 1      # <500 chars - fast lane
+    NORMAL = 2    # 500-2000 chars - standard queue
+    LOW = 3       # >2000 chars - chunked, background
+
+
+@dataclass(order=True)
+class QueueItem:
+    """Item in the priority queue"""
+    priority: int
+    timestamp: float = field(compare=False)
+    request_id: str = field(compare=False)
+    text: str = field(compare=False)
+    voice: str = field(compare=False)
+    cfg_scale: float = field(compare=False)
+    inference_steps: int = field(compare=False)
+    future: asyncio.Future = field(compare=False)
+    char_count: int = field(compare=False)
+
+
+class HybridQueue:
+    """
+    Hybrid priority queue for TTS requests.
+    
+    - Priority lane: <500 chars, 2 concurrent
+    - Standard lane: 500-2000 chars, 1 concurrent  
+    - Auto-chunks texts >2000 chars
+    """
+    
+    # Thresholds
+    PRIORITY_THRESHOLD = 500      # Chars for priority lane
+    STANDARD_THRESHOLD = 2000     # Chars before chunking
+    MAX_QUEUE_SIZE = 20           # Max pending requests
+    
+    # Concurrency limits
+    PRIORITY_CONCURRENT = 2       # Parallel short generations
+    STANDARD_CONCURRENT = 1       # Sequential long generations
+    
+    # Timing estimates (seconds per 100 chars)
+    AVG_TIME_PER_100_CHARS = 1.5
+    
+    def __init__(self):
+        self._queue: List[QueueItem] = []
+        self._lock = asyncio.Lock()
+        self._priority_semaphore = asyncio.Semaphore(self.PRIORITY_CONCURRENT)
+        self._standard_semaphore = asyncio.Semaphore(self.STANDARD_CONCURRENT)
+        self._processing: Dict[str, QueueItem] = {}
+        self._stats = {
+            "total_processed": 0,
+            "total_chars": 0,
+            "avg_generation_time": 3.0,  # Initial estimate
+        }
+        self._generation_times: List[float] = []
+    
+    def get_priority(self, char_count: int) -> QueuePriority:
+        """Determine priority based on text length"""
+        if char_count < self.PRIORITY_THRESHOLD:
+            return QueuePriority.HIGH
+        elif char_count <= self.STANDARD_THRESHOLD:
+            return QueuePriority.NORMAL
+        else:
+            return QueuePriority.LOW
+    
+    async def enqueue(self, text: str, voice: str, cfg_scale: float, 
+                      inference_steps: int) -> Tuple[str, int, float]:
+        """
+        Add request to queue.
+        Returns (request_id, position, estimated_wait_seconds)
+        """
+        async with self._lock:
+            if len(self._queue) >= self.MAX_QUEUE_SIZE:
+                raise HTTPException(
+                    status_code=503,
+                    detail="Server busy. Please try again in a few seconds.",
+                    headers={"Retry-After": "10"}
+                )
+            
+            char_count = len(text)
+            priority = self.get_priority(char_count)
+            request_id = str(uuid.uuid4())[:8]
+            
+            loop = asyncio.get_event_loop()
+            future = loop.create_future()
+            
+            item = QueueItem(
+                priority=priority.value,
+                timestamp=time.time(),
+                request_id=request_id,
+                text=text,
+                voice=voice,
+                cfg_scale=cfg_scale,
+                inference_steps=inference_steps,
+                future=future,
+                char_count=char_count
+            )
+            
+            heapq.heappush(self._queue, item)
+            
+            position = self._get_position(request_id)
+            eta = self._estimate_wait(position, char_count)
+            
+            return request_id, position, eta
+    
+    def _get_position(self, request_id: str) -> int:
+        """Get position in queue (1-indexed)"""
+        for i, item in enumerate(sorted(self._queue)):
+            if item.request_id == request_id:
+                return i + 1
+        return len(self._queue)
+    
+    def _estimate_wait(self, position: int, char_count: int) -> float:
+        """Estimate wait time in seconds"""
+        # Base wait from queue position
+        base_wait = (position - 1) * self._stats["avg_generation_time"]
+        
+        # Add time for this request
+        own_time = (char_count / 100) * self.AVG_TIME_PER_100_CHARS
+        
+        return base_wait + own_time
+    
+    async def get_status(self, request_id: str) -> Dict[str, Any]:
+        """Get status of a request"""
+        async with self._lock:
+            # Check if processing
+            if request_id in self._processing:
+                return {
+                    "status": "processing",
+                    "position": 0,
+                    "eta_seconds": 0
+                }
+            
+            # Check queue
+            for i, item in enumerate(sorted(self._queue)):
+                if item.request_id == request_id:
+                    eta = self._estimate_wait(i + 1, item.char_count)
+                    return {
+                        "status": "queued",
+                        "position": i + 1,
+                        "eta_seconds": round(eta, 1)
+                    }
+            
+            return {"status": "not_found"}
+    
+    async def process_next(self):
+        """Process next item in queue"""
+        async with self._lock:
+            if not self._queue:
+                return None
+            
+            item = heapq.heappop(self._queue)
+            self._processing[item.request_id] = item
+        
+        try:
+            priority = QueuePriority(item.priority)
+            semaphore = (self._priority_semaphore 
+                        if priority == QueuePriority.HIGH 
+                        else self._standard_semaphore)
+            
+            async with semaphore:
+                start_time = time.time()
+                
+                # Run generation in thread pool
+                loop = asyncio.get_event_loop()
+                result = await loop.run_in_executor(
+                    None,
+                    generate_audio_sync,
+                    item.text,
+                    item.voice,
+                    item.cfg_scale,
+                    item.inference_steps
+                )
+                
+                elapsed = time.time() - start_time
+                
+                # Update stats
+                self._generation_times.append(elapsed)
+                if len(self._generation_times) > 50:
+                    self._generation_times.pop(0)
+                self._stats["avg_generation_time"] = sum(self._generation_times) / len(self._generation_times)
+                self._stats["total_processed"] += 1
+                self._stats["total_chars"] += item.char_count
+                
+                item.future.set_result((result, elapsed))
+                
+        except Exception as e:
+            item.future.set_exception(e)
+        finally:
+            async with self._lock:
+                self._processing.pop(item.request_id, None)
+    
+    async def wait_for_result(self, request_id: str, future: asyncio.Future) -> Tuple[bytes, float]:
+        """Wait for generation result"""
+        return await future
+    
+    def get_queue_info(self) -> Dict[str, Any]:
+        """Get overall queue status"""
+        priority_count = sum(1 for item in self._queue if item.priority == QueuePriority.HIGH.value)
+        standard_count = len(self._queue) - priority_count
+        
+        return {
+            "queue_length": len(self._queue),
+            "priority_queue": priority_count,
+            "standard_queue": standard_count,
+            "processing": len(self._processing),
+            "stats": self._stats.copy()
+        }
+
+
+# Global queue instance
+request_queue = HybridQueue()
+
+
+async def queue_processor():
+    """Background task to process queue"""
+    while True:
+        try:
+            if request_queue._queue:
+                await request_queue.process_next()
+            else:
+                await asyncio.sleep(0.1)
+        except Exception as e:
+            print(f"[Queue] Error processing: {e}")
+            await asyncio.sleep(0.5)
+
 
 class TTSRequest(BaseModel):
     """Request for TTS generation"""
@@ -74,20 +310,25 @@ class BatchRequest(BaseModel):
     crossfade_ms: int = 30
 
 
-class VoiceCreateRequest(BaseModel):
-    """Request to create a voice from existing audio file"""
-    name: str
-    audio_path: str  # Path to audio file on server
+class QueuedResponse(BaseModel):
+    """Response when request is queued"""
+    request_id: str
+    position: int
+    eta_seconds: float
+    status: str = "queued"
 
 
 def load_model():
     """Load VibeVoice 1.5B model"""
     global model, processor, model_loaded
     
-    model_path = os.environ.get("MODEL_PATH", "microsoft/VibeVoice-1.5B")
+    # HuggingFace repo with subfolder
+    repo_id = os.environ.get("MODEL_REPO", "hmzh59/vibevoice-models")
+    subfolder = os.environ.get("MODEL_SUBFOLDER", "VibeVoice-1.5B")
     device = os.environ.get("MODEL_DEVICE", "cuda")
     
-    print(f"[VibeVoice 1.5B] Loading model from {model_path}...")
+    print(f"[Studio Model] Loading model from {repo_id}/{subfolder}...")
+    print(f"[Studio Model] High-quality TTS with 22 voices")
     start = time.time()
     
     try:
@@ -99,8 +340,8 @@ def load_model():
         )
         
         # Load processor
-        print(f"[VibeVoice 1.5B] Loading processor...")
-        processor = VibeVoiceProcessor.from_pretrained(model_path)
+        print(f"[Studio Model] Loading processor...")
+        processor = VibeVoiceProcessor.from_pretrained(repo_id, subfolder=subfolder)
         
         # Determine dtype and attention implementation
         if device == "cuda":
@@ -116,19 +357,21 @@ def load_model():
             device_map = "cpu"
             attn_impl = "sdpa"
         
-        print(f"[VibeVoice 1.5B] Loading model (dtype={load_dtype}, attn={attn_impl})...")
+        print(f"[Studio Model] Loading model (dtype={load_dtype}, attn={attn_impl})...")
         
         try:
             model = VibeVoiceForConditionalGeneration.from_pretrained(
-                model_path,
+                repo_id,
+                subfolder=subfolder,
                 torch_dtype=load_dtype,
                 device_map=device_map,
-                attn_implementation=attn_impl
+                    attn_implementation=attn_impl
             )
         except Exception as e:
-            print(f"[VibeVoice 1.5B] Flash attention failed, trying SDPA: {e}")
+            print(f"[Studio Model] Flash attention failed, trying SDPA: {e}")
             model = VibeVoiceForConditionalGeneration.from_pretrained(
-                model_path,
+                repo_id,
+                subfolder=subfolder,
                 torch_dtype=load_dtype,
                 device_map=device_map if device != "mps" else None,
                 attn_implementation="sdpa"
@@ -144,13 +387,13 @@ def load_model():
         
         model_loaded = True
         elapsed = time.time() - start
-        print(f"[VibeVoice 1.5B] Model loaded in {elapsed:.1f}s")
+        print(f"[Studio Model] Model loaded in {elapsed:.1f}s")
         
         # Load voice registry
         load_voice_registry()
         
     except Exception as e:
-        print(f"[VibeVoice 1.5B] Failed to load model: {e}")
+        print(f"[Studio Model] Failed to load model: {e}")
         traceback.print_exc()
         model_loaded = False
 
@@ -170,16 +413,21 @@ def load_voice_registry():
     for name in builtin_voices:
         voice_registry[name.lower()] = f"builtin:{name}"
     
-    # Load custom voices from audio files
+    # Load custom voices from audio files - check both directories
     audio_extensions = ['.wav', '.mp3', '.flac', '.ogg', '.m4a']
+    voice_dirs = [VOICES_DIR, CUSTOM_VOICES_DIR]
     
-    for audio_file in CUSTOM_VOICES_DIR.glob("*"):
-        if audio_file.suffix.lower() in audio_extensions:
-            voice_name = audio_file.stem
-            voice_registry[voice_name.lower()] = str(audio_file)
-            print(f"[VibeVoice 1.5B] Registered custom voice: {voice_name}")
+    for voice_dir in voice_dirs:
+        if voice_dir.exists():
+            for audio_file in voice_dir.glob("*"):
+                if audio_file.suffix.lower() in audio_extensions and audio_file.is_file():
+                    voice_name = audio_file.stem
+                    # Don't override built-in voices
+                    if voice_name.lower() not in voice_registry or not voice_registry[voice_name.lower()].startswith("builtin:"):
+                        voice_registry[voice_name.lower()] = str(audio_file)
+                        print(f"[Studio Model] Registered custom voice: {voice_name}")
     
-    print(f"[VibeVoice 1.5B] Loaded {len(voice_registry)} voices: {list(voice_registry.keys())}")
+    print(f"[Studio Model] Loaded {len(voice_registry)} voices: {list(voice_registry.keys())}")
 
 
 def get_voice_audio(voice_name: str) -> Optional[str]:
@@ -279,66 +527,58 @@ def generate_audio(text: str, voice: str, cfg_scale: float = 1.5, inference_step
     return buffer.getvalue()
 
 
-def generate_batch(segments: List[BatchSegment], silence_ms: int = 300, crossfade_ms: int = 30) -> bytes:
-    """Generate audio for multiple segments and concatenate"""
+def generate_audio_sync(text: str, voice: str, cfg_scale: float = 1.5, 
+                        inference_steps: int = 5) -> bytes:
+    """Synchronous wrapper for generate_audio (for thread pool)"""
+    return generate_audio(text, voice, cfg_scale, inference_steps)
+
+
+def chunk_text(text: str, max_chars: int = 2000) -> List[str]:
+    """Split text into chunks at sentence boundaries"""
+    if len(text) <= max_chars:
+        return [text]
     
-    if not segments:
-        raise ValueError("No segments provided")
+    chunks = []
+    current_chunk = ""
     
-    all_audio = []
-    silence_samples = int(SAMPLE_RATE * silence_ms / 1000)
-    silence = np.zeros(silence_samples, dtype=np.float32)
+    # Split by sentences
+    sentences = text.replace("。", ".").replace("！", "!").replace("？", "?")
+    sentences = sentences.replace(". ", ".|").replace("! ", "!|").replace("? ", "?|")
+    sentences = sentences.split("|")
     
-    for i, seg in enumerate(segments):
-        print(f"[VibeVoice 1.5B] Generating segment {i+1}/{len(segments)}: {seg.voice}")
-        
-        try:
-            audio_bytes = generate_audio(seg.text, seg.voice)
-            
-            # Parse WAV to get samples
-            buffer = io.BytesIO(audio_bytes)
-            sr, audio_data = wavfile.read(buffer)
-            
-            # Convert to float
-            if audio_data.dtype == np.int16:
-                audio_data = audio_data.astype(np.float32) / 32767.0
-            
-            all_audio.append(audio_data)
-            
-            # Add silence between segments (except after last)
-            if i < len(segments) - 1:
-                all_audio.append(silence)
-                
-        except Exception as e:
-            print(f"[VibeVoice 1.5B] Segment {i+1} failed: {e}")
-            continue
+    for sentence in sentences:
+        if len(current_chunk) + len(sentence) <= max_chars:
+            current_chunk += sentence + " "
+        else:
+            if current_chunk:
+                chunks.append(current_chunk.strip())
+            current_chunk = sentence + " "
     
-    if not all_audio:
-        raise RuntimeError("All segments failed")
+    if current_chunk:
+        chunks.append(current_chunk.strip())
     
-    # Concatenate
-    combined = np.concatenate(all_audio)
-    
-    # Normalize and convert to int16
-    combined = np.clip(combined, -1.0, 1.0)
-    combined_int16 = (combined * 32767).astype(np.int16)
-    
-    # Create WAV
-    buffer = io.BytesIO()
-    wavfile.write(buffer, SAMPLE_RATE, combined_int16)
-    return buffer.getvalue()
+    return chunks if chunks else [text[:max_chars]]
 
 
 # FastAPI app
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Load model on startup"""
+    """Load model on startup, start queue processor"""
     load_model()
+    
+    # Start queue processor background task
+    processor_task = asyncio.create_task(queue_processor())
+    print("[Studio Model] Queue processor started")
+    
     yield
+    
+    # Cleanup
+    processor_task.cancel()
 
 
 app = FastAPI(
-    title="Podcast TTS Server (1.5B with Voice Cloning)",
+    title="Studio Model TTS Server",
+    description="High-quality TTS with hybrid priority queue",
     version="2.0.0",
     lifespan=lifespan
 )
@@ -355,13 +595,26 @@ app.add_middleware(
 @app.get("/health")
 async def health():
     """Health check"""
+    queue_info = request_queue.get_queue_info()
     return {
         "status": "healthy" if model_loaded else "loading",
-        "model": "VibeVoice-1.5B",
+        "model": "Studio-Model-1.5B",
         "model_loaded": model_loaded,
         "voices_count": len(voice_registry),
-        "custom_voices": [k for k, v in voice_registry.items() if not v.startswith("builtin:")]
+        "queue": queue_info
     }
+
+
+@app.get("/queue/status")
+async def queue_status():
+    """Get overall queue status"""
+    return request_queue.get_queue_info()
+
+
+@app.get("/queue/status/{request_id}")
+async def request_status(request_id: str):
+    """Get status of a specific request"""
+    return await request_queue.get_status(request_id)
 
 
 @app.get("/voices")
@@ -369,94 +622,70 @@ async def list_voices():
     """List available voices"""
     voices = []
     for name, path in voice_registry.items():
+        voice_type = "builtin" if path.startswith("builtin:") else "custom"
         voices.append({
             "id": name,
             "name": name.title(),
-            "type": "builtin" if path.startswith("builtin:") else "custom"
+            "type": voice_type
         })
+    
+    # Sort: custom first, then builtin, alphabetically within each
+    voices.sort(key=lambda v: (0 if v["type"] == "custom" else 1, v["name"]))
     return {"voices": voices}
-
-
-@app.post("/voices/upload")
-async def upload_voice(
-    name: str = Form(...),
-    audio: UploadFile = File(...)
-):
-    """Upload a custom voice audio sample"""
-    
-    # Validate name
-    safe_name = "".join(c for c in name if c.isalnum() or c in "-_").lower()
-    if not safe_name:
-        raise HTTPException(400, "Invalid voice name")
-    
-    # Check file type
-    allowed_types = ['.wav', '.mp3', '.flac', '.ogg', '.m4a']
-    suffix = Path(audio.filename).suffix.lower()
-    if suffix not in allowed_types:
-        raise HTTPException(400, f"Invalid audio format. Allowed: {allowed_types}")
-    
-    # Save file
-    dest_path = CUSTOM_VOICES_DIR / f"{safe_name}{suffix}"
-    
-    try:
-        with open(dest_path, "wb") as f:
-            content = await audio.read()
-            f.write(content)
-        
-        # Register voice
-        voice_registry[safe_name] = str(dest_path)
-        
-        return {
-            "success": True,
-            "voice_id": safe_name,
-            "message": f"Voice '{safe_name}' created successfully"
-        }
-    except Exception as e:
-        raise HTTPException(500, f"Failed to save voice: {e}")
-
-
-@app.delete("/voices/{voice_id}")
-async def delete_voice(voice_id: str):
-    """Delete a custom voice"""
-    
-    voice_id_lower = voice_id.lower()
-    
-    if voice_id_lower not in voice_registry:
-        raise HTTPException(404, "Voice not found")
-    
-    path = voice_registry[voice_id_lower]
-    
-    if path.startswith("builtin:"):
-        raise HTTPException(400, "Cannot delete built-in voices")
-    
-    try:
-        if os.path.exists(path):
-            os.remove(path)
-        del voice_registry[voice_id_lower]
-        return {"success": True, "message": f"Voice '{voice_id}' deleted"}
-    except Exception as e:
-        raise HTTPException(500, f"Failed to delete voice: {e}")
 
 
 @app.post("/generate")
 async def generate(request: TTSRequest):
-    """Generate audio for a single text"""
+    """Generate audio with queue system"""
     
     if not model_loaded:
         raise HTTPException(503, "Model not loaded")
     
+    text = request.text.strip()
+    if not text:
+        raise HTTPException(400, "Text is required")
+    
+    char_count = len(text)
+    
+    # Auto-chunk long texts
+    if char_count > HybridQueue.STANDARD_THRESHOLD:
+        chunks = chunk_text(text, HybridQueue.STANDARD_THRESHOLD)
+        if len(chunks) > 1:
+            # Convert to batch request
+            segments = [BatchSegment(text=chunk, voice=request.voice) for chunk in chunks]
+            batch_req = BatchRequest(segments=segments, silence_ms=200, crossfade_ms=50)
+            return await batch_generate(batch_req)
+    
     try:
-        start = time.time()
-        audio_bytes = generate_audio(
-            request.text,
-            request.voice,
-            request.cfg_scale,
-            request.inference_steps
+        # Add to queue
+        request_id, position, eta = await request_queue.enqueue(
+            text=text,
+            voice=request.voice,
+            cfg_scale=request.cfg_scale,
+            inference_steps=request.inference_steps
         )
-        elapsed = time.time() - start
+        
+        # Find the future for this request
+        future = None
+        for item in request_queue._queue:
+            if item.request_id == request_id:
+                future = item.future
+                break
+        
+        if not future:
+            raise HTTPException(500, "Failed to queue request")
+        
+        # Wait for result with queue position updates
+        try:
+            audio_bytes, elapsed = await asyncio.wait_for(
+                request_queue.wait_for_result(request_id, future),
+                timeout=120  # 2 minute timeout
+            )
+        except asyncio.TimeoutError:
+            raise HTTPException(504, "Generation timed out")
         
         # Save to temp file
-        output_file = TEMP_DIR / f"gen_{int(time.time()*1000)}.wav"
+        output_file = TEMP_DIR / f"gen_{request_id}.wav"
         with open(output_file, "wb") as f:
             f.write(audio_bytes)
         
@@ -465,10 +694,14 @@ async def generate(request: TTSRequest):
             media_type="audio/wav",
             filename="generated.wav",
             headers={
-                "X-Generation-Time": str(elapsed),
-                "X-Audio-Duration": str(len(audio_bytes) / SAMPLE_RATE / 2)  # Approx
+                "X-Generation-Time": str(round(elapsed, 2)),
+                "X-Request-ID": request_id,
+                "X-Char-Count": str(char_count)
             }
         )
+        
+    except HTTPException:
+        raise
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(500, f"Generation failed: {e}")
@@ -476,18 +709,67 @@ async def generate(request: TTSRequest):
 
 @app.post("/batch-generate")
 async def batch_generate(request: BatchRequest):
-    """Generate audio for multiple segments"""
+    """Generate audio for multiple segments with queue"""
     
     if not model_loaded:
         raise HTTPException(503, "Model not loaded")
     
+    if not request.segments:
+        raise HTTPException(400, "No segments provided")
+    
     try:
         start = time.time()
-        audio_bytes = generate_batch(
-            request.segments,
-            request.silence_ms,
-            request.crossfade_ms
-        )
+        
+        all_audio = []
+        silence_samples = int(SAMPLE_RATE * request.silence_ms / 1000)
+        silence = np.zeros(silence_samples, dtype=np.float32)
+        
+        for i, seg in enumerate(request.segments):
+            print(f"[Studio Model] Generating segment {i+1}/{len(request.segments)}: {seg.voice}")
+            
+            # Generate each segment through queue
+            request_id, position, eta = await request_queue.enqueue(
+                text=seg.text,
+                voice=seg.voice,
+                cfg_scale=1.5,
+                inference_steps=5
+            )
+            
+            # Find future
+            future = None
+            for item in request_queue._queue:
+                if item.request_id == request_id:
+                    future = item.future
+                    break
+            
+            if future:
+                audio_bytes, _ = await request_queue.wait_for_result(request_id, future)
+                
+                # Parse WAV
+                buffer = io.BytesIO(audio_bytes)
+                sr, audio_data = wavfile.read(buffer)
+                
+                if audio_data.dtype == np.int16:
+                    audio_data = audio_data.astype(np.float32) / 32767.0
+                
+                all_audio.append(audio_data)
+                
+                if i < len(request.segments) - 1:
+                    all_audio.append(silence)
+        
+        if not all_audio:
+            raise HTTPException(500, "All segments failed")
+        
+        # Concatenate
+        combined = np.concatenate(all_audio)
+        combined = np.clip(combined, -1.0, 1.0)
+        combined_int16 = (combined * 32767).astype(np.int16)
+        
+        # Create WAV
+        buffer = io.BytesIO()
+        wavfile.write(buffer, SAMPLE_RATE, combined_int16)
+        audio_bytes = buffer.getvalue()
+        
         elapsed = time.time() - start
         
         # Save to temp file
@@ -500,10 +782,13 @@ async def batch_generate(request: BatchRequest):
             media_type="audio/wav",
             filename="batch_generated.wav",
             headers={
-                "X-Generation-Time": str(elapsed),
+                "X-Generation-Time": str(round(elapsed, 2)),
                 "X-Segments-Count": str(len(request.segments))
             }
         )
+        
+    except HTTPException:
+        raise
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(500, f"Batch generation failed: {e}")
@@ -511,18 +796,26 @@ async def batch_generate(request: BatchRequest):
 
 @app.post("/preview")
 async def preview_voice(voice: str, text: str = "Hello! This is a preview of my voice."):
-    """Generate a short preview of a voice"""
+    """Generate a short preview of a voice (bypasses queue for speed)"""
     
     if not model_loaded:
         raise HTTPException(503, "Model not loaded")
     
+    # Limit preview text length
+    preview_text = text[:200] if len(text) > 200 else text
+    
     try:
-        audio_bytes = generate_audio(text, voice, cfg_scale=1.5, inference_steps=5)
+        start = time.time()
+        audio_bytes = generate_audio(preview_text, voice, cfg_scale=1.5, inference_steps=3)
+        elapsed = time.time() - start
         
         return StreamingResponse(
             io.BytesIO(audio_bytes),
             media_type="audio/wav",
-            headers={"Content-Disposition": "inline; filename=preview.wav"}
+            headers={
+                "Content-Disposition": "inline; filename=preview.wav",
+                "X-Generation-Time": str(round(elapsed, 2))
+            }
         )
     except Exception as e:
         raise HTTPException(500, f"Preview failed: {e}")
@@ -530,6 +823,7 @@ async def preview_voice(voice: str, text: str = "Hello! This is a preview of my 
 
 if __name__ == "__main__":
     import uvicorn
-    port = int(os.environ.get("PORT", 8085))
-    print(f"[VibeVoice 1.5B] Starting server on port {port}...")
+    port = int(os.environ.get("PORT", 8070))
+    print(f"[Studio Model] Starting server on port {port}...")
+    print(f"[Studio Model] Hybrid queue: priority <{HybridQueue.PRIORITY_THRESHOLD} chars, standard <{HybridQueue.STANDARD_THRESHOLD} chars")
     uvicorn.run(app, host="0.0.0.0", port=port)
