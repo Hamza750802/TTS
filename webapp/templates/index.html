@@ -714,11 +714,7 @@
     </button>
     <button type="button" class="tts-tab" onclick="switchTab('indextts')" id="tabIndexTTS" style="border-left: 3px solid #06b6d4;">
       🎯 Studio Voices <span style="background: linear-gradient(135deg, #06b6d4, #0891b2); color: white; font-size: 9px; padding: 2px 6px; border-radius: 6px; margin-left: 6px; font-weight: 700;">NEW</span>
-      <div style="font-size: 11px; color: #06b6d4; font-weight: 400; margin-top: 4px;">Ultra-quality voice clones</div>
-    </button>
-    <button type="button" class="tts-tab" onclick="switchTab('vibevoice')" id="tabVibeVoice" style="border-left: 3px solid #8b5cf6;">
-      🎧 Podcast Voices <span style="background: linear-gradient(135deg, #8b5cf6, #7c3aed); color: white; font-size: 9px; padding: 2px 6px; border-radius: 6px; margin-left: 6px; font-weight: 700;">FRONTIER</span>
-      <div style="font-size: 11px; color: #8b5cf6; font-weight: 400; margin-top: 4px;">Long-form • Multi-speaker</div>
+      <div style="font-size: 11px; color: #06b6d4; font-weight: 400; margin-top: 4px;">24 Ultra-Quality Voice Clones</div>
     </button>
   </div>
 
@@ -1080,24 +1076,23 @@
     </form>
   </div><!-- End Premium Tab -->
 
-  <!-- IndexTTS2 Tab Content -->
+  <!-- Studio Voices Tab Content (VibeVoice 1.5B) -->
   <div class="tab-content" id="indexttsTab">
-    <form id="indexttsForm">
+    <form id="studioForm">
       <div class="form-card">
-        <!-- IndexTTS2 Header -->
+        <!-- Studio Voices Header -->
         <div style="background: linear-gradient(135deg, rgba(6,182,212,0.1), rgba(8,145,178,0.1)); border: 2px solid rgba(6,182,212,0.3); border-radius: 16px; padding: 20px; margin-bottom: 24px; text-align: center;">
           <h3 style="margin: 0 0 8px 0; background: linear-gradient(135deg, #06b6d4, #0891b2); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; font-size: 20px;">🎯 Studio Voices</h3>
           <p style="margin: 0 0 10px 0; color: #636E72; font-size: 14px;">Ultra-quality voice clones with natural expression • Multi-speaker support</p>
           <a href="{{ url_for('storytelling') }}" style="color: #06b6d4; font-size: 13px; text-decoration: none;">Learn more about Studio Voices →</a>
         </div>
 
-        {% if current_user.has_indextts %}
-        <!-- User has IndexTTS2 subscription -->
+        {% if current_user.has_vibevoice %}
+        <!-- User has Studio Voices subscription -->
         <div style="background: rgba(6,182,212,0.1); border: 1px solid rgba(6,182,212,0.3); border-radius: 12px; padding: 12px 16px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
           <span style="color: #06b6d4; font-weight: 600;">✓ Studio Voices Active</span>
           <span style="color: #636E72; font-size: 13px;">
-            <span id="indexttsCharsUsed">{{ current_user.indextts_chars_used or 0 }}</span> / 
-            <span id="indexttsCharsLimit">{{ current_user.indextts_char_limit }}</span> chars used
+            {{ "%.1f"|format(current_user.vibevoice_hours_remaining) }} hours remaining
           </span>
         </div>
         
@@ -1105,161 +1100,54 @@
         <div class="form-section">
           <div class="section-title">Voice Selection</div>
           <div class="input-group">
-            <label for="indexttsVoice">Choose a voice</label>
-            <select id="indexttsVoice" style="width: 100%; padding: 12px 16px; border: 2px solid #DFE6E9; border-radius: 12px; font-size: 15px; background: white; cursor: pointer;">
+            <label for="studioVoice">Choose a voice</label>
+            <select id="studioVoice" style="width: 100%; padding: 12px 16px; border: 2px solid #DFE6E9; border-radius: 12px; font-size: 15px; background: white; cursor: pointer;">
               <option value="">Loading voices...</option>
             </select>
-            <p style="font-size: 12px; color: #636E72; margin-top: 8px;">🎯 Studio Voices use IndexTTS2 for ultra-realistic cloned voices</p>
+            <p style="font-size: 12px; color: #636E72; margin-top: 8px;">🎯 24 ultra-realistic cloned voices powered by VibeVoice 1.5B</p>
           </div>
-          <button type="button" id="indexttsPreviewBtn" onclick="previewIndexttsVoice()" style="margin-top: 10px; padding: 10px 20px; border-radius: 10px; border: 2px solid #06b6d4; background: transparent; color: #06b6d4; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s;">
+          <button type="button" id="studioPreviewBtn" onclick="previewStudioVoice()" style="margin-top: 10px; padding: 10px 20px; border-radius: 10px; border: 2px solid #06b6d4; background: transparent; color: #06b6d4; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s;">
             🔊 Preview Voice
           </button>
-          <audio id="indexttsPreviewAudio" style="display: none;"></audio>
+          <audio id="studioPreviewAudio" style="display: none;"></audio>
         </div>
 
         <!-- Text Input -->
         <div class="form-section">
           <div class="section-title">Your Text</div>
           <div class="input-group">
-            <label for="indexttsText">Enter text to convert</label>
-            <textarea id="indexttsText" placeholder="[Emily]: Hello! How are you today?
-[Michael:happy]: I'm doing great, thanks for asking!
-[Emily:sad]: Oh no, I heard about what happened.
-[Adam:angry]: This is unacceptable! We need to fix this now!
-[Grace:calm]: Let's all take a deep breath and think this through.
+            <label for="studioText">Enter text to convert</label>
+            <textarea id="studioText" placeholder="Hello! This is an example of Studio Voices.
 
-Available voices: Adam, Eleanor, Emily, Grace, Hannah, Michael, Natalie, Olivia, Sophia
-Emotions: happy, angry, sad, afraid, disgusted, melancholic, surprised, calm"></textarea>
-            <p style="font-size: 12px; color: #06b6d4; margin-top: 8px;">💡 Use <strong>[VoiceName]:</strong> or <strong>[VoiceName:emotion]:</strong> for multi-speaker dialogue with emotions!</p>
+For multi-speaker dialogue, use this format:
+[Adam]: Hey, how's it going?
+[Emily]: I'm doing great, thanks for asking!
+[Carter]: Nice to meet you both.
+
+Available voices: Adam, Aloy, Bill, Carter, Chris, Dace, Emily, Frank, Grace, Hannah, Jennifer, John, Michael, Natalie, Oliva, Samuel, Sean, Sophia, Alice, Mary, Maya"></textarea>
+            <p style="font-size: 12px; color: #06b6d4; margin-top: 8px;">💡 Use <strong>[VoiceName]:</strong> for multi-speaker dialogue!</p>
           </div>
         </div>
 
-        <!-- IndexTTS2 Settings -->
+        <!-- Voice Settings -->
         <div class="form-section">
-          <div class="section-title">Settings</div>
+          <div class="section-title">Voice Settings</div>
           
-          <!-- Emotion Control Method -->
+          <!-- CFG Scale (Expressiveness) -->
           <div class="input-group">
-            <label>Emotion control method</label>
-            <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px;">
-              <label style="display: flex; align-items: center; gap: 6px; padding: 8px 14px; background: #f0f0f0; border-radius: 8px; cursor: pointer;">
-                <input type="radio" name="indexttsEmoMethod" value="voice" checked style="margin: 0;">
-                <span style="font-size: 13px;">Same as the voice reference</span>
-              </label>
-              <label style="display: flex; align-items: center; gap: 6px; padding: 8px 14px; background: #f0f0f0; border-radius: 8px; cursor: pointer;">
-                <input type="radio" name="indexttsEmoMethod" value="vectors" style="margin: 0;">
-                <span style="font-size: 13px;">Use emotion vectors</span>
-              </label>
-            </div>
-          </div>
-          
-          <!-- Randomize Emotion Sampling -->
-          <div class="input-group" style="margin-top: 12px;">
-            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-              <input type="checkbox" id="indexttsRandomize" style="width: 18px; height: 18px;">
-              <span>Randomize emotion sampling</span>
+            <label style="display: flex; justify-content: space-between;">
+              <span>Expressiveness (CFG Scale)</span>
+              <span id="studioCfgVal">1.5</span>
             </label>
+            <input type="range" id="studioCfgScale" min="1.0" max="3.0" step="0.1" value="1.5" 
+                   oninput="document.getElementById('studioCfgVal').textContent = this.value" 
+                   style="width: 100%;">
+            <p style="font-size: 11px; color: #999; margin-top: 4px;">Lower = more natural, Higher = more expressive</p>
           </div>
-        </div>
-        
-        <!-- Emotion Vectors (shown when "Use emotion vectors" is selected) -->
-        <div class="form-section" id="indexttsEmotionVectors" style="display: none;">
-          <div class="section-title">Emotion Vectors</div>
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-            <!-- Happy -->
-            <div class="input-group">
-              <label style="display: flex; justify-content: space-between;">
-                <span>Happy</span>
-                <span id="indexttsHappyVal">0</span>
-              </label>
-              <input type="range" id="indexttsHappy" min="0" max="1" step="0.1" value="0" oninput="document.getElementById('indexttsHappyVal').textContent = this.value" style="width: 100%;">
-            </div>
-            <!-- Disgusted -->
-            <div class="input-group">
-              <label style="display: flex; justify-content: space-between;">
-                <span>Disgusted</span>
-                <span id="indexttsDisgustedVal">0</span>
-              </label>
-              <input type="range" id="indexttsDisgusted" min="0" max="1" step="0.1" value="0" oninput="document.getElementById('indexttsDisgustedVal').textContent = this.value" style="width: 100%;">
-            </div>
-            <!-- Angry -->
-            <div class="input-group">
-              <label style="display: flex; justify-content: space-between;">
-                <span>Angry</span>
-                <span id="indexttsAngryVal">0</span>
-              </label>
-              <input type="range" id="indexttsAngry" min="0" max="1" step="0.1" value="0" oninput="document.getElementById('indexttsAngryVal').textContent = this.value" style="width: 100%;">
-            </div>
-            <!-- Melancholic -->
-            <div class="input-group">
-              <label style="display: flex; justify-content: space-between;">
-                <span>Melancholic</span>
-                <span id="indexttsMelancholicVal">0</span>
-              </label>
-              <input type="range" id="indexttsMelancholic" min="0" max="1" step="0.1" value="0" oninput="document.getElementById('indexttsMelancholicVal').textContent = this.value" style="width: 100%;">
-            </div>
-            <!-- Sad -->
-            <div class="input-group">
-              <label style="display: flex; justify-content: space-between;">
-                <span>Sad</span>
-                <span id="indexttsSadVal">0</span>
-              </label>
-              <input type="range" id="indexttsSad" min="0" max="1" step="0.1" value="0" oninput="document.getElementById('indexttsSadVal').textContent = this.value" style="width: 100%;">
-            </div>
-            <!-- Surprised -->
-            <div class="input-group">
-              <label style="display: flex; justify-content: space-between;">
-                <span>Surprised</span>
-                <span id="indexttsSurprisedVal">0</span>
-              </label>
-              <input type="range" id="indexttsSurprised" min="0" max="1" step="0.1" value="0" oninput="document.getElementById('indexttsSurprisedVal').textContent = this.value" style="width: 100%;">
-            </div>
-            <!-- Afraid -->
-            <div class="input-group">
-              <label style="display: flex; justify-content: space-between;">
-                <span>Afraid</span>
-                <span id="indexttsAfraidVal">0</span>
-              </label>
-              <input type="range" id="indexttsAfraid" min="0" max="1" step="0.1" value="0" oninput="document.getElementById('indexttsAfraidVal').textContent = this.value" style="width: 100%;">
-            </div>
-            <!-- Calm -->
-            <div class="input-group">
-              <label style="display: flex; justify-content: space-between;">
-                <span>Calm</span>
-                <span id="indexttsCalmVal">0</span>
-              </label>
-              <input type="range" id="indexttsCalm" min="0" max="1" step="0.1" value="0" oninput="document.getElementById('indexttsCalmVal').textContent = this.value" style="width: 100%;">
-            </div>
-          </div>
-        </div>
-
-        <!-- Split into Chunks Button -->
-        <div class="form-section">
-          <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-            <button type="button" id="indexttsSplitBtn" onclick="indextts_splitIntoChunks()" style="padding: 10px 20px; border-radius: 12px; border: 2px solid #06b6d4; background: transparent; color: #06b6d4; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s;">
-              ✂️ Split into Chunks
-            </button>
-            <button type="button" id="indexttsClearChunksBtn" onclick="indextts_clearChunks()" style="display: none; padding: 10px 16px; border-radius: 12px; border: 2px solid #e74c3c; background: transparent; color: #e74c3c; font-size: 13px; font-weight: 500; cursor: pointer;">
-              ✕ Back to Text
-            </button>
-            <span id="indexttsChunkIndicator" style="display: none; font-size: 12px; color: #06b6d4; font-weight: 500;">🎭 Per-chunk emotions active</span>
-          </div>
-          <p style="font-size: 11px; color: #999; margin-top: 8px;">Split text to set different emotions for each segment</p>
-        </div>
-        
-        <!-- Chunk Editor (hidden by default) -->
-        <div id="indexttsChunkEditor" style="display: none; margin-top: 16px;">
-          <div style="background: linear-gradient(135deg, rgba(6,182,212,0.1), rgba(8,145,178,0.1)); border-radius: 12px; padding: 16px; margin-bottom: 16px;">
-            <p style="font-size: 13px; color: #2D3436; margin: 0;">🎭 <strong>Per-Chunk Emotions:</strong> Each chunk can have its own voice and emotion settings.</p>
-          </div>
-          <div id="indexttsChunkList" style="display: flex; flex-direction: column; gap: 16px;"></div>
-          <button type="button" onclick="indextts_addChunk()" style="width: 100%; margin-top: 12px; padding: 12px; border: 2px dashed rgba(6,182,212,0.4); background: transparent; color: #06b6d4; font-size: 14px; font-weight: 500; border-radius: 10px; cursor: pointer; transition: all 0.2s;">
-            ➕ Add New Chunk
-          </button>
         </div>
 
         <!-- Generate Button -->
-        <button type="submit" id="indexttsGenerateBtn" style="width: 100%; padding: 16px; font-size: 16px; background: linear-gradient(135deg, #06b6d4, #0891b2); color: white; border: none; border-radius: 12px; font-weight: 600; cursor: pointer; box-shadow: 0 4px 16px rgba(6,182,212,0.3); transition: all 0.2s;">
+        <button type="submit" id="studioGenerateBtn" style="width: 100%; padding: 16px; font-size: 16px; background: linear-gradient(135deg, #06b6d4, #0891b2); color: white; border: none; border-radius: 12px; font-weight: 600; cursor: pointer; box-shadow: 0 4px 16px rgba(6,182,212,0.3); transition: all 0.2s;">
           🎯 Generate Studio Audio
         </button>
         
@@ -1267,7 +1155,7 @@ Emotions: happy, angry, sad, afraid, disgusted, melancholic, surprised, calm"></
         <!-- Non-subscribed User - Upgrade prompt -->
         <div style="background: linear-gradient(135deg, rgba(6,182,212,0.1), rgba(8,145,178,0.1)); border: 2px solid rgba(6,182,212,0.3); border-radius: 16px; padding: 24px; margin-bottom: 24px; text-align: center;">
           <h4 style="margin: 0 0 12px 0; color: #06b6d4;">🔒 Studio Voices Subscription Required</h4>
-          <p style="color: #636E72; margin: 0 0 16px 0; font-size: 14px;">Subscribe to access ultra-quality voice clones with natural expression and multi-speaker support.</p>
+          <p style="color: #636E72; margin: 0 0 16px 0; font-size: 14px;">Subscribe to access 24 ultra-quality voice clones with natural expression and multi-speaker support.</p>
           <a href="/subscribe" style="display: inline-block; padding: 12px 32px; background: linear-gradient(135deg, #06b6d4, #0891b2); color: white; text-decoration: none; border-radius: 12px; font-weight: 600; box-shadow: 0 4px 16px rgba(6,182,212,0.3);">Subscribe to Studio Voices →</a>
         </div>
         
@@ -1275,166 +1163,37 @@ Emotions: happy, angry, sad, afraid, disgusted, melancholic, surprised, calm"></
         <div style="background: rgba(6,182,212,0.05); border: 1px solid rgba(6,182,212,0.2); border-radius: 12px; padding: 16px; margin-top: 16px;">
           <h4 style="margin: 0 0 12px 0; color: #06b6d4; font-size: 15px;">🎧 Try a Preview</h4>
           <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-            <select id="indexttsPreviewVoice" style="padding: 10px 14px; border: 2px solid #DFE6E9; border-radius: 10px; font-size: 14px; background: white; cursor: pointer; min-width: 150px;">
+            <select id="studioPreviewVoiceFree" style="padding: 10px 14px; border: 2px solid #DFE6E9; border-radius: 10px; font-size: 14px; background: white; cursor: pointer; min-width: 150px;">
               <option value="">Loading voices...</option>
             </select>
-            <button type="button" onclick="previewIndexttsVoiceFree()" style="padding: 10px 20px; border-radius: 10px; border: 2px solid #06b6d4; background: transparent; color: #06b6d4; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s;">
+            <button type="button" onclick="previewStudioVoiceFree()" style="padding: 10px 20px; border-radius: 10px; border: 2px solid #06b6d4; background: transparent; color: #06b6d4; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s;">
               🔊 Preview
             </button>
           </div>
-          <audio id="indexttsPreviewAudioFree" style="width: 100%; margin-top: 12px; display: none;"></audio>
+          <audio id="studioPreviewAudioFree" style="width: 100%; margin-top: 12px; display: none;"></audio>
           <p style="font-size: 11px; color: #999; margin-top: 8px;">Preview limited to 100 characters</p>
         </div>
         {% endif %}
 
         <!-- Status & Progress -->
-        <div id="indexttsStatus" style="display: none; margin-top: 16px; padding: 14px 18px; border-radius: 14px; background: rgba(6,182,212,0.1); color: #06b6d4; font-weight: 500; text-align: center;">
+        <div id="studioStatus" style="display: none; margin-top: 16px; padding: 14px 18px; border-radius: 14px; background: rgba(6,182,212,0.1); color: #06b6d4; font-weight: 500; text-align: center;">
           ⏳ Generating audio...
         </div>
-        <div class="error" id="indexttsError" style="display: none;"></div>
+        <div class="error" id="studioError" style="display: none;"></div>
         
         <!-- Audio Player -->
-        <div class="audio-player" id="indexttsAudioPlayer" style="display: none; margin-top: 20px; padding: 20px; background: rgba(6,182,212,0.05); border-radius: 16px; border: 1px solid rgba(6,182,212,0.2);">
+        <div class="audio-player" id="studioAudioPlayer" style="display: none; margin-top: 20px; padding: 20px; background: rgba(6,182,212,0.05); border-radius: 16px; border: 1px solid rgba(6,182,212,0.2);">
           <strong style="color: #06b6d4;">🎯 Studio audio ready!</strong>
-          <audio id="indexttsAudioElement" controls style="width: 100%; margin-top: 12px;"></audio>
+          <audio id="studioAudioElement" controls style="width: 100%; margin-top: 12px;"></audio>
           <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px;">
-            <a id="indexttsDownloadLink" class="download-btn" download="studio_voice.wav" style="background: linear-gradient(135deg, #06b6d4, #0891b2); color: white; border-color: transparent; padding: 10px 20px; border-radius: 10px; text-decoration: none; font-weight: 600;">⬇️ Download WAV</a>
+            <a id="studioDownloadLink" href="#" download="studio_audio.wav" style="padding: 10px 20px; background: linear-gradient(135deg, #06b6d4, #0891b2); color: white; text-decoration: none; border-radius: 10px; font-size: 13px; font-weight: 600;">
+              ⬇️ Download WAV
+            </a>
           </div>
         </div>
       </div>
     </form>
-  </div><!-- End IndexTTS2 Tab -->
-
-  <!-- VibeVoice Tab Content -->
-  <div class="tab-content" id="vibevoiceTab">
-    <form id="vibevoiceForm">
-      <div class="form-card">
-        <!-- Podcast Voices Header -->
-        <div style="background: linear-gradient(135deg, rgba(139,92,246,0.1), rgba(124,58,237,0.1)); border: 2px solid rgba(139,92,246,0.3); border-radius: 16px; padding: 20px; margin-bottom: 24px; text-align: center;">
-          <h3 style="margin: 0 0 8px 0; background: linear-gradient(135deg, #8b5cf6, #7c3aed); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; font-size: 20px;">🎧 Podcast Voices</h3>
-          <p style="margin: 0 0 10px 0; color: #636E72; font-size: 14px;">Premium long-form TTS • Up to 90 minutes • Multi-speaker</p>
-        </div>
-
-        {% if current_user.has_vibevoice %}
-        <!-- User has VibeVoice subscription -->
-        <div style="background: rgba(139,92,246,0.1); border: 1px solid rgba(139,92,246,0.3); border-radius: 12px; padding: 12px 16px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
-          <span style="color: #8b5cf6; font-weight: 600;">✓ Podcast Voices Active</span>
-          <span style="color: #636E72; font-size: 13px;">
-            <span id="vibevoiceCharsUsed">{{ current_user.vibevoice_chars_used or 0 }}</span> / 
-            <span id="vibevoiceCharsLimit">{{ current_user.vibevoice_char_limit }}</span> chars used
-          </span>
-        </div>
-        
-        <!-- Voice Selection -->
-        <div class="form-section">
-          <div class="section-title">Voice Selection</div>
-          <div class="input-group">
-            <label for="vibevoiceVoice">Choose a voice</label>
-            <select id="vibevoiceVoice" style="width: 100%; padding: 12px 16px; border: 2px solid #DFE6E9; border-radius: 12px; font-size: 15px; background: white; cursor: pointer;">
-              <option value="">Loading voices...</option>
-            </select>
-            <p style="font-size: 12px; color: #636E72; margin-top: 8px;">🎧 Premium voices optimized for podcasts and long-form content</p>
-          </div>
-          <button type="button" id="vibevoicePreviewBtn" onclick="previewVibevoiceVoice()" style="margin-top: 10px; padding: 10px 20px; border-radius: 10px; border: 2px solid #8b5cf6; background: transparent; color: #8b5cf6; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s;">
-            🔊 Preview Voice
-          </button>
-          <audio id="vibevoicePreviewAudio" style="display: none;"></audio>
-        </div>
-
-        <!-- Text Input -->
-        <div class="form-section">
-          <div class="section-title">Your Text</div>
-          <div class="input-group">
-            <label for="vibevoiceText">Enter text to convert (supports long-form content)</label>
-            <textarea id="vibevoiceText" placeholder="[Carter]: Welcome to the podcast! Today we have a very special guest.
-[Emma]: Thanks for having me! I'm excited to be here.
-[Carter]: So let's dive right in. Tell us about your journey.
-
-Or just type plain text for single-speaker audio.
-Tip: Use [VoiceName]: format for multi-speaker dialogue"></textarea>
-            <p style="font-size: 12px; color: #8b5cf6; margin-top: 8px;">💡 Use <strong>[VoiceName]:</strong> format for multi-speaker podcast-style dialogue!</p>
-            <p id="podcastVoiceHint" style="font-size: 11px; color: #636E72; margin-top: 4px;">Loading available voices...</p>
-          </div>
-        </div>
-
-        <!-- VibeVoice Settings -->
-        <div class="form-section">
-          <div class="section-title">Generation Settings</div>
-          
-          <!-- CFG Scale -->
-          <div class="input-group">
-            <label style="display: flex; justify-content: space-between;">
-              <span>Audio Quality</span>
-              <span id="vibevoiceCfgVal">1.5</span>
-            </label>
-            <input type="range" id="vibevoiceCfg" min="1" max="3" step="0.1" value="1.5" oninput="document.getElementById('vibevoiceCfgVal').textContent = this.value" style="width: 100%;">
-            <p style="font-size: 11px; color: #636E72; margin-top: 4px;">
-              🎯 Controls how closely the voice follows your text.<br>
-              <strong>1.0–1.5:</strong> Faster generation, slightly less precise.<br>
-              <strong>2.0–3.0:</strong> More expressive and accurate, but takes longer.
-            </p>
-          </div>
-          
-          <!-- Inference Steps -->
-          <div class="input-group">
-            <label style="display: flex; justify-content: space-between;">
-              <span>Generation Detail</span>
-              <span id="vibevoiceStepsVal">5</span>
-            </label>
-            <input type="range" id="vibevoiceSteps" min="3" max="10" step="1" value="5" oninput="document.getElementById('vibevoiceStepsVal').textContent = this.value" style="width: 100%;">
-            <p style="font-size: 11px; color: #636E72; margin-top: 4px;">
-              ⏱️ More steps = smoother audio, but longer generation time.<br>
-              <strong>3–5:</strong> Quick generation (good for previews).<br>
-              <strong>6–10:</strong> Best quality (recommended for final output).
-            </p>
-          </div>
-        </div>
-        
-        <!-- Generate Button -->
-        <div class="form-section">
-          <button type="button" id="vibevoiceGenerateBtn" onclick="generateVibevoice()" style="width: 100%; padding: 16px; border-radius: 14px; border: none; background: linear-gradient(135deg, #8b5cf6, #7c3aed); color: white; font-size: 16px; font-weight: 700; cursor: pointer; transition: all 0.3s; box-shadow: 0 4px 15px rgba(139,92,246,0.3);">
-            🎧 Generate Podcast Audio
-          </button>
-          <div id="vibevoiceProgress" style="display: none; margin-top: 16px; text-align: center;">
-            <div style="display: inline-block; width: 32px; height: 32px; border: 3px solid #8b5cf6; border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite;"></div>
-            <p id="vibevoiceProgressText" style="margin-top: 8px; color: #8b5cf6; font-weight: 500;">Generating audio...</p>
-            <p style="margin-top: 4px; color: #636E72; font-size: 12px;">Long-form content may take a few minutes</p>
-          </div>
-        </div>
-        
-        <!-- Audio Player -->
-        <div id="vibevoiceAudioSection" style="display: none; margin-top: 20px; background: linear-gradient(135deg, rgba(139,92,246,0.05), rgba(124,58,237,0.05)); border: 2px solid rgba(139,92,246,0.2); border-radius: 16px; padding: 20px;">
-          <div style="font-weight: 600; color: #2D3436; margin-bottom: 12px;">🎧 Generated Audio</div>
-          <audio id="vibevoiceAudioPlayer" controls style="width: 100%; margin-bottom: 12px;"></audio>
-          <div id="vibevoiceStats" style="font-size: 12px; color: #636E72; margin-bottom: 12px;"></div>
-          <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px;">
-            <a id="vibevoiceDownloadLink" class="download-btn" download="podcast_voice.wav" style="background: linear-gradient(135deg, #8b5cf6, #7c3aed); color: white; border-color: transparent; padding: 10px 20px; border-radius: 10px; text-decoration: none; font-weight: 600;">⬇️ Download WAV</a>
-          </div>
-        </div>
-      </div>
-        
-        {% else %}
-        <!-- User needs VibeVoice subscription -->
-        <div style="text-align: center; padding: 40px 20px;">
-          <div style="font-size: 48px; margin-bottom: 16px;">🎧</div>
-          <h3 style="color: #2D3436; margin-bottom: 12px;">Unlock Podcast Voices</h3>
-          <p style="color: #636E72; margin-bottom: 24px; max-width: 400px; margin-left: auto; margin-right: auto;">
-            Get access to premium long-form podcast-style audio generation with multiple speakers.
-          </p>
-          <ul style="text-align: left; max-width: 300px; margin: 0 auto 24px; color: #636E72; font-size: 14px;">
-            <li>Up to 90 minutes of audio</li>
-            <li>4 distinct speakers</li>
-            <li>Natural conversation flow</li>
-            <li>Podcast-quality output</li>
-          </ul>
-          <a href="{{ url_for('subscribe') }}" style="display: inline-block; padding: 14px 28px; background: linear-gradient(135deg, #8b5cf6, #7c3aed); color: white; text-decoration: none; border-radius: 12px; font-weight: 600; box-shadow: 0 4px 15px rgba(139,92,246,0.3);">
-            Subscribe to Podcast Voices
-          </a>
-        </div>
-        {% endif %}
-      </div>
-    </form>
-  </div><!-- End VibeVoice Tab -->
+  </div><!-- End Studio Voices Tab -->
 
 </div>
 {% endif %}
@@ -1463,23 +1222,21 @@ Tip: Use [VoiceName]: format for multi-speaker dialogue"></textarea>
     document.getElementById('standardTab').classList.toggle('active', tab === 'standard');
     document.getElementById('premiumTab').classList.toggle('active', tab === 'premium');
     
-    // IndexTTS2 tab
+    // Studio Voices tab (VibeVoice 1.5B)
     const tabIndexTTS = document.getElementById('tabIndexTTS');
     const indexttsTab = document.getElementById('indexttsTab');
     if (tabIndexTTS) tabIndexTTS.classList.toggle('active', tab === 'indextts');
     if (indexttsTab) indexttsTab.classList.toggle('active', tab === 'indextts');
     
-    // VibeVoice tab
-    const tabVibeVoice = document.getElementById('tabVibeVoice');
-    const vibevoiceTab = document.getElementById('vibevoiceTab');
-    if (tabVibeVoice) tabVibeVoice.classList.toggle('active', tab === 'vibevoice');
-    if (vibevoiceTab) vibevoiceTab.classList.toggle('active', tab === 'vibevoice');
-    
-    // Load VibeVoice voices when switching to that tab
-    if (tab === 'vibevoice' && !vibevoiceVoicesLoaded) {
-      loadVibevoiceVoices();
+    // Load Studio Voices when switching to that tab
+    if (tab === 'indextts' && !studioVoicesLoaded) {
+      loadStudioVoices();
     }
   }
+  
+  // Studio Voices state
+  let studioVoicesLoaded = false;
+  let studioVoices = [];
 
   // ===== CHUNK EDITOR MANAGEMENT =====
   let premiumChunks = [];
@@ -3214,46 +2971,37 @@ Tip: Use [VoiceName]: format for multi-speaker dialogue"></textarea>
     }
   }
   
-  // ========== VibeVoice Functions ==========
+  // ========== Studio Model Functions ==========
   let vibevoiceVoicesLoaded = false;
   let vibevoiceVoices = [];
   let podcastVoiceMap = {}; // Maps friendly name -> raw voice ID
   
   function formatPodcastVoiceName(rawName) {
-    // Convert "en-Carter_man" -> "Carter (Male)", "en-Emma_woman" -> "Emma (Female)"
+    // 1.5B model uses simple names like "Carter", "Emma", etc.
+    // Just capitalize and return
     let name = rawName;
-    let gender = '';
     
-    // Extract gender suffix
-    if (name.endsWith('_man')) {
-      gender = ' (Male)';
-      name = name.replace('_man', '');
-    } else if (name.endsWith('_woman')) {
-      gender = ' (Female)';
-      name = name.replace('_woman', '');
-    }
-    
-    // Remove language prefix (en-, in-, etc.)
+    // Remove any prefix (legacy format)
     if (name.includes('-')) {
       name = name.split('-').slice(1).join('-');
+    }
+    
+    // Remove gender suffix (legacy format)
+    if (name.endsWith('_man')) {
+      name = name.replace('_man', '');
+    } else if (name.endsWith('_woman')) {
+      name = name.replace('_woman', '');
     }
     
     // Capitalize first letter
     name = name.charAt(0).toUpperCase() + name.slice(1);
     
-    return name + gender;
+    return name;
   }
   
   function getFriendlyVoiceName(rawName) {
-    // Get just the base name for markup (e.g., "Carter" from "en-Carter_man")
-    let name = rawName;
-    if (name.endsWith('_man') || name.endsWith('_woman')) {
-      name = name.replace(/_man$|_woman$/, '');
-    }
-    if (name.includes('-')) {
-      name = name.split('-').slice(1).join('-');
-    }
-    return name.charAt(0).toUpperCase() + name.slice(1);
+    // Get just the base name for markup
+    return formatPodcastVoiceName(rawName);
   }
   
   async function loadVibevoiceVoices() {
@@ -3269,32 +3017,49 @@ Tip: Use [VoiceName]: format for multi-speaker dialogue"></textarea>
         if (select) {
           select.innerHTML = '';
           data.voices.forEach(voice => {
-            const friendlyName = getFriendlyVoiceName(voice);
-            const displayName = formatPodcastVoiceName(voice);
-            podcastVoiceMap[friendlyName.toLowerCase()] = voice;
-            podcastVoiceMap[voice.toLowerCase()] = voice; // Also map raw name
+            const friendlyName = getFriendlyVoiceName(voice.id || voice);
+            const displayName = formatPodcastVoiceName(voice.id || voice);
+            const voiceId = voice.id || voice;
+            
+            podcastVoiceMap[friendlyName.toLowerCase()] = voiceId;
+            podcastVoiceMap[voiceId.toLowerCase()] = voiceId;
             
             const option = document.createElement('option');
-            option.value = voice;
+            option.value = voiceId;
             option.textContent = displayName;
+            
+            // Mark custom voices
+            if (voice.type === 'custom') {
+              option.textContent = displayName + ' ⭐';
+            }
+            
             select.appendChild(option);
           });
           vibevoiceVoicesLoaded = true;
           updatePodcastVoiceHint();
         }
       } else {
-        console.log('[Podcast] No voices available or service not configured');
-        const select = document.getElementById('vibevoiceVoice');
-        if (select) {
-          select.innerHTML = '<option value="en-Carter_man">Carter (Male)</option><option value="en-Emma_woman">Emma (Female)</option>';
-        }
+        console.log('[Studio Model] No voices available or service not configured');
+        setDefaultVoices();
       }
     } catch (error) {
-      console.log('[Podcast] Error loading voices:', error);
-      const select = document.getElementById('vibevoiceVoice');
-      if (select) {
-        select.innerHTML = '<option value="en-Carter_man">Carter (Male)</option><option value="en-Emma_woman">Emma (Female)</option>';
-      }
+      console.log('[Studio Model] Error loading voices:', error);
+      setDefaultVoices();
+    }
+  }
+  
+  function setDefaultVoices() {
+    const select = document.getElementById('vibevoiceVoice');
+    if (select) {
+      select.innerHTML = `
+        <option value="Carter">Carter</option>
+        <option value="Emma">Emma</option>
+        <option value="Davis">Davis</option>
+        <option value="Frank">Frank</option>
+        <option value="Grace">Grace</option>
+        <option value="Mike">Mike</option>
+        <option value="Samuel">Samuel</option>
+      `;
     }
   }
   
@@ -3375,7 +3140,7 @@ Tip: Use [VoiceName]: format for multi-speaker dialogue"></textarea>
   
   async function generateVibevoice() {
     const text = document.getElementById('vibevoiceText')?.value?.trim();
-    const voice = document.getElementById('vibevoiceVoice')?.value || vibevoiceVoices[0] || 'en-Carter_man';
+    const voice = document.getElementById('vibevoiceVoice')?.value || vibevoiceVoices[0]?.id || vibevoiceVoices[0] || 'Carter';
     const cfgScale = parseFloat(document.getElementById('vibevoiceCfg')?.value || '1.5');
     const inferenceSteps = parseInt(document.getElementById('vibevoiceSteps')?.value || '5');
     
@@ -3387,6 +3152,7 @@ Tip: Use [VoiceName]: format for multi-speaker dialogue"></textarea>
     const generateBtn = document.getElementById('vibevoiceGenerateBtn');
     const progress = document.getElementById('vibevoiceProgress');
     const progressText = document.getElementById('vibevoiceProgressText');
+    const queueInfo = document.getElementById('vibevoiceQueueInfo');
     const audioSection = document.getElementById('vibevoiceAudioSection');
     
     generateBtn.disabled = true;
@@ -3399,10 +3165,11 @@ Tip: Use [VoiceName]: format for multi-speaker dialogue"></textarea>
     const isMultiSpeaker = hasPodcastMarkup(text);
     if (isMultiSpeaker) {
       segments = parsePodcastMarkup(text);
-      if (progressText) progressText.textContent = `🎙️ Processing ${segments.length} speaker segment${segments.length > 1 ? 's' : ''}...`;
+      if (progressText) progressText.textContent = `🎙️ Processing ${segments.length} voice segment${segments.length > 1 ? 's' : ''}...`;
     } else {
       if (progressText) progressText.textContent = '🎙️ Generating audio...';
     }
+    if (queueInfo) queueInfo.textContent = 'Connecting to server...';
     
     try {
       let requestBody;
@@ -3437,11 +3204,18 @@ Tip: Use [VoiceName]: format for multi-speaker dialogue"></textarea>
       
       const data = await response.json();
       
+      // Handle queue position updates
+      if (data.queue_position && data.queue_position > 0) {
+        if (queueInfo) queueInfo.textContent = `Position ${data.queue_position} in queue • ~${data.eta_seconds || '?'}s`;
+      } else if (data.success) {
+        if (queueInfo) queueInfo.textContent = '';
+      }
+      
       if (data.success) {
-        // Update usage display
-        const usedEl = document.getElementById('vibevoiceCharsUsed');
-        if (usedEl && data.vibevoice_chars_used !== undefined) {
-          usedEl.textContent = data.vibevoice_chars_used.toLocaleString();
+        // Update hours remaining display
+        const hoursEl = document.getElementById('vibevoiceHoursRemaining');
+        if (hoursEl && data.hours_remaining !== undefined) {
+          hoursEl.textContent = data.hours_remaining.toFixed(1);
         }
         
         // Show audio player
@@ -3456,7 +3230,7 @@ Tip: Use [VoiceName]: format for multi-speaker dialogue"></textarea>
           statsEl.innerHTML = `
             📊 ${data.stats.total_chars?.toLocaleString() || 0} characters • 
             ${data.stats.segments || 1} segment(s) • 
-            ${data.stats.multi_speaker ? '👥 Multi-speaker' : '👤 Single speaker'}
+            ⏱️ ${data.stats.generation_time || '?'}s
           `;
         }
         
@@ -3465,22 +3239,253 @@ Tip: Use [VoiceName]: format for multi-speaker dialogue"></textarea>
         let errorMsg = data.error || 'Failed to generate audio.';
         
         if (data.vibevoice_required) {
-          errorMsg = data.error + ' <a href="/subscribe" style="color: #8b5cf6; font-weight: 600;">Subscribe Now →</a>';
+          errorMsg = data.error + ' Subscribe to Studio Model to continue.';
         } else if (data.limit_reached) {
-          errorMsg = data.error + ' <a href="/subscribe" style="color: #8b5cf6; font-weight: 600;">Upgrade for more →</a>';
+          errorMsg = data.error + ' Upgrade for more hours.';
         }
         
-        alert(errorMsg.replace(/<[^>]*>/g, '')); // Strip HTML for alert
+        alert(errorMsg);
       }
     } catch (error) {
-      console.error('[VibeVoice] Generate error:', error);
+      console.error('[Studio Model] Generate error:', error);
       alert('Network error. Please try again.');
     } finally {
       generateBtn.disabled = false;
-      generateBtn.textContent = '🎧 Generate Podcast Audio';
+      generateBtn.textContent = '🎤 Generate Studio Audio';
       if (progress) progress.style.display = 'none';
     }
   }
+  
+  // ===== STUDIO VOICES (VibeVoice 1.5B) =====
+  
+  // Load voices for Studio Voices tab
+  async function loadStudioVoices() {
+    try {
+      const response = await fetch('/api/vibevoice/voices');
+      const data = await response.json();
+      
+      if (data.success && data.voices) {
+        studioVoices = data.voices;
+        
+        // Populate main voice dropdown (for subscribers)
+        const select = document.getElementById('studioVoice');
+        if (select) {
+          select.innerHTML = '';
+          data.voices.forEach(voice => {
+            const option = document.createElement('option');
+            option.value = voice.id || voice;
+            option.textContent = voice.name || voice.id || voice;
+            if (voice.type === 'custom') {
+              option.textContent += ' ⭐';
+            }
+            select.appendChild(option);
+          });
+        }
+        
+        // Populate preview dropdown (for non-subscribers)
+        const previewSelect = document.getElementById('studioPreviewVoiceFree');
+        if (previewSelect) {
+          previewSelect.innerHTML = '';
+          data.voices.slice(0, 5).forEach(voice => {  // Show first 5 for preview
+            const option = document.createElement('option');
+            option.value = voice.id || voice;
+            option.textContent = voice.name || voice.id || voice;
+            previewSelect.appendChild(option);
+          });
+        }
+        
+        studioVoicesLoaded = true;
+      } else {
+        console.log('[Studio Voices] Service not available');
+        setDefaultStudioVoices();
+      }
+    } catch (error) {
+      console.log('[Studio Voices] Error loading voices:', error);
+      setDefaultStudioVoices();
+    }
+  }
+  
+  function setDefaultStudioVoices() {
+    const defaultVoices = ['Carter', 'Emily', 'Adam', 'Grace', 'Michael'];
+    const select = document.getElementById('studioVoice');
+    const previewSelect = document.getElementById('studioPreviewVoiceFree');
+    
+    if (select) {
+      select.innerHTML = defaultVoices.map(v => `<option value="${v}">${v}</option>`).join('');
+    }
+    if (previewSelect) {
+      previewSelect.innerHTML = defaultVoices.map(v => `<option value="${v}">${v}</option>`).join('');
+    }
+  }
+  
+  // Preview voice (for subscribers)
+  async function previewStudioVoice() {
+    const voice = document.getElementById('studioVoice')?.value;
+    const btn = document.getElementById('studioPreviewBtn');
+    const audio = document.getElementById('studioPreviewAudio');
+    
+    if (!voice || !btn) return;
+    
+    btn.disabled = true;
+    btn.textContent = '⏳ Loading...';
+    
+    try {
+      const response = await fetch('/api/vibevoice/preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ voice: voice })
+      });
+      
+      const data = await response.json();
+      
+      if (data.success && data.audioUrl) {
+        audio.src = data.audioUrl;
+        audio.style.display = 'block';
+        audio.play();
+      } else {
+        alert('Preview failed: ' + (data.error || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('[Studio Voices] Preview error:', error);
+      alert('Failed to load preview');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '🔊 Preview Voice';
+    }
+  }
+  
+  // Preview voice (for non-subscribers)
+  async function previewStudioVoiceFree() {
+    const voice = document.getElementById('studioPreviewVoiceFree')?.value;
+    const audio = document.getElementById('studioPreviewAudioFree');
+    
+    if (!voice) return;
+    
+    try {
+      const response = await fetch('/api/vibevoice/preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ voice: voice })
+      });
+      
+      const data = await response.json();
+      
+      if (data.success && data.audioUrl) {
+        audio.src = data.audioUrl;
+        audio.style.display = 'block';
+        audio.play();
+      } else {
+        alert('Preview failed: ' + (data.error || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('[Studio Voices] Preview error:', error);
+      alert('Failed to load preview');
+    }
+  }
+  
+  // Generate audio for Studio Voices
+  document.getElementById('studioForm')?.addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const text = document.getElementById('studioText')?.value?.trim();
+    const voice = document.getElementById('studioVoice')?.value;
+    const cfgScale = parseFloat(document.getElementById('studioCfgScale')?.value || '1.5');
+    
+    if (!text) {
+      alert('Please enter some text to convert to speech.');
+      return;
+    }
+    
+    const generateBtn = document.getElementById('studioGenerateBtn');
+    const statusEl = document.getElementById('studioStatus');
+    const errorEl = document.getElementById('studioError');
+    const audioPlayer = document.getElementById('studioAudioPlayer');
+    
+    generateBtn.disabled = true;
+    generateBtn.textContent = '⏳ Generating...';
+    if (statusEl) statusEl.style.display = 'block';
+    if (errorEl) errorEl.style.display = 'none';
+    if (audioPlayer) audioPlayer.style.display = 'none';
+    
+    try {
+      // Check for multi-speaker markup
+      const hasMarkup = /^\[[^\]]+\]:/m.test(text);
+      
+      let requestBody;
+      if (hasMarkup) {
+        // Parse multi-speaker segments
+        const segments = [];
+        const lines = text.split('\n');
+        const markupPattern = /^\[([^\]]+)\]:\s*(.+)$/;
+        
+        for (let line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed) continue;
+          
+          const match = trimmed.match(markupPattern);
+          if (match) {
+            segments.push({ text: match[2].trim(), voice: match[1].trim() });
+          } else {
+            segments.push({ text: trimmed, voice: voice });
+          }
+        }
+        
+        requestBody = { segments, cfg_scale: cfgScale };
+        if (statusEl) statusEl.textContent = `⏳ Processing ${segments.length} voice segments...`;
+      } else {
+        requestBody = { text, voice, cfg_scale: cfgScale };
+        if (statusEl) statusEl.textContent = '⏳ Generating audio...';
+      }
+      
+      const response = await fetch('/api/vibevoice/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody)
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        // Show audio player
+        const audioEl = document.getElementById('studioAudioElement');
+        const downloadLink = document.getElementById('studioDownloadLink');
+        
+        if (audioEl) audioEl.src = data.audioUrl;
+        if (downloadLink) downloadLink.href = data.audioUrl;
+        if (audioPlayer) audioPlayer.style.display = 'block';
+        if (statusEl) statusEl.style.display = 'none';
+        
+        // Update hours remaining if provided
+        if (data.hours_remaining !== undefined) {
+          // Could update a display element here
+        }
+      } else {
+        let errorMsg = data.error || 'Failed to generate audio.';
+        
+        if (data.vibevoice_required) {
+          errorMsg = 'Studio Voices subscription required. Subscribe to continue.';
+        } else if (data.limit_reached) {
+          errorMsg = 'Hours limit reached. Upgrade for more time.';
+        }
+        
+        if (errorEl) {
+          errorEl.textContent = errorMsg;
+          errorEl.style.display = 'block';
+        }
+        if (statusEl) statusEl.style.display = 'none';
+      }
+    } catch (error) {
+      console.error('[Studio Voices] Generate error:', error);
+      if (errorEl) {
+        errorEl.textContent = 'Network error. Please try again.';
+        errorEl.style.display = 'block';
+      }
+      if (statusEl) statusEl.style.display = 'none';
+    } finally {
+      generateBtn.disabled = false;
+      generateBtn.textContent = '🎯 Generate Studio Audio';
+    }
+  });
   
   loadVoices();
   loadPresets();

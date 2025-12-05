@@ -245,11 +245,11 @@
   </div>
     
   <div class="pricing-cards">
-    <!-- Monthly Plan -->
+    <!-- Monthly Plan (Edge TTS) -->
     <div class="pricing-card">
-      <div class="badge" style="background: linear-gradient(135deg, rgba(126,200,227,0.2), rgba(126,200,227,0.3)); color: #2D3436;">MONTHLY</div>
+      <div class="badge" style="background: linear-gradient(135deg, rgba(126,200,227,0.2), rgba(126,200,227,0.3)); color: #2D3436;">PRO VOICES</div>
       <div class="price">$7.99<small>/mo</small></div>
-      <p class="subtitle">Cancel anytime</p>
+      <p class="subtitle">Unlimited Edge TTS</p>
       <ul>
         <li>Unlimited TTS generation</li>
         <li>550+ natural voices</li>
@@ -261,19 +261,34 @@
       <button id="subscribeBtn" class="subscribe-btn monthly">Subscribe Monthly</button>
     </div>
     
+    <!-- Studio Model Plan -->
+    <div class="pricing-card featured" style="border-color: #8b5cf6; background: linear-gradient(145deg, rgba(139,92,246,0.08), rgba(255,255,255,0.95));">
+      <div class="badge" style="background: linear-gradient(135deg, #8b5cf6, #7c3aed); color: white;">🎤 STUDIO MODEL</div>
+      <div class="price">$19.99<small>/mo</small></div>
+      <p class="subtitle" style="color: #8b5cf6; font-weight: 600;">Premium HD Voices</p>
+      <ul>
+        <li><strong>Everything in Pro Voices +</strong></li>
+        <li>22 premium HD voices</li>
+        <li>10 hours of audio/month</li>
+        <li>Ultra-realistic quality</li>
+        <li>Multi-voice dialogue</li>
+        <li>Priority processing</li>
+      </ul>
+      <button id="studioModelBtn" class="subscribe-btn monthly" style="background: linear-gradient(135deg, #8b5cf6, #7c3aed); color: white; border: none;">Subscribe to Studio Model</button>
+    </div>
+    
     <!-- Lifetime Plan -->
-    <div class="pricing-card featured">
+    <div class="pricing-card">
       <div class="badge" style="background: #6BCB77; color: white;">⭐ BEST VALUE</div>
       <div class="price">$99<small> one-time</small></div>
-      <p class="subtitle" style="color: #6BCB77; font-weight: 600;">Lifetime Access</p>
+      <p class="subtitle" style="color: #6BCB77; font-weight: 600;">Lifetime Pro Voices</p>
       <p class="urgency-text">🔥 Only 50 spots at this price! Then $149</p>
       <ul>
-        <li>Everything in Monthly</li>
+        <li>Everything in Pro Voices</li>
         <li>Pay once, use forever</li>
         <li>No recurring charges</li>
         <li>All future updates included</li>
         <li>Priority support</li>
-        <li>Early access to new features</li>
       </ul>
       <button id="lifetimeBtn" class="subscribe-btn lifetime">Get Lifetime Access</button>
     </div>
@@ -296,6 +311,24 @@
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ plan_type: 'monthly' })
+      });
+      const data = await res.json();
+      if(data.url){
+        window.location.href = data.url;
+      } else {
+        alert(data.error || 'Stripe is not configured');
+      }
+    } catch (e) {
+      alert('Failed to start checkout');
+    }
+  });
+  
+  document.getElementById('studioModelBtn').addEventListener('click', async () => {
+    try {
+      const res = await fetch('/create-checkout-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan_type: 'studio_model' })
       });
       const data = await res.json();
       if(data.url){

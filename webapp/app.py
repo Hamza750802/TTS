@@ -118,6 +118,9 @@ STRIPE_LIFETIME_PRICE_ID = 'price_1SYORtLz6FHVmZlME0DueU5x'  # $99 lifetime web 
 STRIPE_API_STARTER_PRICE_ID = 'price_1SYThPLz6FHVmZlMFskDh4bS'  # $5/mo API Starter (100k chars)
 STRIPE_API_PRO_PRICE_ID = 'price_1SYTheLz6FHVmZlMH2wwGQ6q'  # $19/mo API Pro (500k chars)
 
+# Studio Model Stripe Price ID ($19.99/mo - 10 hours premium voices)
+STRIPE_STUDIO_MODEL_PRICE_ID = os.environ.get('STRIPE_STUDIO_MODEL_PRICE_ID', '')  # $19.99/mo
+
 # Premium Chatterbox TTS Stripe Price IDs (to be created in Stripe dashboard)
 STRIPE_PREMIUM_PRICE_ID = os.environ.get('STRIPE_PREMIUM_PRICE_ID', '')  # $19.99/mo (100K chars)
 STRIPE_PREMIUM_PLUS_PRICE_ID = os.environ.get('STRIPE_PREMIUM_PLUS_PRICE_ID', '')  # $29.99/mo (200K chars)
@@ -478,41 +481,52 @@ class User(db.Model, UserMixin):
         self.indextts_chars_used = current_used + char_count
         return (True, None)
     
-    # --- Podcast TTS (Premium long-form multi-speaker) ---
-    # Tiers: 'none' | 'vibevoice' (100K) | 'vibevoice_plus' (200K) | 'vibevoice_pro' (300K)
+    # --- Studio Model (Premium HD voices with 10 hours/month) ---
+    # Tiers: 'none' | 'vibevoice' (10 hrs = 600K chars)
+    # 1 hour ≈ 60,000 characters at ~1000 chars/minute
     vibevoice_tier = db.Column(db.String(32), default='none')
     vibevoice_chars_used = db.Column(db.Integer, default=0)
     vibevoice_chars_reset_at = db.Column(db.DateTime)
     vibevoice_stripe_subscription_id = db.Column(db.String(255))
     
-    # VibeVoice tier character limits
+    # Studio Model tier limits (in characters, 60K chars ≈ 1 hour)
     VIBEVOICE_LIMITS = {
         'none': 0,
-        'vibevoice': 100000,      # 100K chars
-        'vibevoice_plus': 200000,  # 200K chars
-        'vibevoice_pro': 300000    # 300K chars
+        'vibevoice': 600000,      # 10 hours (600K chars)
     }
+    
+    # Characters per hour for Studio Model
+    CHARS_PER_HOUR = 60000
     
     @property
     def has_vibevoice(self) -> bool:
-        """Check if user has any VibeVoice access"""
-        return self.vibevoice_tier in ('vibevoice', 'vibevoice_plus', 'vibevoice_pro')
+        """Check if user has Studio Model access"""
+        return self.vibevoice_tier in ('vibevoice',)
     
     @property
     def vibevoice_char_limit(self) -> int:
-        """Get VibeVoice character limit based on tier"""
+        """Get Studio Model character limit based on tier"""
         return self.VIBEVOICE_LIMITS.get(self.vibevoice_tier, 0)
     
     @property
+    def vibevoice_hours_remaining(self) -> float:
+        """Get remaining Studio Model hours for this billing period"""
+        if not self.has_vibevoice:
+            return 0.0
+        self.check_and_reset_vibevoice_usage()
+        remaining_chars = max(0, self.vibevoice_char_limit - (self.vibevoice_chars_used or 0))
+        return round(remaining_chars / self.CHARS_PER_HOUR, 1)
+    
+    @property
     def vibevoice_chars_remaining(self) -> int:
-        """Get remaining VibeVoice characters for this billing period"""
+        """Get remaining Studio Model characters for this billing period"""
         if not self.has_vibevoice:
             return 0
         self.check_and_reset_vibevoice_usage()
         return max(0, self.vibevoice_char_limit - (self.vibevoice_chars_used or 0))
     
     def check_and_reset_vibevoice_usage(self):
-        """Reset VibeVoice usage if billing period has passed (monthly)"""
+        """Reset Studio Model usage if billing period has passed (monthly)"""
         if not self.vibevoice_chars_reset_at:
             self.vibevoice_chars_reset_at = datetime.utcnow() + timedelta(days=30)
             self.vibevoice_chars_used = 0
@@ -524,11 +538,11 @@ class User(db.Model, UserMixin):
     
     def use_vibevoice_chars(self, char_count: int) -> tuple:
         """
-        Track VibeVoice character usage.
-        Returns (success: bool, error_message: str or None)
+        Track Studio Model character usage.
+        Returns (success: bool, error_message: str or None, hours_remaining: float)
         """
         if not self.has_vibevoice:
-            return (False, "VibeVoice subscription required.")
+            return (False, "Studio Model subscription required.", 0.0)
         
         self.check_and_reset_vibevoice_usage()
         
@@ -536,10 +550,12 @@ class User(db.Model, UserMixin):
         remaining = self.vibevoice_char_limit - current_used
         
         if char_count > remaining:
-            return (False, f"VibeVoice character limit reached. {remaining:,} characters remaining.")
+            hours_left = remaining / self.CHARS_PER_HOUR
+            return (False, f"Studio Model limit reached. {hours_left:.1f} hours remaining.", hours_left)
         
         self.vibevoice_chars_used = current_used + char_count
-        return (True, None)
+        hours_remaining = (self.vibevoice_char_limit - self.vibevoice_chars_used) / self.CHARS_PER_HOUR
+        return (True, None, round(hours_remaining, 1))
     
     # Premium tier character limits
     PREMIUM_LIMITS = {
@@ -1594,6 +1610,12 @@ def create_checkout_session():
         price_id = STRIPE_LIFETIME_PRICE_ID
         mode = 'payment'  # One-time payment
         app.logger.info(f"Using LIFETIME price_id: {price_id}")
+    elif plan_type == 'studio_model':
+        if not stripe.api_key or not STRIPE_STUDIO_MODEL_PRICE_ID:
+            return jsonify({'error': 'Studio Model subscription not configured'}), 500
+        price_id = STRIPE_STUDIO_MODEL_PRICE_ID
+        mode = 'subscription'
+        app.logger.info(f"Using STUDIO_MODEL price_id: {price_id}")
     elif plan_type == 'api_starter':
         if not stripe.api_key:
             return jsonify({'error': 'Stripe not configured'}), 500
@@ -1669,6 +1691,17 @@ def subscription_success():
                 db.session.commit()
                 send_subscription_email(current_user.email, plan_type)
                 flash('Lifetime access activated. Enjoy forever!', 'success')
+                return redirect(url_for('index'))
+            elif plan_type == 'studio_model':
+                # Studio Model subscription - premium HD voices
+                current_user.vibevoice_tier = 'vibevoice'
+                current_user.vibevoice_chars_used = 0  # Reset usage
+                current_user.vibevoice_usage_reset_at = datetime.utcnow() + timedelta(days=30)
+                current_user.subscription_status = 'active'  # Also gives Edge TTS access
+                db.session.commit()
+                send_subscription_email(current_user.email, plan_type)
+                app.logger.info(f"[Studio Model] Activated for user {current_user.email}")
+                flash('Studio Model activated! Enjoy 10 hours of premium HD voices.', 'success')
                 return redirect(url_for('index'))
             elif plan_type.startswith('api_'):
                 # API plan purchase
@@ -1786,15 +1819,70 @@ def stripe_webhook():
             status = sub.get('status')  # 'active', 'past_due', 'canceled', etc.
             user = User.query.filter_by(stripe_customer_id=customer_id).first()
             if user:
-                # Map Stripe status -> our status
-                user.subscription_status = 'active' if status in ('active', 'trialing') else status
+                # Check if this is a Studio Model subscription
+                items = sub.get('items', {}).get('data', [])
+                is_studio_model = any(
+                    item.get('price', {}).get('id') == STRIPE_STUDIO_MODEL_PRICE_ID 
+                    for item in items
+                ) if STRIPE_STUDIO_MODEL_PRICE_ID else False
+                
+                if is_studio_model:
+                    if status in ('active', 'trialing'):
+                        user.vibevoice_tier = 'vibevoice'
+                        user.subscription_status = 'active'  # Also includes Edge TTS
+                        app.logger.info(f"[Studio Model] Webhook activated/updated for user {user.email}")
+                    else:
+                        user.subscription_status = status
+                else:
+                    # Regular Edge TTS subscription
+                    user.subscription_status = 'active' if status in ('active', 'trialing') else status
                 db.session.commit()
+        elif et == 'invoice.paid':
+            # Handle subscription renewal - reset usage
+            invoice = event['data']['object']
+            customer_id = invoice.get('customer')
+            subscription_id = invoice.get('subscription')
+            user = User.query.filter_by(stripe_customer_id=customer_id).first()
+            if user and subscription_id:
+                # Retrieve subscription to check price ID
+                try:
+                    sub = stripe.Subscription.retrieve(subscription_id)
+                    items = sub.get('items', {}).get('data', [])
+                    is_studio_model = any(
+                        item.get('price', {}).get('id') == STRIPE_STUDIO_MODEL_PRICE_ID 
+                        for item in items
+                    ) if STRIPE_STUDIO_MODEL_PRICE_ID else False
+                    
+                    if is_studio_model:
+                        # Reset Studio Model usage for new billing period
+                        user.vibevoice_chars_used = 0
+                        user.vibevoice_usage_reset_at = datetime.utcnow() + timedelta(days=30)
+                        app.logger.info(f"[Studio Model] Renewal - reset usage for user {user.email}")
+                        db.session.commit()
+                except Exception as e:
+                    app.logger.error(f"[Studio Model] Error checking subscription in invoice.paid: {e}")
         elif et == 'customer.subscription.deleted':
             sub = event['data']['object']
             customer_id = sub.get('customer')
             user = User.query.filter_by(stripe_customer_id=customer_id).first()
             if user:
-                user.subscription_status = 'canceled'
+                # Check if this was a Studio Model subscription
+                items = sub.get('items', {}).get('data', [])
+                is_studio_model = any(
+                    item.get('price', {}).get('id') == STRIPE_STUDIO_MODEL_PRICE_ID 
+                    for item in items
+                ) if STRIPE_STUDIO_MODEL_PRICE_ID else False
+                
+                if is_studio_model:
+                    user.vibevoice_tier = 'free'
+                    app.logger.info(f"[Studio Model] Subscription canceled for user {user.email}")
+                    # Check if they have other active subscriptions
+                    if user.is_lifetime:
+                        user.subscription_status = 'lifetime'
+                    else:
+                        user.subscription_status = 'canceled'
+                else:
+                    user.subscription_status = 'canceled'
                 db.session.commit()
     except Exception as e:
         return jsonify(success=False, error=str(e)), 500
@@ -3643,7 +3731,7 @@ def generate_vibevoice_audio(text, voice, cfg_scale=1.5, inference_steps=5):
         'inference_steps': inference_steps
     }
     
-    print(f"[VibeVoice] Generating: voice={voice}, text_len={len(text)}, cfg={cfg_scale}")
+    print(f"[Studio Model] Generating: voice={voice}, text_len={len(text)}, cfg={cfg_scale}")
     
     response = requests.post(
         f'{VIBEVOICE_URL}/generate',
@@ -3680,7 +3768,7 @@ def generate_vibevoice_batch(segments, silence_ms=300):
         'crossfade_ms': 30
     }
     
-    print(f"[VibeVoice] Batch generating {len(segments)} segments...")
+    print(f"[Studio Model] Batch generating {len(segments)} segments...")
     
     response = requests.post(
         f'{VIBEVOICE_URL}/batch-generate',
@@ -3699,7 +3787,7 @@ def generate_vibevoice_batch(segments, silence_ms=300):
     
     gen_time = response.headers.get('X-Generation-Time', 'unknown')
     audio_duration = response.headers.get('X-Audio-Duration', 'unknown')
-    print(f"[VibeVoice] Batch done: gen_time={gen_time}s, audio_duration={audio_duration}s")
+    print(f"[Studio Model] Batch done: gen_time={gen_time}s, audio_duration={audio_duration}s")
     
     return response.content
 
@@ -3736,7 +3824,7 @@ def api_vibevoice_voices():
             'error': 'VibeVoice service is not responding.'
         }), 504
     except Exception as e:
-        print(f"[VibeVoice] Error fetching voices: {e}")
+        print(f"[Studio Model] Error fetching voices: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -3745,60 +3833,66 @@ def api_vibevoice_voices():
 @csrf.exempt
 def api_vibevoice_generate():
     """
-    Generate audio using Podcast TTS.
+    Generate audio using Studio Model.
     Supports:
     - Single voice generation
-    - Multi-speaker dialogue
+    - Multi-voice dialogue
     
-    Requires Podcast TTS subscription tier.
+    Requires Studio Model subscription tier.
     """
     import re
     
-    # Voice name mapping: friendly name -> raw voice ID
-    PODCAST_VOICE_MAP = {
-        'carter': 'en-Carter_man',
-        'davis': 'en-Davis_man',
-        'emma': 'en-Emma_woman',
-        'frank': 'en-Frank_man',
-        'grace': 'en-Grace_woman',
-        'mike': 'en-Mike_man',
-        'samuel': 'in-Samuel_man',
-        # Also allow raw names
-        'en-carter_man': 'en-Carter_man',
-        'en-davis_man': 'en-Davis_man',
-        'en-emma_woman': 'en-Emma_woman',
-        'en-frank_man': 'en-Frank_man',
-        'en-grace_woman': 'en-Grace_woman',
-        'en-mike_man': 'en-Mike_man',
-        'in-samuel_man': 'in-Samuel_man',
+    # Voice name mapping for Studio Model (1.5B)
+    # 22 voices: 7 built-in + 15 custom
+    STUDIO_VOICE_MAP = {
+        # Built-in voices (simple names)
+        'carter': 'Carter',
+        'davis': 'Davis',
+        'emma': 'Emma',
+        'frank': 'Frank',
+        'grace': 'Grace',
+        'mike': 'Mike',
+        'samuel': 'Samuel',
+        # Custom voices (from audio samples)
+        'adam': 'Adam',
+        'aloy': 'Aloy',
+        'bill': 'Bill',
+        'chris': 'Chris',
+        'dace': 'Dace',
+        'emily': 'Emily',
+        'hannah': 'Hannah',
+        'jennifer': 'Jennifer',
+        'john': 'John',
+        'michael': 'Michael',
+        'natalie': 'Natalie',
+        'oliva': 'Oliva',
+        'sean': 'Sean',
+        'sophia': 'Sophia',
     }
     
-    def resolve_podcast_voice(name):
-        """Map friendly voice name to raw voice ID"""
+    def resolve_studio_voice(name):
+        """Map friendly voice name to Studio Model voice ID"""
         if not name:
-            return 'en-Carter_man'
-        # Check exact match first
+            return 'Carter'
         lower_name = name.lower()
-        if lower_name in PODCAST_VOICE_MAP:
-            return PODCAST_VOICE_MAP[lower_name]
-        # If it already looks like a raw voice ID, return as-is
-        if '-' in name and '_' in name:
-            return name
-        # Default fallback
+        if lower_name in STUDIO_VOICE_MAP:
+            return STUDIO_VOICE_MAP[lower_name]
+        # If already looks valid, return as-is with proper casing
+        return name.title() if name.islower() else name
         return 'en-Carter_man'
     
     try:
-        # Check if Podcast TTS is configured
+        # Check if Studio Model is configured
         if not VIBEVOICE_URL:
             return jsonify({
                 'success': False,
-                'error': 'Podcast TTS service is not configured. Please contact support.'
+                'error': 'Studio Model service is not configured. Please contact support.'
             }), 503
         
         data = request.get_json(silent=True) or {}
         
         text = (data.get('text', '') or '').strip()
-        voice = resolve_podcast_voice(data.get('voice', 'Carter'))
+        voice = resolve_studio_voice(data.get('voice', 'Carter'))
         cfg_scale = float(data.get('cfg_scale', 1.5))
         inference_steps = int(data.get('inference_steps', 5))
         
@@ -3819,25 +3913,23 @@ def api_vibevoice_generate():
         if char_count > 200000:
             return jsonify({'success': False, 'error': 'Text too long (max 200,000 chars)'}), 400
         
-        # Check VibeVoice subscription and usage
+        # Check Studio Model subscription and usage
         if not current_user.has_vibevoice:
             return jsonify({
                 'success': False,
-                'error': 'VibeVoice subscription required. Upgrade for frontier-quality long-form TTS.',
+                'error': 'Studio Model subscription required. Subscribe for 22 premium HD voices.',
                 'upgrade_url': '/subscribe',
                 'vibevoice_required': True
             }), 402
         
-        # Check and track usage
-        success, error_msg = current_user.use_vibevoice_chars(char_count)
+        # Check and track usage (now returns hours_remaining)
+        success, error_msg, hours_remaining = current_user.use_vibevoice_chars(char_count)
         if not success:
             return jsonify({
                 'success': False,
                 'error': error_msg,
                 'limit_reached': True,
-                'vibevoice_chars_used': current_user.vibevoice_chars_used or 0,
-                'vibevoice_chars_limit': current_user.vibevoice_char_limit,
-                'vibevoice_chars_remaining': current_user.vibevoice_chars_remaining,
+                'hours_remaining': hours_remaining,
                 'upgrade_url': '/subscribe'
             }), 402
         
@@ -3849,7 +3941,7 @@ def api_vibevoice_generate():
         if pre_segments:
             # Use pre-chunked segments - resolve voice names
             for seg in pre_segments:
-                seg_voice = resolve_podcast_voice(seg.get('voice', voice))
+                seg_voice = resolve_studio_voice(seg.get('voice', voice))
                 seg_text = (seg.get('text', '') or '').strip()
                 if seg_text:
                     segments.append({
@@ -3857,7 +3949,7 @@ def api_vibevoice_generate():
                         'text': seg_text
                     })
         else:
-            # Parse multi-speaker segments [Carter]: [Emma]: format
+            # Parse multi-voice segments [Carter]: [Emma]: format
             speaker_pattern = r'\[(\w+)\]:\s*'
             parts = re.split(speaker_pattern, text)
             
@@ -3871,7 +3963,7 @@ def api_vibevoice_generate():
             # Process speaker:text pairs - resolve voice names
             for i in range(1, len(parts), 2):
                 speaker_name = parts[i]
-                speaker_voice = resolve_podcast_voice(speaker_name)
+                speaker_voice = resolve_studio_voice(speaker_name)
                 if i + 1 < len(parts):
                     seg_text = parts[i + 1].strip()
                     if seg_text:
@@ -3886,7 +3978,7 @@ def api_vibevoice_generate():
         
         has_multiple_speakers = len(set(s['voice'] for s in segments)) > 1
         
-        print(f"[VibeVoice] Processing {len(segments)} segments, multi-speaker={has_multiple_speakers}")
+        print(f"[Studio Model] Processing {len(segments)} segments, multi-speaker={has_multiple_speakers}")
         
         # Use sequential generation for reliability (batch can timeout on long dialogues)
         # Only use batch for small requests (5 segments or less)
@@ -3894,7 +3986,7 @@ def api_vibevoice_generate():
         
         if len(segments) > 1 and len(segments) <= MAX_BATCH_SEGMENTS:
             try:
-                print(f"[VibeVoice] Using batch generation for {len(segments)} segments")
+                print(f"[Studio Model] Using batch generation for {len(segments)} segments")
                 
                 batch_segments = []
                 for seg in segments:
@@ -3909,11 +4001,11 @@ def api_vibevoice_generate():
                 segment_stats = [{'voice': s['voice'], 'chars': len(s['text'])} for s in segments]
                 
             except Exception as e:
-                print(f"[VibeVoice] Batch generation failed: {e}, falling back to sequential")
+                print(f"[Studio Model] Batch generation failed: {e}, falling back to sequential")
                 final_audio = None
         else:
             if len(segments) > MAX_BATCH_SEGMENTS:
-                print(f"[VibeVoice] Too many segments ({len(segments)}) for batch, using sequential")
+                print(f"[Studio Model] Too many segments ({len(segments)}) for batch, using sequential")
             final_audio = None
         
         # Sequential generation (single segment or batch fallback)
@@ -3925,7 +4017,7 @@ def api_vibevoice_generate():
                 seg_voice = seg['voice']
                 seg_text = seg['text']
                 
-                print(f"[VibeVoice] Segment {idx+1}/{len(segments)}: Voice={seg_voice}, {len(seg_text)} chars")
+                print(f"[Studio Model] Segment {idx+1}/{len(segments)}: Voice={seg_voice}, {len(seg_text)} chars")
                 
                 try:
                     audio_data = generate_vibevoice_audio(
@@ -3941,7 +4033,7 @@ def api_vibevoice_generate():
                         'audio_size': len(audio_data)
                     })
                 except Exception as e:
-                    print(f"[VibeVoice] Segment {idx+1} failed: {e}")
+                    print(f"[Studio Model] Segment {idx+1} failed: {e}")
                     # Rollback usage
                     current_user.vibevoice_chars_used = max(0, (current_user.vibevoice_chars_used or 0) - char_count)
                     db.session.commit()
@@ -3952,7 +4044,7 @@ def api_vibevoice_generate():
             
             # Concatenate audio chunks
             if len(audio_chunks) > 1:
-                print(f"[VibeVoice] Concatenating {len(audio_chunks)} audio chunks...")
+                print(f"[Studio Model] Concatenating {len(audio_chunks)} audio chunks...")
                 if has_multiple_speakers:
                     final_audio = concatenate_wav_files_with_crossfade(audio_chunks, crossfade_ms=30, silence_ms=400)
                 else:
@@ -3973,7 +4065,7 @@ def api_vibevoice_generate():
         with open(output_file, 'wb') as f:
             f.write(final_audio)
         
-        print(f"[VibeVoice] Saved {output_file.name}, {len(final_audio)} bytes")
+        print(f"[Studio Model] Saved {output_file.name}, {len(final_audio)} bytes")
         
         return jsonify({
             'success': True,
@@ -3985,9 +4077,7 @@ def api_vibevoice_generate():
                 'segment_details': segment_stats,
                 'audio_size': len(final_audio)
             },
-            'vibevoice_chars_used': current_user.vibevoice_chars_used or 0,
-            'vibevoice_chars_limit': current_user.vibevoice_char_limit,
-            'vibevoice_chars_remaining': current_user.vibevoice_chars_remaining
+            'hours_remaining': current_user.vibevoice_hours_remaining
         })
         
     except requests.Timeout:
