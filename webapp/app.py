@@ -4067,31 +4067,43 @@ def api_vibevoice_generate():
     import re
     
     # Voice name mapping for Studio Model (1.5B)
-    # 22 voices: 7 built-in + 15 custom
+    # Voice mapping - MUST match voices loaded on VV server
+    # Server has 24 voices: 15 custom + 9 built-in demo voices
     STUDIO_VOICE_MAP = {
-        # Built-in voices (simple names)
-        'carter': 'Carter',
-        'davis': 'Davis',
-        'emma': 'Emma',
-        'frank': 'Frank',
-        'grace': 'Grace',
-        'mike': 'Mike',
-        'samuel': 'Samuel',
-        # Custom voices (from audio samples)
-        'adam': 'Adam',
-        'aloy': 'Aloy',
-        'bill': 'Bill',
-        'chris': 'Chris',
-        'dace': 'Dace',
-        'emily': 'Emily',
-        'hannah': 'Hannah',
-        'jennifer': 'Jennifer',
-        'john': 'John',
-        'michael': 'Michael',
-        'natalie': 'Natalie',
-        'oliva': 'Oliva',
-        'sean': 'Sean',
-        'sophia': 'Sophia',
+        # === FEMALE VOICES ===
+        'emily': 'Emily',       # Custom - female
+        'hannah': 'Hannah',     # Custom - female
+        'jennifer': 'Jennifer', # Custom - female
+        'natalie': 'Natalie',   # Custom - female
+        'sophia': 'Sophia',     # Custom - female
+        'oliva': 'Oliva',       # Custom - female (Olivia)
+        'aloy': 'Aloy',         # Custom - female (game character)
+        'grace': 'Grace',       # Custom - female
+        'alice': 'Alice',       # Built-in demo - female
+        'mary': 'Mary',         # Built-in demo - female
+        'maya': 'Maya',         # Built-in demo - female
+        
+        # === MALE VOICES ===
+        'carter': 'Carter',     # Built-in demo - male (default)
+        'frank': 'Frank',       # Built-in demo - male
+        'samuel': 'Samuel',     # Built-in demo - male
+        'adam': 'Adam',         # Custom - male
+        'bill': 'Bill',         # Custom - male
+        'chris': 'Chris',       # Custom - male
+        'dace': 'Dace',         # Custom - male
+        'john': 'John',         # Custom - male
+        'michael': 'Michael',   # Custom - male
+        'sean': 'Sean',         # Custom - male
+        
+        # === CHINESE VOICES (demo) ===
+        'anchen': 'Anchen',     # Built-in demo - Chinese male
+        'bowen': 'Bowen',       # Built-in demo - Chinese male
+        'xinran': 'Xinran',     # Built-in demo - Chinese female
+        
+        # === LEGACY/ALIASES (map to existing) ===
+        'emma': 'Emily',        # Emma -> Emily (similar female voice)
+        'davis': 'Carter',      # Davis -> Carter (male)
+        'mike': 'Michael',      # Mike -> Michael (male)
     }
     
     def resolve_studio_voice(name):

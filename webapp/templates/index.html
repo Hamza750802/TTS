@@ -3267,26 +3267,57 @@ Available voices: Adam, Aloy, Bill, Carter, Chris, Dace, Emily, Frank, Grace, Ha
         const select = document.getElementById('studioVoice');
         if (select) {
           select.innerHTML = '';
-          data.voices.forEach(voice => {
-            const option = document.createElement('option');
-            option.value = voice.id || voice;
-            option.textContent = voice.name || voice.id || voice;
-            if (voice.type === 'custom') {
-              option.textContent += ' ⭐';
-            }
-            select.appendChild(option);
-          });
+          
+          // Group by gender
+          const females = data.voices.filter(v => v.gender === 'female');
+          const males = data.voices.filter(v => v.gender === 'male');
+          
+          // Add female voices
+          if (females.length > 0) {
+            const femaleGroup = document.createElement('optgroup');
+            femaleGroup.label = '👩 Female Voices';
+            females.forEach(voice => {
+              const option = document.createElement('option');
+              option.value = voice.id || voice;
+              option.textContent = voice.name || voice.id || voice;
+              if (voice.type === 'custom') option.textContent += ' ⭐';
+              femaleGroup.appendChild(option);
+            });
+            select.appendChild(femaleGroup);
+          }
+          
+          // Add male voices
+          if (males.length > 0) {
+            const maleGroup = document.createElement('optgroup');
+            maleGroup.label = '👨 Male Voices';
+            males.forEach(voice => {
+              const option = document.createElement('option');
+              option.value = voice.id || voice;
+              option.textContent = voice.name || voice.id || voice;
+              if (voice.type === 'custom') option.textContent += ' ⭐';
+              maleGroup.appendChild(option);
+            });
+            select.appendChild(maleGroup);
+          }
+          
+          // Default to Carter (male)
+          select.value = 'carter';
         }
         
         // Populate preview dropdown (for non-subscribers)
         const previewSelect = document.getElementById('studioPreviewVoiceFree');
         if (previewSelect) {
           previewSelect.innerHTML = '';
-          data.voices.slice(0, 5).forEach(voice => {  // Show first 5 for preview
-            const option = document.createElement('option');
-            option.value = voice.id || voice;
-            option.textContent = voice.name || voice.id || voice;
-            previewSelect.appendChild(option);
+          // Show a mix of female and male voices for preview
+          const previewVoices = ['Emily', 'Hannah', 'Carter', 'Adam', 'Sophia'];
+          previewVoices.forEach(name => {
+            const voice = data.voices.find(v => v.name === name);
+            if (voice) {
+              const option = document.createElement('option');
+              option.value = voice.id;
+              option.textContent = `${voice.name} (${voice.gender === 'female' ? '♀' : '♂'})`;
+              previewSelect.appendChild(option);
+            }
           });
         }
         

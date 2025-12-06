@@ -48,6 +48,24 @@ TEMP_DIR = Path("temp")
 for d in [VOICES_DIR, CUSTOM_VOICES_DIR, OUTPUT_DIR, TEMP_DIR]:
     d.mkdir(exist_ok=True, parents=True)
 
+
+def cleanup_temp_files(max_age_seconds: int = 300):
+    """Delete temp files older than max_age_seconds (default 5 min)"""
+    import time as t
+    now = t.time()
+    cleaned = 0
+    for f in TEMP_DIR.glob("*.wav"):
+        try:
+            if now - f.stat().st_mtime > max_age_seconds:
+                f.unlink()
+                cleaned += 1
+        except Exception:
+            pass
+    if cleaned > 0:
+        print(f"[Cleanup] Deleted {cleaned} old temp files")
+    return cleaned
+
+
 # Global model instance
 model = None
 processor = None
@@ -235,10 +253,10 @@ class HybridQueue:
             self._processing[item.request_id] = item
         
         try:
-            priority = QueuePriority(item.priority)
-            semaphore = (self._priority_semaphore 
-                        if priority == QueuePriority.HIGH 
-                        else self._standard_semaphore)
+            # Use text length to determine which semaphore (priority vs standard lane)
+            # Short texts (<500 chars) get priority lane, others get standard
+            is_priority = item.char_count < self.PRIORITY_THRESHOLD
+            semaphore = self._priority_semaphore if is_priority else self._standard_semaphore
             
             async with semaphore:
                 start_time = time.time()
@@ -582,10 +600,27 @@ async def lifespan(app: FastAPI):
     processor_task = asyncio.create_task(queue_processor())
     print("[Studio Model] Queue processor started")
     
+    # Start cleanup task
+    cleanup_task = asyncio.create_task(cleanup_task_loop())
+    print("[Studio Model] Cleanup task started")
+    
     yield
     
     # Cleanup
     processor_task.cancel()
+    cleanup_task.cancel()
+
+
+async def cleanup_task_loop():
+    """Background task to clean up temp files every 60 seconds"""
+    while True:
+        try:
+            await asyncio.sleep(60)
+            cleanup_temp_files(max_age_seconds=300)  # Delete files older than 5 min
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            print(f"[Cleanup] Error: {e}")
 
 
 app = FastAPI(
@@ -631,19 +666,36 @@ async def request_status(request_id: str):
 
 @app.get("/voices")
 async def list_voices():
-    """List available voices"""
+    """List available voices with gender info"""
+    
+    # Gender mapping for all voices
+    VOICE_GENDERS = {
+        # Female voices
+        'emily': 'female', 'hannah': 'female', 'jennifer': 'female',
+        'natalie': 'female', 'sophia': 'female', 'oliva': 'female',
+        'aloy': 'female', 'grace': 'female', 'alice': 'female',
+        'mary': 'female', 'maya': 'female', 'xinran': 'female',
+        # Male voices
+        'carter': 'male', 'frank': 'male', 'samuel': 'male',
+        'adam': 'male', 'bill': 'male', 'chris': 'male',
+        'dace': 'male', 'john': 'male', 'michael': 'male',
+        'sean': 'male', 'anchen': 'male', 'bowen': 'male',
+    }
+    
     voices = []
     for name, path in voice_registry.items():
         voice_type = "builtin" if path.startswith("builtin:") else "custom"
+        gender = VOICE_GENDERS.get(name.lower(), 'unknown')
         voices.append({
             "id": name,
             "name": name.title(),
-            "type": voice_type
+            "type": voice_type,
+            "gender": gender
         })
     
-    # Sort: custom first, then builtin, alphabetically within each
-    voices.sort(key=lambda v: (0 if v["type"] == "custom" else 1, v["name"]))
-    return {"voices": voices}
+    # Sort: females first, then males, alphabetically within each
+    voices.sort(key=lambda v: (0 if v["gender"] == "female" else 1, v["name"]))
+    return {"voices": voices, "count": len(voices), "default": "Carter"}
 
 
 @app.post("/generate")
