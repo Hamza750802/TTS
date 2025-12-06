@@ -1048,6 +1048,25 @@ with app.app_context():
         if 'vibevoice_stripe_subscription_id' not in existing_columns:
             conn.execute(text("ALTER TABLE \"user\" ADD COLUMN vibevoice_stripe_subscription_id VARCHAR(255)"))
             print("[MIGRATION] Added vibevoice_stripe_subscription_id column to user table")
+        # VibeVoice throttling columns (for unlimited tier)
+        if 'vibevoice_hourly_seconds' not in existing_columns:
+            conn.execute(text("ALTER TABLE \"user\" ADD COLUMN vibevoice_hourly_seconds INTEGER DEFAULT 0"))
+            print("[MIGRATION] Added vibevoice_hourly_seconds column to user table")
+        if 'vibevoice_daily_seconds' not in existing_columns:
+            conn.execute(text("ALTER TABLE \"user\" ADD COLUMN vibevoice_daily_seconds INTEGER DEFAULT 0"))
+            print("[MIGRATION] Added vibevoice_daily_seconds column to user table")
+        if 'vibevoice_hourly_reset_at' not in existing_columns:
+            conn.execute(text("ALTER TABLE \"user\" ADD COLUMN vibevoice_hourly_reset_at TIMESTAMP"))
+            print("[MIGRATION] Added vibevoice_hourly_reset_at column to user table")
+        if 'vibevoice_daily_reset_at' not in existing_columns:
+            conn.execute(text("ALTER TABLE \"user\" ADD COLUMN vibevoice_daily_reset_at TIMESTAMP"))
+            print("[MIGRATION] Added vibevoice_daily_reset_at column to user table")
+        if 'vibevoice_request_count' not in existing_columns:
+            conn.execute(text("ALTER TABLE \"user\" ADD COLUMN vibevoice_request_count INTEGER DEFAULT 0"))
+            print("[MIGRATION] Added vibevoice_request_count column to user table")
+        if 'vibevoice_request_minute' not in existing_columns:
+            conn.execute(text("ALTER TABLE \"user\" ADD COLUMN vibevoice_request_minute TIMESTAMP"))
+            print("[MIGRATION] Added vibevoice_request_minute column to user table")
         conn.commit()
 
 # Cleanup old files on startup (works with Gunicorn)
